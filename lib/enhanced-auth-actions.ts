@@ -1,7 +1,7 @@
 "use server"
 
 import { createServerClient } from "./supabase"
-import { redirect } from "next/navigation"
+// Removed: import { redirect } from "next/navigation" // Direct redirects are handled client-side
 import { revalidatePath } from "next/cache"
 
 interface SignUpData {
@@ -82,11 +82,13 @@ export async function enhancedSignUp(formData: FormData) {
         country: signUpData.country,
         state: signUpData.state,
         school_name: signUpData.schoolName,
-        email_verified: false,
+        email_verified: false, // Email is not verified until the user clicks the link
       })
 
       if (profileError) {
         console.error("Profile creation error:", profileError)
+        // Potentially delete the auth user if profile creation fails to keep data consistent
+        // await supabase.auth.admin.deleteUser(data.user.id); // Requires admin privileges
         return { error: "Failed to create profile. Please try again." }
       }
 
@@ -102,6 +104,7 @@ export async function enhancedSignUp(formData: FormData) {
 
         if (parentError) {
           console.error("Parent info creation error:", parentError)
+          // This might not be a critical failure, so we log it but don't necessarily stop the process
         }
       }
 
@@ -119,14 +122,14 @@ export async function enhancedSignUp(formData: FormData) {
       return {
         success: true,
         message: "Account created successfully! Please check your email to verify your account.",
-        emailSent: true,
+        emailSent: true, // Indicates that Supabase handles the email sending
       }
     }
 
     return { error: "Failed to create account. Please try again." }
   } catch (error) {
     console.error("Unexpected signup error:", error)
-    return { error: "An unexpected error occurred. Please try again." }
+    return { error: "An unexpected error occurred during signup. Please try again." }
   }
 }
 
@@ -148,7 +151,7 @@ export async function signIn(formData: FormData) {
 
     if (error) {
       console.error("Sign in error:", error)
-      return { error: "Invalid email or password" }
+      return { error: "Invalid email or password. Please try again." }
     }
 
     if (data.user) {
@@ -174,10 +177,18 @@ export async function signIn(formData: FormData) {
     }
 
     revalidatePath("/dashboard")
-    redirect("/dashboard")
+    // Return success and the path for client-side redirection
+    return { success: true, redirectPath: "/dashboard" }
+
   } catch (error) {
+     // Check if the error is the specific NEXT_REDIRECT error
+    if (typeof error === 'object' && error !== null && 'digest' in error && typeof error.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT')) {
+        console.warn("signIn action: NEXT_REDIRECT caught. This indicates an issue if redirect is expected client-side.");
+        // This state suggests the client should handle the redirect.
+        return { success: true, redirectPath: "/dashboard", needsClientRedirect: true };
+    }
     console.error("Unexpected sign in error:", error)
-    return { error: "An unexpected error occurred. Please try again." }
+    return { error: "An unexpected error occurred during sign-in. Please try again." }
   }
 }
 
@@ -197,14 +208,22 @@ export async function signOut() {
         activity_description: "User logged out",
         metadata: { timestamp: new Date().toISOString() },
       })
+       console.log(`✅ User ${user.email} logged out successfully.`)
     }
 
     await supabase.auth.signOut()
     revalidatePath("/")
-    redirect("/")
+    // Return success and the path for client-side redirection
+    return { success: true, redirectPath: "/" }
+
   } catch (error) {
+    if (typeof error === 'object' && error !== null && 'digest' in error && typeof error.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT')) {
+        console.warn("signOut action: NEXT_REDIRECT caught. This indicates an issue if redirect is expected client-side.");
+        return { success: true, redirectPath: "/", needsClientRedirect: true };
+    }
     console.error("Sign out error:", error)
-    redirect("/")
+    // Even if logging fails, try to sign out and redirect client-side
+    return { error: "An error occurred during sign out.", redirectPath: "/" }
   }
 }
 
@@ -232,11 +251,11 @@ export async function forgotPassword(formData: FormData) {
     return {
       success: true,
       message: "Password reset email sent! Check your inbox.",
-      emailSent: true,
+      emailSent: true, // Indicates Supabase handles email sending
     }
   } catch (error) {
     console.error("Unexpected password reset error:", error)
-    return { error: "An unexpected error occurred. Please try again." }
+    return { error: "An unexpected error occurred while sending the password reset email. Please try again." }
   }
 }
 
@@ -262,11 +281,20 @@ export async function resetPassword(formData: FormData) {
       console.error("Password update error:", error)
       return { error: error.message }
     }
-
+     // Log activity
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+        await supabase.from("user_activities").insert({
+            user_id: user.id,
+            activity_type: "password_reset",
+            activity_description: "User reset their password successfully",
+            metadata: { timestamp: new Date().toISOString() },
+        });
+    }
     return { success: true, message: "Password updated successfully!" }
   } catch (error) {
     console.error("Unexpected password update error:", error)
-    return { error: "An unexpected error occurred. Please try again." }
+    return { error: "An unexpected error occurred while updating your password. Please try again." }
   }
 }
 
@@ -278,95 +306,105 @@ export async function updateProfile(formData: FormData) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { error: "You must be logged in" }
+    // This should ideally not happen if the page calling this is protected
+    return { error: "You must be logged in to update your profile." }
   }
 
   try {
     // Get current profile data
-    const { data: currentProfile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-    if (!currentProfile) {
-      return { error: "Profile not found" }
+    const { data: currentProfile, error: fetchProfileError } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+    
+    if (fetchProfileError || !currentProfile) {
+      console.error("Error fetching current profile:", fetchProfileError);
+      return { error: "Could not retrieve your profile. Please try again." };
     }
 
+
     const fullName = formData.get("fullName") as string
-    const email = formData.get("email") as string
+    const email = formData.get("email") as string // New email
     const schoolName = formData.get("schoolName") as string
     const grade = formData.get("grade") ? Number.parseInt(formData.get("grade") as string) : currentProfile.grade
     const country = (formData.get("country") as string) || currentProfile.country
     const state = (formData.get("state") as string) || currentProfile.state
 
-    // Track what fields are being updated
-    const updatedFields = []
+    // Track what fields are being updated for logging
+    const updatedFields: string[] = []
     if (fullName !== currentProfile.full_name) updatedFields.push("full_name")
     if (schoolName !== currentProfile.school_name) updatedFields.push("school_name")
     if (grade !== currentProfile.grade) updatedFields.push("grade")
     if (country !== currentProfile.country) updatedFields.push("country")
     if (state !== currentProfile.state) updatedFields.push("state")
 
-    // Update auth user email if changed
     let emailChanged = false
-    if (email !== user.email) {
+    if (email && email !== user.email) { // Check if email is provided and different
       emailChanged = true
       updatedFields.push("email")
 
-      // Use Supabase's built-in email change
+      // Use Supabase's built-in email change. This sends a confirmation to the new email.
       const { error: emailError } = await supabase.auth.updateUser({
         email: email,
       })
 
       if (emailError) {
-        return { error: emailError.message }
+        console.error("Auth email update error:", emailError)
+        return { error: `Failed to update email: ${emailError.message}` }
       }
-
-      console.log(`📧 Email change verification sent to ${email} via Supabase`)
+      console.log(`📧 Email change verification sent to ${email} via Supabase. Old email ${user.email} remains primary until new one is confirmed.`)
     }
 
-    // Update profile
+    // Update profile in 'profiles' table
     const { error: profileError } = await supabase
       .from("profiles")
       .update({
         full_name: fullName,
-        email: emailChanged ? email : currentProfile.email,
+        // Only update email in profiles table if it's successfully changed in auth.users and verified
+        // For now, we keep the profile email as is, or update it if not requiring verification for display
+        // If emailChanged is true, Supabase handles the actual email change upon verification.
+        // The `email_verified` flag in profiles should be set to `false` if the email is changed.
+        email: emailChanged ? email : currentProfile.email, // Update profile email, but verification is key
         school_name: schoolName,
         grade: grade,
         country: country,
         state: state,
-        email_verified: emailChanged ? false : currentProfile.email_verified,
+        email_verified: emailChanged ? false : currentProfile.email_verified, // Mark as unverified if email changed
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id)
 
     if (profileError) {
-      return { error: "Failed to update profile" }
+      console.error("Profile update error:", profileError)
+      return { error: "Failed to update profile information." }
     }
 
     // Log activity
-    await supabase.from("user_activities").insert({
-      user_id: user.id,
-      activity_type: "profile_updated",
-      activity_description: "Profile information updated",
-      metadata: { updated_fields: updatedFields },
-    })
+    if (updatedFields.length > 0) {
+      await supabase.from("user_activities").insert({
+        user_id: user.id,
+        activity_type: "profile_updated",
+        activity_description: "Profile information updated",
+        metadata: { updated_fields: updatedFields },
+      })
+    }
 
     revalidatePath("/profile")
 
     return {
       success: true,
       message: emailChanged
-        ? "Profile updated successfully! Please check your email to verify your new email address."
+        ? "Profile updated! Please check your new email address to verify the change."
         : "Profile updated successfully!",
-      emailSent: emailChanged,
+      emailSent: emailChanged, // True if a verification email was sent for the new email
     }
   } catch (error) {
-    console.error("Profile update error:", error)
-    return { error: "An unexpected error occurred. Please try again." }
+    console.error("Unexpected profile update error:", error)
+    return { error: "An unexpected error occurred while updating your profile. Please try again." }
   }
 }
 
 export async function changePassword(formData: FormData) {
   const supabase = createServerClient()
 
-  const currentPassword = formData.get("currentPassword") as string
+  // const currentPassword = formData.get("currentPassword") as string // Supabase updateUser doesn't require currentPassword
   const newPassword = formData.get("newPassword") as string
   const confirmPassword = formData.get("confirmPassword") as string
 
@@ -375,7 +413,7 @@ export async function changePassword(formData: FormData) {
   }
 
   if (newPassword.length < 8) {
-    return { error: "Password must be at least 8 characters long" }
+    return { error: "New password must be at least 8 characters long" }
   }
 
   const {
@@ -383,17 +421,18 @@ export async function changePassword(formData: FormData) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { error: "You must be logged in" }
+    return { error: "You must be logged in to change your password." }
   }
 
   try {
-    // Update password
+    // Update password using Supabase auth
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     })
 
     if (error) {
-      return { error: error.message }
+      console.error("Password change error:", error)
+      return { error: `Failed to change password: ${error.message}` }
     }
 
     // Log activity
@@ -406,147 +445,180 @@ export async function changePassword(formData: FormData) {
 
     return { success: true, message: "Password changed successfully!" }
   } catch (error) {
-    console.error("Password change error:", error)
-    return { error: "An unexpected error occurred. Please try again." }
+    console.error("Unexpected password change error:", error)
+    return { error: "An unexpected error occurred while changing your password. Please try again." }
   }
 }
 
-export async function createAdminAccounts() {
-  const supabase = createServerClient()
 
-  const ADMIN_ACCOUNTS = [
+// Admin account creation and verification functions
+const ADMIN_ACCOUNTS_LIST = [
     {
       email: "admin@stemspark.academy",
       password: "STEMAdmin2024!",
       fullName: "Dr. Sarah Johnson",
-      role: "Main Administrator",
+      roleDescription: "Main Administrator", // Using a different key to avoid conflict with 'role' in SignUpData
       state: "California",
     },
     {
       email: "director@stemspark.academy",
       password: "STEMDirector2024!",
       fullName: "Prof. Michael Chen",
-      role: "Program Director",
+      roleDescription: "Program Director",
       state: "New York",
     },
     {
       email: "coordinator@stemspark.academy",
       password: "STEMCoord2024!",
       fullName: "Dr. Emily Rodriguez",
-      role: "Education Coordinator",
+      roleDescription: "Education Coordinator",
       state: "Texas",
     },
     {
       email: "manager@stemspark.academy",
       password: "STEMManager2024!",
       fullName: "Prof. David Kim",
-      role: "Content Manager",
+      roleDescription: "Content Manager",
       state: "Washington",
     },
   ]
 
+
+export async function createAdminAccounts() {
+  const supabase = createServerClient()
   const results = []
 
   console.log("🚀 Starting admin account creation...")
 
-  for (const admin of ADMIN_ACCOUNTS) {
+  for (const admin of ADMIN_ACCOUNTS_LIST) {
     try {
       console.log(`Creating admin account for ${admin.email}...`)
 
-      // Create auth user with email confirmation
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: admin.email,
-        password: admin.password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: admin.fullName,
-          role: "admin",
-        },
-      })
+      // Check if user already exists in auth.users
+      // Supabase admin.createUser will error if user exists, so this check is more for logging/profile handling
+      let { data: existingAuthUser } = await supabase.auth.admin.getUserByEmail(admin.email);
+      
+      let userId: string | undefined;
+      let authUserCreated = false;
 
-      if (authError) {
-        console.error(`Auth error for ${admin.email}:`, authError)
-
-        // If user already exists, try to get the existing user
-        if (authError.message.includes("already registered")) {
-          console.log(`User ${admin.email} already exists, checking profile...`)
-
-          // Check if profile exists
-          const { data: existingProfile } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("email", admin.email)
-            .single()
-
-          if (existingProfile) {
-            results.push({
-              success: true,
-              email: admin.email,
-              fullName: admin.fullName,
-              role: admin.role,
-              note: "Already exists",
-            })
-            continue
-          }
-        }
-
-        results.push({
-          success: false,
+      if (existingAuthUser && existingAuthUser.user) {
+         console.log(`Auth user ${admin.email} already exists. ID: ${existingAuthUser.user.id}`);
+         userId = existingAuthUser.user.id;
+      } else {
+        // Create auth user with email confirmation
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
           email: admin.email,
-          error: authError.message,
+          password: admin.password,
+          email_confirm: true, // Auto-confirm admin emails
+          user_metadata: {
+            full_name: admin.fullName,
+            role: "admin", // This metadata is for auth.users
+          },
         })
-        continue
+
+        if (authError) {
+          console.error(`Auth creation error for ${admin.email}:`, authError.message)
+          results.push({
+            success: false,
+            email: admin.email,
+            error: authError.message,
+          })
+          continue // Skip to next admin account
+        }
+        if (!authData.user) {
+            console.error(`Auth user data not returned for ${admin.email}`);
+            results.push({ success: false, email: admin.email, error: "Auth user data not returned after creation." });
+            continue;
+        }
+        userId = authData.user.id;
+        authUserCreated = true;
+        console.log(`✅ Auth user created for ${admin.email}, ID: ${userId}`);
+      }
+      
+      if (!userId) {
+        console.error(`Could not obtain User ID for ${admin.email}`);
+        results.push({ success: false, email: admin.email, error: "Could not obtain User ID." });
+        continue;
       }
 
-      if (authData.user) {
-        console.log(`✅ Auth user created for ${admin.email}, creating profile...`)
+      // Check if profile exists
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", userId) // Check by ID first
+        .single();
 
-        // Create or update profile
-        const { error: profileError } = await supabase.from("profiles").upsert({
-          id: authData.user.id,
-          email: admin.email,
+      if (existingProfile) {
+        console.log(`Profile for ${admin.email} (ID: ${userId}) already exists. Updating if necessary...`);
+        // Optionally update existing profile here if needed
+        const { error: profileUpdateError } = await supabase.from("profiles").update({
+            full_name: admin.fullName,
+            role: "admin", // This is for the 'profiles' table
+            country: "United States",
+            state: admin.state,
+            email_verified: true, // Admins are auto-verified
+            updated_at: new Date().toISOString(),
+        }).eq("id", userId);
+
+        if (profileUpdateError) {
+            console.error(`Profile update error for ${admin.email}:`, profileUpdateError.message);
+            // Decide if this is a critical error
+        }
+
+      } else {
+        // Create profile if it doesn't exist
+        console.log(`Creating profile for ${admin.email} (ID: ${userId})...`);
+        const { error: profileError } = await supabase.from("profiles").insert({
+          id: userId,
+          email: admin.email, // Ensure email is also in profiles table
           full_name: admin.fullName,
-          role: "admin",
+          role: "admin", // This is for the 'profiles' table
           country: "United States",
           state: admin.state,
-          email_verified: true,
+          email_verified: true, // Admins are auto-verified
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
 
         if (profileError) {
-          console.error(`Profile error for ${admin.email}:`, profileError)
+          console.error(`Profile creation error for ${admin.email}:`, profileError.message)
+          // If auth user was just created and profile fails, consider deleting the auth user
+          if (authUserCreated) {
+            // await supabase.auth.admin.deleteUser(userId);
+            console.warn(`Auth user ${admin.email} was created but profile creation failed. Manual cleanup might be needed.`);
+          }
           results.push({
             success: false,
             email: admin.email,
             error: profileError.message,
           })
-          continue
+          continue // Skip to next admin account
         }
-
-        // Log admin creation activity
-        await supabase.from("user_activities").insert({
-          user_id: authData.user.id,
-          activity_type: "admin_account_created",
-          activity_description: `Admin account created: ${admin.role}`,
-          metadata: {
-            email: admin.email,
-            full_name: admin.fullName,
-            role: admin.role,
-            auto_created: true,
-            created_at: new Date().toISOString(),
-          },
-        })
-
-        console.log(`✅ Successfully created admin account for ${admin.email}`)
-
-        results.push({
-          success: true,
-          email: admin.email,
-          fullName: admin.fullName,
-          role: admin.role,
-        })
+         console.log(`✅ Profile created/updated for ${admin.email}`);
       }
+
+      // Log admin creation activity
+      await supabase.from("user_activities").insert({
+        user_id: userId,
+        activity_type: "admin_account_created",
+        activity_description: `Admin account processed: ${admin.roleDescription}`,
+        metadata: {
+          email: admin.email,
+          full_name: admin.fullName,
+          role_description: admin.roleDescription, // Use the descriptive role
+          auto_created: true,
+          processed_at: new Date().toISOString(),
+        },
+      })
+
+      results.push({
+        success: true,
+        email: admin.email,
+        fullName: admin.fullName,
+        role: admin.roleDescription,
+        note: authUserCreated ? "Created" : "Existing Auth User, Profile Checked/Created",
+      })
+
     } catch (error) {
       console.error(`Unexpected error creating admin ${admin.email}:`, error)
       results.push({
@@ -557,12 +629,13 @@ export async function createAdminAccounts() {
     }
   }
 
-  console.log("🎉 Admin account creation completed:", results)
+  console.log("🎉 Admin account creation process completed:", JSON.stringify(results, null, 2))
 
   return {
-    success: true,
+    success: true, // Overall process success (individual results in array)
     results,
-    totalCreated: results.filter((r) => r.success).length,
+    totalProcessed: results.length,
+    totalSucceeded: results.filter((r) => r.success).length,
     totalFailed: results.filter((r) => !r.success).length,
   }
 }
@@ -570,20 +643,16 @@ export async function createAdminAccounts() {
 export async function verifyAdminAccounts() {
   const supabase = createServerClient()
 
-  const ADMIN_EMAILS = [
-    "admin@stemspark.academy",
-    "director@stemspark.academy",
-    "coordinator@stemspark.academy",
-    "manager@stemspark.academy",
-  ]
+  const ADMIN_EMAILS = ADMIN_ACCOUNTS_LIST.map(acc => acc.email);
 
   const { data: adminProfiles, error } = await supabase
     .from("profiles")
-    .select("email, full_name, role, created_at")
-    .eq("role", "admin")
+    .select("email, full_name, role, created_at, email_verified")
+    .eq("role", "admin") // Ensure we only get actual admins from profiles
     .in("email", ADMIN_EMAILS)
 
   if (error) {
+    console.error("Error verifying admin accounts:", error.message)
     return { success: false, error: error.message }
   }
 
@@ -591,6 +660,6 @@ export async function verifyAdminAccounts() {
     success: true,
     adminAccounts: adminProfiles,
     totalFound: adminProfiles?.length || 0,
-    expectedCount: ADMIN_EMAILS.length,
+    expectedCount: ADMIN_ACCOUNTS_LIST.length,
   }
 }
