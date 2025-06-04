@@ -176,16 +176,16 @@ export async function signIn(formData: FormData) {
       console.log(`✅ User ${email} logged in successfully as ${profile?.role || "unknown"}`)
     }
 
-    revalidatePath("/dashboard")
+    revalidatePath("/videos") // Or /internships if that's the preferred default
     // Return success and the path for client-side redirection
-    return { success: true, redirectPath: "/dashboard" }
+    return { success: true, redirectPath: "/videos" } // Changed redirectPath
 
   } catch (error) {
      // Check if the error is the specific NEXT_REDIRECT error
     if (typeof error === 'object' && error !== null && 'digest' in error && typeof error.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT')) {
         console.warn("signIn action: NEXT_REDIRECT caught. This indicates an issue if redirect is expected client-side.");
         // This state suggests the client should handle the redirect.
-        return { success: true, redirectPath: "/dashboard", needsClientRedirect: true };
+        return { success: true, redirectPath: "/videos", needsClientRedirect: true }; // Changed redirectPath
     }
     console.error("Unexpected sign in error:", error)
     return { error: "An unexpected error occurred during sign-in. Please try again." }
