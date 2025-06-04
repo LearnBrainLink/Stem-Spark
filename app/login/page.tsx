@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation" // Import useRouter
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -93,28 +94,30 @@ export default function AuthPage() {
   const [selectedRole, setSelectedRole] = useState("")
   const [selectedCountry, setSelectedCountry] = useState("")
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
+  const router = useRouter() // Initialize the router
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
-    // Optionally, add a temporary visual feedback like a toast message
-    setMessage({ type: "success", text: "Copied to clipboard!" });
-    setTimeout(() => setMessage(null), 2000); // Clear message after 2 seconds
   }
 
   const handleSignIn = async (formData: FormData) => {
     setIsLoading(true)
-    setMessage(null) // Clear previous messages
+    setMessage(null)
 
-    const result = await signIn(formData)
+    const result = await signIn(formData) // signIn is your server action
+
+    setIsLoading(false) // Set loading to false after the action completes
 
     if (result?.error) {
-      console.error("Login page received error:", result.error); // Added logging
       setMessage({ type: "error", text: result.error })
+    } else if (result?.success && result.redirectPath) {
+      // Handle successful sign-in and redirect client-side
+      router.push(result.redirectPath)
+    } else if (result?.success && result.needsClientRedirect && result.redirectPath) {
+        // Handle the specific case from the updated catch block if it occurs
+        router.push(result.redirectPath);
     }
-    // If successful, the user will be redirected by the server action
-    // No 'else if (result?.success)' needed here because redirect happens directly in server action
-
-    setIsLoading(false)
+    // No explicit "else" needed here if the server action always returns error or success/redirectPath
   }
 
   const handleSignUp = async (formData: FormData) => {
@@ -122,6 +125,8 @@ export default function AuthPage() {
     setMessage(null)
 
     const result = await enhancedSignUp(formData)
+
+    setIsLoading(false) // Set loading to false after the action completes
 
     if (result?.error) {
       setMessage({ type: "error", text: result.error })
@@ -131,8 +136,6 @@ export default function AuthPage() {
         text: result.message,
       })
     }
-
-    setIsLoading(false)
   }
 
   const handleForgotPassword = async (formData: FormData) => {
@@ -140,6 +143,7 @@ export default function AuthPage() {
     setMessage(null)
 
     const result = await forgotPassword(formData)
+    setIsLoading(false) // Set loading to false after the action completes
 
     if (result?.error) {
       setMessage({ type: "error", text: result.error })
@@ -150,8 +154,6 @@ export default function AuthPage() {
       })
       setIsForgotPasswordOpen(false)
     }
-
-    setIsLoading(false)
   }
 
   return (
