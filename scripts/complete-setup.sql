@@ -403,6 +403,5 @@ BEGIN
     RAISE NOTICE '   3. Configure Supabase Auth settings';
     RAISE NOTICE '   4. Set up email templates';
     RAISE NOTICE '   5. Test user registration and login';
-END $$;
-</document_content>
-</invoke>
+END;
+$$;
