@@ -17,7 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { signUp, signIn, forgotPassword } from "@/lib/auth-actions"
-import { Mail, Lock, User, GraduationCap, MapPin, School, Phone, Users, CheckCircle, Copy } from "lucide-react"
+import { Mail, Lock, User, GraduationCap, MapPin, School, Phone, Users, CheckCircle, Copy, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
 
@@ -102,51 +102,60 @@ export default function AuthPage() {
     setIsLoading(true)
     setMessage(null)
 
-    const result = await signIn(formData)
-
-    if (result?.error) {
-      setMessage({ type: "error", text: result.error })
+    try {
+      const result = await signIn(formData)
+      if (result?.error) {
+        setMessage({ type: "error", text: result.error })
+      }
+      // If successful, the user will be redirected by the server action
+    } catch (error) {
+      setMessage({ type: "error", text: "An unexpected error occurred. Please try again." })
+    } finally {
+      setIsLoading(false)
     }
-    // If successful, the user will be redirected by the server action
-
-    setIsLoading(false)
   }
 
   const handleSignUp = async (formData: FormData) => {
     setIsLoading(true)
     setMessage(null)
 
-    const result = await signUp(formData)
-
-    if (result?.error) {
-      setMessage({ type: "error", text: result.error })
-    } else if (result?.success) {
-      setMessage({
-        type: "success",
-        text: result.message,
-      })
+    try {
+      const result = await signUp(formData)
+      if (result?.error) {
+        setMessage({ type: "error", text: result.error })
+      } else if (result?.success) {
+        setMessage({
+          type: "success",
+          text: result.message,
+        })
+      }
+    } catch (error) {
+      setMessage({ type: "error", text: "An unexpected error occurred. Please try again." })
+    } finally {
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }
 
   const handleForgotPassword = async (formData: FormData) => {
     setIsLoading(true)
     setMessage(null)
 
-    const result = await forgotPassword(formData)
-
-    if (result?.error) {
-      setMessage({ type: "error", text: result.error })
-    } else if (result?.success) {
-      setMessage({
-        type: "success",
-        text: result.message,
-      })
-      setIsForgotPasswordOpen(false)
+    try {
+      const result = await forgotPassword(formData)
+      if (result?.error) {
+        setMessage({ type: "error", text: result.error })
+      } else if (result?.success) {
+        setMessage({
+          type: "success",
+          text: result.message,
+        })
+        setIsForgotPasswordOpen(false)
+      }
+    } catch (error) {
+      setMessage({ type: "error", text: "An unexpected error occurred. Please try again." })
+    } finally {
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }
 
   return (
@@ -204,6 +213,7 @@ export default function AuthPage() {
                         placeholder="your@email.com"
                         className="pl-10"
                         required
+                        disabled={isLoading}
                       />
                     </div>
                   </div>
@@ -218,6 +228,7 @@ export default function AuthPage() {
                         placeholder="••••••••"
                         className="pl-10"
                         required
+                        disabled={isLoading}
                       />
                     </div>
                   </div>
@@ -225,7 +236,7 @@ export default function AuthPage() {
                   <div className="flex items-center justify-between">
                     <Dialog open={isForgotPasswordOpen} onOpenChange={setIsForgotPasswordOpen}>
                       <DialogTrigger asChild>
-                        <Button variant="link" className="px-0 text-sm">
+                        <Button variant="link" className="px-0 text-sm" disabled={isLoading}>
                           Forgot password?
                         </Button>
                       </DialogTrigger>
@@ -248,14 +259,27 @@ export default function AuthPage() {
                                 placeholder="your@email.com"
                                 className="pl-10"
                                 required
+                                disabled={isLoading}
                               />
                             </div>
                           </div>
                           <div className="flex gap-2">
                             <Button type="submit" disabled={isLoading} className="flex-1">
-                              {isLoading ? "Sending..." : "Send Reset Link"}
+                              {isLoading ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Sending...
+                                </>
+                              ) : (
+                                "Send Reset Link"
+                              )}
                             </Button>
-                            <Button type="button" variant="outline" onClick={() => setIsForgotPasswordOpen(false)}>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setIsForgotPasswordOpen(false)}
+                              disabled={isLoading}
+                            >
                               Cancel
                             </Button>
                           </div>
@@ -269,7 +293,14 @@ export default function AuthPage() {
                     className="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600"
                     disabled={isLoading}
                   >
-                    {isLoading ? "Signing In..." : "Sign In"}
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Signing In...
+                      </>
+                    ) : (
+                      "Sign In"
+                    )}
                   </Button>
                 </form>
 
@@ -281,7 +312,7 @@ export default function AuthPage() {
                     <div className="flex justify-between items-center">
                       <span className="font-medium">Student:</span>
                       <div className="flex items-center gap-2">
-                        <code className="bg-white px-2 py-1 rounded">student@test.com / TestStudent123!</code>
+                        <code className="bg-white px-2 py-1 rounded text-xs">student@test.com / TestStudent123!</code>
                         <Button size="sm" variant="ghost" onClick={() => copyToClipboard("student@test.com")}>
                           <Copy className="w-3 h-3" />
                         </Button>
@@ -290,8 +321,17 @@ export default function AuthPage() {
                     <div className="flex justify-between items-center">
                       <span className="font-medium">Teacher:</span>
                       <div className="flex items-center gap-2">
-                        <code className="bg-white px-2 py-1 rounded">teacher@test.com / TestTeacher123!</code>
+                        <code className="bg-white px-2 py-1 rounded text-xs">teacher@test.com / TestTeacher123!</code>
                         <Button size="sm" variant="ghost" onClick={() => copyToClipboard("teacher@test.com")}>
+                          <Copy className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Admin:</span>
+                      <div className="flex items-center gap-2">
+                        <code className="bg-white px-2 py-1 rounded text-xs">admin@test.com / TestAdmin123!</code>
+                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard("admin@test.com")}>
                           <Copy className="w-3 h-3" />
                         </Button>
                       </div>
@@ -315,6 +355,7 @@ export default function AuthPage() {
                           placeholder="Your full name"
                           className="pl-10"
                           required
+                          disabled={isLoading}
                         />
                       </div>
                     </div>
@@ -329,6 +370,7 @@ export default function AuthPage() {
                           placeholder="your@email.com"
                           className="pl-10"
                           required
+                          disabled={isLoading}
                         />
                       </div>
                     </div>
@@ -348,6 +390,7 @@ export default function AuthPage() {
                           className="pl-10"
                           minLength={8}
                           required
+                          disabled={isLoading}
                         />
                       </div>
                       <p className="text-xs text-gray-500">Minimum 8 characters</p>
@@ -364,6 +407,7 @@ export default function AuthPage() {
                           className="pl-10"
                           minLength={8}
                           required
+                          disabled={isLoading}
                         />
                       </div>
                     </div>
@@ -373,7 +417,7 @@ export default function AuthPage() {
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="role">I am a... *</Label>
-                      <Select name="role" required onValueChange={setSelectedRole}>
+                      <Select name="role" required onValueChange={setSelectedRole} disabled={isLoading}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select your role" />
                         </SelectTrigger>
@@ -389,7 +433,7 @@ export default function AuthPage() {
                         <Label htmlFor="grade">Grade *</Label>
                         <div className="relative">
                           <GraduationCap className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                          <Select name="grade" required>
+                          <Select name="grade" required disabled={isLoading}>
                             <SelectTrigger className="pl-10">
                               <SelectValue placeholder="Select grade" />
                             </SelectTrigger>
@@ -411,7 +455,7 @@ export default function AuthPage() {
                       <Label htmlFor="country">Country *</Label>
                       <div className="relative">
                         <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Select name="country" required onValueChange={setSelectedCountry}>
+                        <Select name="country" required onValueChange={setSelectedCountry} disabled={isLoading}>
                           <SelectTrigger className="pl-10">
                             <SelectValue placeholder="Select country" />
                           </SelectTrigger>
@@ -429,7 +473,7 @@ export default function AuthPage() {
                       <Label htmlFor="state">State/Province *</Label>
                       <div className="relative">
                         <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Select name="state" required>
+                        <Select name="state" required disabled={isLoading}>
                           <SelectTrigger className="pl-10">
                             <SelectValue placeholder="Select state" />
                           </SelectTrigger>
@@ -461,6 +505,7 @@ export default function AuthPage() {
                         placeholder="Your school name"
                         className="pl-10"
                         required={selectedRole === "student"}
+                        disabled={isLoading}
                       />
                     </div>
                   </div>
@@ -481,6 +526,7 @@ export default function AuthPage() {
                             type="text"
                             placeholder="Parent's full name"
                             required
+                            disabled={isLoading}
                           />
                         </div>
                         <div className="space-y-2">
@@ -491,6 +537,7 @@ export default function AuthPage() {
                             type="email"
                             placeholder="parent@email.com"
                             required
+                            disabled={isLoading}
                           />
                         </div>
                       </div>
@@ -505,12 +552,13 @@ export default function AuthPage() {
                               type="tel"
                               placeholder="(555) 123-4567"
                               className="pl-10"
+                              disabled={isLoading}
                             />
                           </div>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="relationship">Relationship *</Label>
-                          <Select name="relationship" required>
+                          <Select name="relationship" required disabled={isLoading}>
                             <SelectTrigger>
                               <SelectValue placeholder="Select relationship" />
                             </SelectTrigger>
@@ -531,7 +579,14 @@ export default function AuthPage() {
                     className="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600"
                     disabled={isLoading}
                   >
-                    {isLoading ? "Creating Account..." : "Create Account"}
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating Account...
+                      </>
+                    ) : (
+                      "Create Account"
+                    )}
                   </Button>
 
                   <p className="text-xs text-gray-500 text-center">

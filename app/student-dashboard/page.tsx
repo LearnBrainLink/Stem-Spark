@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { signOut } from "@/lib/auth-actions"
-import { BookOpen, Trophy, Users, LogOut, Settings, Video, Building2, GraduationCap } from "lucide-react"
+import { BookOpen, Trophy, LogOut, Settings, Video, Building2, GraduationCap, Bell } from "lucide-react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
 
@@ -30,6 +30,15 @@ export default async function StudentDashboard() {
     .from("internship_applications")
     .select("*, internships(title, company)")
     .eq("student_id", user.id)
+    .order("applied_at", { ascending: false })
+
+  // Get recent activities
+  const { data: activities } = await supabase
+    .from("user_activities")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(5)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
@@ -84,6 +93,7 @@ export default async function StudentDashboard() {
             <div className="flex items-center gap-2 mt-2">
               <GraduationCap className="w-4 h-4 text-blue-600" />
               <span className="text-sm text-blue-600">Grade {profile.grade}</span>
+              {profile.school_name && <span className="text-sm text-gray-500">• {profile.school_name}</span>}
             </div>
           )}
         </div>
@@ -103,12 +113,12 @@ export default async function StudentDashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Courses Completed</CardTitle>
-              <Trophy className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Videos Watched</CardTitle>
+              <Video className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">3</div>
-              <p className="text-xs text-muted-foreground">+2 from last month</p>
+              <div className="text-2xl font-bold">12</div>
+              <p className="text-xs text-muted-foreground">+3 this week</p>
             </CardContent>
           </Card>
 
@@ -118,19 +128,19 @@ export default async function StudentDashboard() {
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">12</div>
-              <p className="text-xs text-muted-foreground">+4 this week</p>
+              <div className="text-2xl font-bold">8</div>
+              <p className="text-xs text-muted-foreground">+2 this month</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Community Rank</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Achievements</CardTitle>
+              <Trophy className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">#47</div>
-              <p className="text-xs text-muted-foreground">Top 15% of learners</p>
+              <div className="text-2xl font-bold">5</div>
+              <p className="text-xs text-muted-foreground">Badges earned</p>
             </CardContent>
           </Card>
         </div>
@@ -169,52 +179,84 @@ export default async function StudentDashboard() {
           </CardContent>
         </Card>
 
-        {/* My Applications */}
-        <Card>
-          <CardHeader>
-            <CardTitle>My Internship Applications</CardTitle>
-            <CardDescription>Track your application status</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {applications && applications.length > 0 ? (
-              <div className="space-y-4">
-                {applications.map((application: any) => (
-                  <div key={application.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h3 className="font-semibold">{application.internships?.title}</h3>
-                      <p className="text-sm text-gray-600">{application.internships?.company}</p>
-                      <p className="text-xs text-gray-500">
-                        Applied: {new Date(application.applied_at).toLocaleDateString()}
-                      </p>
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* My Applications */}
+          <Card>
+            <CardHeader>
+              <CardTitle>My Internship Applications</CardTitle>
+              <CardDescription>Track your application status</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {applications && applications.length > 0 ? (
+                <div className="space-y-4">
+                  {applications.map((application: any) => (
+                    <div key={application.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <h3 className="font-semibold">{application.internships?.title}</h3>
+                        <p className="text-sm text-gray-600">{application.internships?.company}</p>
+                        <p className="text-xs text-gray-500">
+                          Applied: {new Date(application.applied_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            application.status === "pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : application.status === "approved"
+                                ? "bg-green-100 text-green-800"
+                                : application.status === "rejected"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-medium ${
-                          application.status === "pending"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : application.status === "accepted"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
-                      </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-600 mb-2">No Applications Yet</h3>
+                  <p className="text-gray-500 mb-4">Start exploring internship opportunities!</p>
+                  <Link href="/internships">
+                    <Button>Browse Internships</Button>
+                  </Link>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recent Activity */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Activity</CardTitle>
+              <CardDescription>Your latest actions and achievements</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {activities && activities.length > 0 ? (
+                <div className="space-y-4">
+                  {activities.map((activity: any) => (
+                    <div key={activity.id} className="flex items-start gap-3 p-3 border rounded-lg">
+                      <Bell className="w-4 h-4 text-blue-500 mt-1" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{activity.activity_description}</p>
+                        <p className="text-xs text-gray-500">{new Date(activity.created_at).toLocaleDateString()}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-600 mb-2">No Applications Yet</h3>
-                <p className="text-gray-500 mb-4">Start exploring internship opportunities!</p>
-                <Link href="/internships">
-                  <Button>Browse Internships</Button>
-                </Link>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Bell className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No recent activity</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )

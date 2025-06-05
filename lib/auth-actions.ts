@@ -53,6 +53,8 @@ export async function signUp(formData: FormData) {
   }
 
   try {
+    console.log(`🚀 Starting signup for ${signUpData.email} as ${signUpData.role}`)
+
     // Sign up with Supabase Auth - this will send confirmation email automatically
     const { data, error } = await supabase.auth.signUp({
       email: signUpData.email,
@@ -67,13 +69,15 @@ export async function signUp(formData: FormData) {
     })
 
     if (error) {
-      console.error("Signup error:", error)
+      console.error("❌ Signup error:", error)
       return { error: error.message }
     }
 
     if (data.user) {
-      // Create profile
-      const { error: profileError } = await supabase.from("profiles").insert({
+      console.log(`✅ User created in auth: ${data.user.id}`)
+
+      // Create profile (the trigger should handle this, but let's be explicit)
+      const { error: profileError } = await supabase.from("profiles").upsert({
         id: data.user.id,
         email: signUpData.email,
         full_name: signUpData.fullName,
@@ -83,12 +87,16 @@ export async function signUp(formData: FormData) {
         state: signUpData.state,
         school_name: signUpData.schoolName,
         email_verified: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
 
       if (profileError) {
-        console.error("Profile creation error:", profileError)
+        console.error("❌ Profile creation error:", profileError)
         return { error: "Failed to create profile. Please try again." }
       }
+
+      console.log(`✅ Profile created for ${signUpData.role}`)
 
       // Create parent info if student
       if (signUpData.role === "student" && signUpData.parentName && signUpData.parentEmail) {
@@ -101,7 +109,9 @@ export async function signUp(formData: FormData) {
         })
 
         if (parentError) {
-          console.error("Parent info creation error:", parentError)
+          console.error("⚠️ Parent info creation error:", parentError)
+        } else {
+          console.log("✅ Parent info created")
         }
       }
 
@@ -113,7 +123,7 @@ export async function signUp(formData: FormData) {
         metadata: { role: signUpData.role, grade: signUpData.grade },
       })
 
-      console.log(`✅ Account created for ${signUpData.email} as ${signUpData.role}`)
+      console.log(`🎉 Account creation completed for ${signUpData.email}`)
 
       return {
         success: true,
@@ -123,7 +133,7 @@ export async function signUp(formData: FormData) {
 
     return { error: "Failed to create account. Please try again." }
   } catch (error) {
-    console.error("Unexpected signup error:", error)
+    console.error("💥 Unexpected signup error:", error)
     return { error: "An unexpected error occurred. Please try again." }
   }
 }
@@ -139,34 +149,44 @@ export async function signIn(formData: FormData) {
   }
 
   try {
+    console.log(`🚀 Starting signin for ${email}`)
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
     if (error) {
-      console.error("Sign in error:", error)
+      console.error("❌ Sign in error:", error)
       if (error.message.includes("Email not confirmed")) {
         return {
           error: "Please verify your email address before signing in. Check your inbox for the confirmation email.",
         }
       }
-      return { error: "Invalid email or password" }
+      if (error.message.includes("Invalid login credentials")) {
+        return { error: "Invalid email or password. Please check your credentials and try again." }
+      }
+      return { error: error.message }
     }
 
     if (data.user) {
+      console.log(`✅ User authenticated: ${data.user.id}`)
+
       // Get user profile to check role
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("role, full_name, email_verified")
         .eq("id", data.user.id)
         .single()
 
-      if (!profile) {
+      if (profileError || !profile) {
+        console.error("❌ Profile fetch error:", profileError)
         return { error: "Profile not found. Please contact support." }
       }
 
-      // Check if email is verified
+      console.log(`👤 User role: ${profile.role}`)
+
+      // Check if email is verified (for new signups)
       if (!data.user.email_confirmed_at) {
         await supabase.auth.signOut()
         return {
@@ -180,6 +200,7 @@ export async function signIn(formData: FormData) {
           .from("profiles")
           .update({ email_verified: true, updated_at: new Date().toISOString() })
           .eq("id", data.user.id)
+        console.log("✅ Email verification status updated")
       }
 
       // Log activity
@@ -193,21 +214,24 @@ export async function signIn(formData: FormData) {
         },
       })
 
-      console.log(`✅ User ${email} logged in successfully as ${profile.role}`)
+      console.log(`🎉 Login successful for ${email} as ${profile.role}`)
 
-      // Redirect based on role
+      // Revalidate and redirect based on role
       revalidatePath("/")
 
       if (profile.role === "admin") {
+        console.log("🔄 Redirecting to admin dashboard")
         redirect("/admin")
       } else if (profile.role === "teacher") {
+        console.log("🔄 Redirecting to teacher dashboard")
         redirect("/teacher-dashboard")
       } else {
+        console.log("🔄 Redirecting to student dashboard")
         redirect("/student-dashboard")
       }
     }
   } catch (error) {
-    console.error("Unexpected sign in error:", error)
+    console.error("💥 Unexpected sign in error:", error)
     return { error: "An unexpected error occurred. Please try again." }
   }
 }
@@ -228,13 +252,14 @@ export async function signOut() {
         activity_description: "User logged out",
         metadata: { timestamp: new Date().toISOString() },
       })
+      console.log(`👋 User ${user.email} logged out`)
     }
 
     await supabase.auth.signOut()
     revalidatePath("/")
     redirect("/")
   } catch (error) {
-    console.error("Sign out error:", error)
+    console.error("❌ Sign out error:", error)
     redirect("/")
   }
 }
@@ -248,23 +273,25 @@ export async function forgotPassword(formData: FormData) {
   }
 
   try {
+    console.log(`🔐 Password reset requested for ${email}`)
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/reset-password`,
     })
 
     if (error) {
-      console.error("Password reset error:", error)
+      console.error("❌ Password reset error:", error)
       return { error: error.message }
     }
 
-    console.log(`🔐 Password reset email sent to ${email}`)
+    console.log(`✅ Password reset email sent to ${email}`)
 
     return {
       success: true,
       message: "Password reset email sent! Check your inbox for the reset link.",
     }
   } catch (error) {
-    console.error("Unexpected password reset error:", error)
+    console.error("💥 Unexpected password reset error:", error)
     return { error: "An unexpected error occurred. Please try again." }
   }
 }
@@ -283,18 +310,21 @@ export async function resetPassword(formData: FormData) {
   }
 
   try {
+    console.log("🔐 Updating password")
+
     const { error } = await supabase.auth.updateUser({
       password: password,
     })
 
     if (error) {
-      console.error("Password update error:", error)
+      console.error("❌ Password update error:", error)
       return { error: error.message }
     }
 
+    console.log("✅ Password updated successfully")
     return { success: true, message: "Password updated successfully!" }
   } catch (error) {
-    console.error("Unexpected password update error:", error)
+    console.error("💥 Unexpected password update error:", error)
     return { error: "An unexpected error occurred. Please try again." }
   }
 }
