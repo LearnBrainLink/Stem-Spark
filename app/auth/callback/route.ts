@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from "next/server"
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get("code")
-  const next = searchParams.get("next") ?? "/dashboard"
+  const next = searchParams.get("next") ?? "/"
 
   if (code) {
     const supabase = createServerClient()
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
-      // Get the user to update their profile
+      // Get the user to update their profile and determine redirect
       const {
         data: { user },
       } = await supabase.auth.getUser()
@@ -27,6 +27,9 @@ export async function GET(request: NextRequest) {
           })
           .eq("id", user.id)
 
+        // Get user role for redirect
+        const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+
         // Log verification activity
         await supabase.from("user_activities").insert({
           user_id: user.id,
@@ -39,6 +42,16 @@ export async function GET(request: NextRequest) {
         })
 
         console.log(`✅ Email verified for user: ${user.email}`)
+
+        // Redirect based on role
+        let redirectPath = "/student-dashboard" // default
+        if (profile?.role === "admin") {
+          redirectPath = "/admin"
+        } else if (profile?.role === "teacher") {
+          redirectPath = "/teacher-dashboard"
+        }
+
+        return NextResponse.redirect(`${origin}${redirectPath}`)
       }
 
       return NextResponse.redirect(`${origin}${next}`)

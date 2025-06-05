@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation" // Import useRouter
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -17,7 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { enhancedSignUp, signIn, forgotPassword } from "@/lib/enhanced-auth-actions"
+import { signUp, signIn, forgotPassword } from "@/lib/auth-actions"
 import { Mail, Lock, User, GraduationCap, MapPin, School, Phone, Users, CheckCircle, Copy } from "lucide-react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
@@ -94,7 +93,6 @@ export default function AuthPage() {
   const [selectedRole, setSelectedRole] = useState("")
   const [selectedCountry, setSelectedCountry] = useState("")
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
-  const router = useRouter() // Initialize the router
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -104,29 +102,21 @@ export default function AuthPage() {
     setIsLoading(true)
     setMessage(null)
 
-    const result = await signIn(formData) // signIn is your server action
-
-    setIsLoading(false) // Set loading to false after the action completes
+    const result = await signIn(formData)
 
     if (result?.error) {
       setMessage({ type: "error", text: result.error })
-    } else if (result?.success && result.redirectPath) {
-      // Handle successful sign-in and redirect client-side
-      router.push(result.redirectPath)
-    } else if (result?.success && result.needsClientRedirect && result.redirectPath) {
-        // Handle the specific case from the updated catch block if it occurs
-        router.push(result.redirectPath);
     }
-    // No explicit "else" needed here if the server action always returns error or success/redirectPath
+    // If successful, the user will be redirected by the server action
+
+    setIsLoading(false)
   }
 
   const handleSignUp = async (formData: FormData) => {
     setIsLoading(true)
     setMessage(null)
 
-    const result = await enhancedSignUp(formData)
-
-    setIsLoading(false) // Set loading to false after the action completes
+    const result = await signUp(formData)
 
     if (result?.error) {
       setMessage({ type: "error", text: result.error })
@@ -136,6 +126,8 @@ export default function AuthPage() {
         text: result.message,
       })
     }
+
+    setIsLoading(false)
   }
 
   const handleForgotPassword = async (formData: FormData) => {
@@ -143,7 +135,6 @@ export default function AuthPage() {
     setMessage(null)
 
     const result = await forgotPassword(formData)
-    setIsLoading(false) // Set loading to false after the action completes
 
     if (result?.error) {
       setMessage({ type: "error", text: result.error })
@@ -154,6 +145,8 @@ export default function AuthPage() {
       })
       setIsForgotPasswordOpen(false)
     }
+
+    setIsLoading(false)
   }
 
   return (
@@ -280,25 +273,25 @@ export default function AuthPage() {
                   </Button>
                 </form>
 
-                {/* Quick Admin Login */}
+                {/* Test Accounts */}
                 <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <h4 className="font-semibold text-blue-800 mb-2">🔑 Quick Admin Access</h4>
-                  <p className="text-sm text-blue-600 mb-3">Use these credentials to test admin features:</p>
+                  <h4 className="font-semibold text-blue-800 mb-2">🧪 Test Accounts</h4>
+                  <p className="text-sm text-blue-600 mb-3">Use these credentials to test different roles:</p>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between items-center">
-                      <span className="font-medium">Email:</span>
+                      <span className="font-medium">Student:</span>
                       <div className="flex items-center gap-2">
-                        <code className="bg-white px-2 py-1 rounded">admin@stemspark.academy</code>
-                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard("admin@stemspark.academy")}>
+                        <code className="bg-white px-2 py-1 rounded">student@test.com / TestStudent123!</code>
+                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard("student@test.com")}>
                           <Copy className="w-3 h-3" />
                         </Button>
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="font-medium">Password:</span>
+                      <span className="font-medium">Teacher:</span>
                       <div className="flex items-center gap-2">
-                        <code className="bg-white px-2 py-1 rounded">STEMAdmin2024!</code>
-                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard("STEMAdmin2024!")}>
+                        <code className="bg-white px-2 py-1 rounded">teacher@test.com / TestTeacher123!</code>
+                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard("teacher@test.com")}>
                           <Copy className="w-3 h-3" />
                         </Button>
                       </div>
