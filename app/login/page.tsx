@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { signUp, signIn, forgotPassword } from "@/lib/auth-actions"
+import { signUp, signIn, forgotPassword } from "@/lib/fixed-auth-actions"
 import { Mail, Lock, User, GraduationCap, MapPin, School, Phone, Users, CheckCircle, Copy, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
@@ -109,7 +109,8 @@ export default function AuthPage() {
       }
       // If successful, the user will be redirected by the server action
     } catch (error) {
-      setMessage({ type: "error", text: "An unexpected error occurred. Please try again." })
+      console.error("Login error:", error)
+      setMessage({ type: "error", text: "Connection error. Please check your database setup and try again." })
     } finally {
       setIsLoading(false)
     }
