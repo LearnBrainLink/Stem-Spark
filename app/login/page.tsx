@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -16,83 +17,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { simpleLogin, simpleSignup, simpleResetPassword } from "@/lib/simple-auth"
+import { robustSignIn, robustSignUp, robustForgotPassword } from "@/lib/robust-auth"
+import { RedirectHandler } from "@/components/redirect-handler"
 import { Mail, Lock, User, CheckCircle, Copy, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
-
-const countries = [
-  "United States",
-  "Canada",
-  "United Kingdom",
-  "Australia",
-  "Germany",
-  "France",
-  "Japan",
-  "India",
-  "Brazil",
-  "Mexico",
-]
-
-const usStates = [
-  "Alabama",
-  "Alaska",
-  "Arizona",
-  "Arkansas",
-  "California",
-  "Colorado",
-  "Connecticut",
-  "Delaware",
-  "Florida",
-  "Georgia",
-  "Hawaii",
-  "Idaho",
-  "Illinois",
-  "Indiana",
-  "Iowa",
-  "Kansas",
-  "Kentucky",
-  "Louisiana",
-  "Maine",
-  "Maryland",
-  "Massachusetts",
-  "Michigan",
-  "Minnesota",
-  "Mississippi",
-  "Missouri",
-  "Montana",
-  "Nebraska",
-  "Nevada",
-  "New Hampshire",
-  "New Jersey",
-  "New Mexico",
-  "New York",
-  "North Carolina",
-  "North Dakota",
-  "Ohio",
-  "Oklahoma",
-  "Oregon",
-  "Pennsylvania",
-  "Rhode Island",
-  "South Carolina",
-  "South Dakota",
-  "Tennessee",
-  "Texas",
-  "Utah",
-  "Vermont",
-  "Virginia",
-  "Washington",
-  "West Virginia",
-  "Wisconsin",
-  "Wyoming",
-]
 
 export default function AuthPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [selectedRole, setSelectedRole] = useState("")
-  const [selectedCountry, setSelectedCountry] = useState("")
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
+  const [redirectUrl, setRedirectUrl] = useState<string | null>(null)
+  const router = useRouter()
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -101,13 +38,25 @@ export default function AuthPage() {
   const handleSignIn = async (formData: FormData) => {
     setIsLoading(true)
     setMessage(null)
+    setRedirectUrl(null)
 
     try {
-      const result = await simpleLogin(formData)
+      const result = await robustSignIn(formData)
+
       if (result?.error) {
         setMessage({ type: "error", text: result.error })
+      } else if (result?.success) {
+        setMessage({ type: "success", text: result.message || "Login successful!" })
+
+        // Handle redirect
+        if (result.redirectUrl) {
+          setRedirectUrl(result.redirectUrl)
+          // Also try immediate redirect as fallback
+          setTimeout(() => {
+            router.push(result.redirectUrl!)
+          }, 1500)
+        }
       }
-      // If successful, the user will be redirected by the server action
     } catch (error) {
       console.error("Login error:", error)
       setMessage({
@@ -124,13 +73,14 @@ export default function AuthPage() {
     setMessage(null)
 
     try {
-      const result = await simpleSignup(formData)
+      const result = await robustSignUp(formData)
+
       if (result?.error) {
         setMessage({ type: "error", text: result.error })
       } else if (result?.success) {
         setMessage({
           type: "success",
-          text: result.message,
+          text: result.message || "Account created successfully!",
         })
       }
     } catch (error) {
@@ -149,13 +99,14 @@ export default function AuthPage() {
     setMessage(null)
 
     try {
-      const result = await simpleResetPassword(formData)
+      const result = await robustForgotPassword(formData)
+
       if (result?.error) {
         setMessage({ type: "error", text: result.error })
       } else if (result?.success) {
         setMessage({
           type: "success",
-          text: result.message,
+          text: result.message || "Password reset email sent!",
         })
         setIsForgotPasswordOpen(false)
       }
@@ -172,6 +123,8 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+      <RedirectHandler redirectUrl={redirectUrl || undefined} />
+
       <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="text-center mb-8">
@@ -199,7 +152,8 @@ export default function AuthPage() {
                   {message.type === "success" && (
                     <div className="mt-2 flex items-center gap-1 text-sm">
                       <CheckCircle className="w-4 h-4" />
-                      Check your email inbox for the verification/reset link
+                      {message.text.includes("email") && "Check your email inbox for the verification/reset link"}
+                      {redirectUrl && "Redirecting to your dashboard..."}
                     </div>
                   )}
                 </AlertDescription>
