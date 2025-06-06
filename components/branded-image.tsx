@@ -26,58 +26,47 @@ export function BrandedImage({
   priority = false,
 }: BrandedImageProps) {
   const [imageError, setImageError] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(false)
 
-  const getBrandingClasses = () => {
-    const baseClasses = "absolute z-10 bg-white/90 backdrop-blur-sm rounded-lg p-2 shadow-lg"
+  // Fallback image URL
+  const fallbackSrc = "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=800&auto=format&fit=crop"
 
-    switch (brandingPosition) {
-      case "top-left":
-        return `${baseClasses} top-4 left-4`
-      case "top-right":
-        return `${baseClasses} top-4 right-4`
-      case "bottom-left":
-        return `${baseClasses} bottom-4 left-4`
-      case "bottom-right":
-        return `${baseClasses} bottom-4 right-4`
-      case "center":
-        return `${baseClasses} top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2`
-      default:
-        return `${baseClasses} bottom-4 right-4`
-    }
-  }
-
-  if (imageError) {
-    return (
-      <div
-        className={`bg-gradient-to-br from-brand-navy to-brand-dark rounded-lg flex items-center justify-center ${className}`}
-        style={{ width, height }}
-      >
-        <div className="text-center text-white p-4">
-          <Logo width={60} height={60} className="mx-auto mb-2" />
-          <p className="text-sm font-medium">STEM Spark Academy</p>
-          <p className="text-xs opacity-75">Image not available</p>
-        </div>
-      </div>
-    )
+  // Position classes for branding
+  const positionClasses = {
+    "top-left": "top-2 left-2",
+    "top-right": "top-2 right-2",
+    "bottom-left": "bottom-2 left-2",
+    "bottom-right": "bottom-2 right-2",
+    center: "top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2",
   }
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative overflow-hidden ${className}`}>
+      {/* Loading indicator */}
+      {!isLoaded && !imageError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+          <div className="w-8 h-8 border-4 border-brand-navy border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
+
+      {/* Image */}
       <Image
-        src={src || "/placeholder.svg"}
+        src={imageError ? fallbackSrc : src}
         alt={alt}
         width={width}
         height={height}
-        className="rounded-lg object-cover w-full h-full"
+        className={`w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? "opacity-100" : "opacity-0"}`}
         onError={() => setImageError(true)}
+        onLoad={() => setIsLoaded(true)}
         priority={priority}
       />
 
-      {showBranding && (
-        <div className={getBrandingClasses()}>
-          <div className="flex items-center gap-2">
-            <Logo width={24} height={24} />
-            <span className="text-xs font-semibold text-brand-navy">STEM Spark Academy</span>
+      {/* Branding overlay */}
+      {showBranding && isLoaded && (
+        <div className={`absolute ${positionClasses[brandingPosition]} z-10`}>
+          <div className="bg-white/80 backdrop-blur-sm rounded-md px-2 py-1 shadow-sm flex items-center gap-2">
+            <Logo width={16} height={16} />
+            <span className="text-xs font-medium text-brand-navy">STEM Spark Academy</span>
           </div>
         </div>
       )}
