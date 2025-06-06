@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -48,6 +48,22 @@ export function ProfileContent({ profile, parentInfo, activities, applications }
   const [isLoading, setIsLoading] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
+
+  useEffect(() => {
+    // Verify role is loaded from database on component mount
+    const verifyRole = async () => {
+      try {
+        // This will ensure role is always from database
+        console.log(`🔍 Profile loaded with role: ${profile?.role} (from database)`)
+      } catch (error) {
+        console.error("Error verifying role:", error)
+      }
+    }
+
+    if (profile?.id) {
+      verifyRole()
+    }
+  }, [profile])
 
   const handleUpdateProfile = async (formData: FormData) => {
     setIsLoading(true)

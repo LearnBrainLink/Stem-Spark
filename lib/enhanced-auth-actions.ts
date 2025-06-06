@@ -1,8 +1,8 @@
 "use server"
 
 import { createServerClient } from "./supabase"
-// Removed: import { redirect } from "next/navigation" // Direct redirects are handled client-side
 import { revalidatePath } from "next/cache"
+import { roleManager } from "./role-manager"
 
 interface SignUpData {
   email: string
@@ -53,6 +53,8 @@ export async function enhancedSignUp(formData: FormData) {
   }
 
   try {
+    console.log(`🚀 Starting signup for ${signUpData.email} as ${signUpData.role}`)
+
     // Use Supabase's built-in email verification
     const { data, error } = await supabase.auth.signUp({
       email: signUpData.email,
@@ -61,7 +63,7 @@ export async function enhancedSignUp(formData: FormData) {
         emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
         data: {
           full_name: signUpData.fullName,
-          role: signUpData.role,
+          // Don't store role in metadata - we'll use database only
         },
       },
     })
@@ -72,23 +74,19 @@ export async function enhancedSignUp(formData: FormData) {
     }
 
     if (data.user) {
-      // Create profile
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: data.user.id,
-        email: signUpData.email,
-        full_name: signUpData.fullName,
-        role: signUpData.role,
+      console.log(`✅ Auth user created: ${data.user.id}`)
+
+      // Create profile in database with role - this is the source of truth
+      const profileSuccess = await roleManager.upsertUserProfile(data.user, signUpData.role as any, {
         grade: signUpData.grade,
         country: signUpData.country,
         state: signUpData.state,
         school_name: signUpData.schoolName,
-        email_verified: false, // Email is not verified until the user clicks the link
+        email_verified: false,
       })
 
-      if (profileError) {
-        console.error("Profile creation error:", profileError)
-        // Potentially delete the auth user if profile creation fails to keep data consistent
-        // await supabase.auth.admin.deleteUser(data.user.id); // Requires admin privileges
+      if (!profileSuccess) {
+        console.error("❌ Profile creation failed")
         return { error: "Failed to create profile. Please try again." }
       }
 
@@ -104,7 +102,6 @@ export async function enhancedSignUp(formData: FormData) {
 
         if (parentError) {
           console.error("Parent info creation error:", parentError)
-          // This might not be a critical failure, so we log it but don't necessarily stop the process
         }
       }
 
@@ -117,12 +114,11 @@ export async function enhancedSignUp(formData: FormData) {
       })
 
       console.log(`✅ Account created for ${signUpData.email} as ${signUpData.role}`)
-      console.log(`📧 Verification email sent to ${signUpData.email} via Supabase`)
 
       return {
         success: true,
         message: "Account created successfully! Please check your email to verify your account.",
-        emailSent: true, // Indicates that Supabase handles the email sending
+        emailSent: true,
       }
     }
 
@@ -144,23 +140,31 @@ export async function signIn(formData: FormData) {
   }
 
   try {
+    console.log(`🚀 Starting signin for ${email}`)
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
     if (error) {
-      console.error("Sign in error:", error)
+      console.error("❌ Sign in error:", error)
       return { error: "Invalid email or password. Please try again." }
     }
 
     if (data.user) {
-      // Get user profile to check role
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role, full_name")
-        .eq("id", data.user.id)
-        .single()
+      console.log(`✅ User authenticated: ${data.user.id}`)
+
+      // ALWAYS get role from database, never from metadata
+      const userRole = await roleManager.getUserRole(data.user)
+      const userProfile = await roleManager.getUserProfile(data.user.id)
+
+      if (!userProfile) {
+        console.error("❌ No profile found for authenticated user")
+        return { error: "Profile not found. Please contact support." }
+      }
+
+      console.log(`👤 User role from database: ${userRole}`)
 
       // Log activity
       await supabase.from("user_activities").insert({
@@ -169,23 +173,28 @@ export async function signIn(formData: FormData) {
         activity_description: "User logged in",
         metadata: {
           timestamp: new Date().toISOString(),
-          role: profile?.role || "unknown",
+          role: userRole,
         },
       })
 
-      console.log(`✅ User ${email} logged in successfully as ${profile?.role || "unknown"}`)
+      console.log(`✅ User ${email} logged in successfully as ${userRole}`)
+
+      revalidatePath("/")
+
+      // Return success with redirect path based on database role
+      const redirectPath = roleManager.getDashboardUrl(userRole)
+      return { success: true, redirectPath }
     }
-
-    revalidatePath("/videos") // Or /internships if that's the preferred default
-    // Return success and the path for client-side redirection
-    return { success: true, redirectPath: "/videos" } // Changed redirectPath
-
   } catch (error) {
-     // Check if the error is the specific NEXT_REDIRECT error
-    if (typeof error === 'object' && error !== null && 'digest' in error && typeof error.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT')) {
-        console.warn("signIn action: NEXT_REDIRECT caught. This indicates an issue if redirect is expected client-side.");
-        // This state suggests the client should handle the redirect.
-        return { success: true, redirectPath: "/videos", needsClientRedirect: true }; // Changed redirectPath
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "digest" in error &&
+      typeof error.digest === "string" &&
+      error.digest.startsWith("NEXT_REDIRECT")
+    ) {
+      console.warn("signIn action: NEXT_REDIRECT caught")
+      return { success: true, redirectPath: "/dashboard", needsClientRedirect: true }
     }
     console.error("Unexpected sign in error:", error)
     return { error: "An unexpected error occurred during sign-in. Please try again." }
@@ -201,28 +210,37 @@ export async function signOut() {
     } = await supabase.auth.getUser()
 
     if (user) {
+      // Get role from database for logging
+      const userRole = await roleManager.getUserRole(user)
+
       // Log activity
       await supabase.from("user_activities").insert({
         user_id: user.id,
         activity_type: "logout",
         activity_description: "User logged out",
-        metadata: { timestamp: new Date().toISOString() },
+        metadata: {
+          timestamp: new Date().toISOString(),
+          role: userRole,
+        },
       })
-       console.log(`✅ User ${user.email} logged out successfully.`)
+      console.log(`✅ User ${user.email} logged out successfully`)
     }
 
     await supabase.auth.signOut()
     revalidatePath("/")
-    // Return success and the path for client-side redirection
     return { success: true, redirectPath: "/" }
-
   } catch (error) {
-    if (typeof error === 'object' && error !== null && 'digest' in error && typeof error.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT')) {
-        console.warn("signOut action: NEXT_REDIRECT caught. This indicates an issue if redirect is expected client-side.");
-        return { success: true, redirectPath: "/", needsClientRedirect: true };
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "digest" in error &&
+      typeof error.digest === "string" &&
+      error.digest.startsWith("NEXT_REDIRECT")
+    ) {
+      console.warn("signOut action: NEXT_REDIRECT caught")
+      return { success: true, redirectPath: "/", needsClientRedirect: true }
     }
     console.error("Sign out error:", error)
-    // Even if logging fails, try to sign out and redirect client-side
     return { error: "An error occurred during sign out.", redirectPath: "/" }
   }
 }
@@ -236,7 +254,6 @@ export async function forgotPassword(formData: FormData) {
   }
 
   try {
-    // Use Supabase's built-in password reset
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/reset-password`,
     })
@@ -246,12 +263,12 @@ export async function forgotPassword(formData: FormData) {
       return { error: error.message }
     }
 
-    console.log(`🔐 Password reset email sent to ${email} via Supabase`)
+    console.log(`🔐 Password reset email sent to ${email}`)
 
     return {
       success: true,
       message: "Password reset email sent! Check your inbox.",
-      emailSent: true, // Indicates Supabase handles email sending
+      emailSent: true,
     }
   } catch (error) {
     console.error("Unexpected password reset error:", error)
@@ -281,16 +298,24 @@ export async function resetPassword(formData: FormData) {
       console.error("Password update error:", error)
       return { error: error.message }
     }
-     // Log activity
-    const { data: { user } } = await supabase.auth.getUser();
+
+    // Log activity with role from database
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (user) {
-        await supabase.from("user_activities").insert({
-            user_id: user.id,
-            activity_type: "password_reset",
-            activity_description: "User reset their password successfully",
-            metadata: { timestamp: new Date().toISOString() },
-        });
+      const userRole = await roleManager.getUserRole(user)
+      await supabase.from("user_activities").insert({
+        user_id: user.id,
+        activity_type: "password_reset",
+        activity_description: "User reset their password successfully",
+        metadata: {
+          timestamp: new Date().toISOString(),
+          role: userRole,
+        },
+      })
     }
+
     return { success: true, message: "Password updated successfully!" }
   } catch (error) {
     console.error("Unexpected password update error:", error)
@@ -306,22 +331,20 @@ export async function updateProfile(formData: FormData) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    // This should ideally not happen if the page calling this is protected
     return { error: "You must be logged in to update your profile." }
   }
 
   try {
-    // Get current profile data
-    const { data: currentProfile, error: fetchProfileError } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-    
-    if (fetchProfileError || !currentProfile) {
-      console.error("Error fetching current profile:", fetchProfileError);
-      return { error: "Could not retrieve your profile. Please try again." };
+    // Get current profile from database
+    const currentProfile = await roleManager.getUserProfile(user.id)
+
+    if (!currentProfile) {
+      console.error("Error fetching current profile")
+      return { error: "Could not retrieve your profile. Please try again." }
     }
 
-
     const fullName = formData.get("fullName") as string
-    const email = formData.get("email") as string // New email
+    const email = formData.get("email") as string
     const schoolName = formData.get("schoolName") as string
     const grade = formData.get("grade") ? Number.parseInt(formData.get("grade") as string) : currentProfile.grade
     const country = (formData.get("country") as string) || currentProfile.country
@@ -336,11 +359,10 @@ export async function updateProfile(formData: FormData) {
     if (state !== currentProfile.state) updatedFields.push("state")
 
     let emailChanged = false
-    if (email && email !== user.email) { // Check if email is provided and different
+    if (email && email !== user.email) {
       emailChanged = true
       updatedFields.push("email")
 
-      // Use Supabase's built-in email change. This sends a confirmation to the new email.
       const { error: emailError } = await supabase.auth.updateUser({
         email: email,
       })
@@ -349,24 +371,20 @@ export async function updateProfile(formData: FormData) {
         console.error("Auth email update error:", emailError)
         return { error: `Failed to update email: ${emailError.message}` }
       }
-      console.log(`📧 Email change verification sent to ${email} via Supabase. Old email ${user.email} remains primary until new one is confirmed.`)
+      console.log(`📧 Email change verification sent to ${email}`)
     }
 
-    // Update profile in 'profiles' table
+    // Update profile in database
     const { error: profileError } = await supabase
       .from("profiles")
       .update({
         full_name: fullName,
-        // Only update email in profiles table if it's successfully changed in auth.users and verified
-        // For now, we keep the profile email as is, or update it if not requiring verification for display
-        // If emailChanged is true, Supabase handles the actual email change upon verification.
-        // The `email_verified` flag in profiles should be set to `false` if the email is changed.
-        email: emailChanged ? email : currentProfile.email, // Update profile email, but verification is key
+        email: emailChanged ? email : currentProfile.email,
         school_name: schoolName,
         grade: grade,
         country: country,
         state: state,
-        email_verified: emailChanged ? false : currentProfile.email_verified, // Mark as unverified if email changed
+        email_verified: emailChanged ? false : currentProfile.email_verified,
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id)
@@ -376,13 +394,17 @@ export async function updateProfile(formData: FormData) {
       return { error: "Failed to update profile information." }
     }
 
-    // Log activity
+    // Log activity with role from database
     if (updatedFields.length > 0) {
+      const userRole = await roleManager.getUserRole(user)
       await supabase.from("user_activities").insert({
         user_id: user.id,
         activity_type: "profile_updated",
         activity_description: "Profile information updated",
-        metadata: { updated_fields: updatedFields },
+        metadata: {
+          updated_fields: updatedFields,
+          role: userRole,
+        },
       })
     }
 
@@ -393,7 +415,7 @@ export async function updateProfile(formData: FormData) {
       message: emailChanged
         ? "Profile updated! Please check your new email address to verify the change."
         : "Profile updated successfully!",
-      emailSent: emailChanged, // True if a verification email was sent for the new email
+      emailSent: emailChanged,
     }
   } catch (error) {
     console.error("Unexpected profile update error:", error)
@@ -404,7 +426,6 @@ export async function updateProfile(formData: FormData) {
 export async function changePassword(formData: FormData) {
   const supabase = createServerClient()
 
-  // const currentPassword = formData.get("currentPassword") as string // Supabase updateUser doesn't require currentPassword
   const newPassword = formData.get("newPassword") as string
   const confirmPassword = formData.get("confirmPassword") as string
 
@@ -425,7 +446,6 @@ export async function changePassword(formData: FormData) {
   }
 
   try {
-    // Update password using Supabase auth
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     })
@@ -435,12 +455,16 @@ export async function changePassword(formData: FormData) {
       return { error: `Failed to change password: ${error.message}` }
     }
 
-    // Log activity
+    // Log activity with role from database
+    const userRole = await roleManager.getUserRole(user)
     await supabase.from("user_activities").insert({
       user_id: user.id,
       activity_type: "password_changed",
       activity_description: "Password changed successfully",
-      metadata: { timestamp: new Date().toISOString() },
+      metadata: {
+        timestamp: new Date().toISOString(),
+        role: userRole,
+      },
     })
 
     return { success: true, message: "Password changed successfully!" }
@@ -450,216 +474,26 @@ export async function changePassword(formData: FormData) {
   }
 }
 
+// Migration function to ensure all existing users have proper database roles
+export async function migrateAllUserRoles() {
+  try {
+    console.log("🚀 Starting migration of all user roles to database...")
 
-// Admin account creation and verification functions
-const ADMIN_ACCOUNTS_LIST = [
-    {
-      email: "admin@stemspark.academy",
-      password: "STEMAdmin2024!",
-      fullName: "Dr. Sarah Johnson",
-      roleDescription: "Main Administrator", // Using a different key to avoid conflict with 'role' in SignUpData
-      state: "California",
-    },
-    {
-      email: "director@stemspark.academy",
-      password: "STEMDirector2024!",
-      fullName: "Prof. Michael Chen",
-      roleDescription: "Program Director",
-      state: "New York",
-    },
-    {
-      email: "coordinator@stemspark.academy",
-      password: "STEMCoord2024!",
-      fullName: "Dr. Emily Rodriguez",
-      roleDescription: "Education Coordinator",
-      state: "Texas",
-    },
-    {
-      email: "manager@stemspark.academy",
-      password: "STEMManager2024!",
-      fullName: "Prof. David Kim",
-      roleDescription: "Content Manager",
-      state: "Washington",
-    },
-  ]
+    const result = await roleManager.migrateExistingUsersRoles()
 
+    console.log(`🎉 Migration completed: ${result.success}/${result.total} users migrated successfully`)
 
-export async function createAdminAccounts() {
-  const supabase = createServerClient()
-  const results = []
-
-  console.log("🚀 Starting admin account creation...")
-
-  for (const admin of ADMIN_ACCOUNTS_LIST) {
-    try {
-      console.log(`Creating admin account for ${admin.email}...`)
-
-      // Check if user already exists in auth.users
-      // Supabase admin.createUser will error if user exists, so this check is more for logging/profile handling
-      let { data: existingAuthUser } = await supabase.auth.admin.getUserByEmail(admin.email);
-      
-      let userId: string | undefined;
-      let authUserCreated = false;
-
-      if (existingAuthUser && existingAuthUser.user) {
-         console.log(`Auth user ${admin.email} already exists. ID: ${existingAuthUser.user.id}`);
-         userId = existingAuthUser.user.id;
-      } else {
-        // Create auth user with email confirmation
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-          email: admin.email,
-          password: admin.password,
-          email_confirm: true, // Auto-confirm admin emails
-          user_metadata: {
-            full_name: admin.fullName,
-            role: "admin", // This metadata is for auth.users
-          },
-        })
-
-        if (authError) {
-          console.error(`Auth creation error for ${admin.email}:`, authError.message)
-          results.push({
-            success: false,
-            email: admin.email,
-            error: authError.message,
-          })
-          continue // Skip to next admin account
-        }
-        if (!authData.user) {
-            console.error(`Auth user data not returned for ${admin.email}`);
-            results.push({ success: false, email: admin.email, error: "Auth user data not returned after creation." });
-            continue;
-        }
-        userId = authData.user.id;
-        authUserCreated = true;
-        console.log(`✅ Auth user created for ${admin.email}, ID: ${userId}`);
-      }
-      
-      if (!userId) {
-        console.error(`Could not obtain User ID for ${admin.email}`);
-        results.push({ success: false, email: admin.email, error: "Could not obtain User ID." });
-        continue;
-      }
-
-      // Check if profile exists
-      const { data: existingProfile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", userId) // Check by ID first
-        .single();
-
-      if (existingProfile) {
-        console.log(`Profile for ${admin.email} (ID: ${userId}) already exists. Updating if necessary...`);
-        // Optionally update existing profile here if needed
-        const { error: profileUpdateError } = await supabase.from("profiles").update({
-            full_name: admin.fullName,
-            role: "admin", // This is for the 'profiles' table
-            country: "United States",
-            state: admin.state,
-            email_verified: true, // Admins are auto-verified
-            updated_at: new Date().toISOString(),
-        }).eq("id", userId);
-
-        if (profileUpdateError) {
-            console.error(`Profile update error for ${admin.email}:`, profileUpdateError.message);
-            // Decide if this is a critical error
-        }
-
-      } else {
-        // Create profile if it doesn't exist
-        console.log(`Creating profile for ${admin.email} (ID: ${userId})...`);
-        const { error: profileError } = await supabase.from("profiles").insert({
-          id: userId,
-          email: admin.email, // Ensure email is also in profiles table
-          full_name: admin.fullName,
-          role: "admin", // This is for the 'profiles' table
-          country: "United States",
-          state: admin.state,
-          email_verified: true, // Admins are auto-verified
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-
-        if (profileError) {
-          console.error(`Profile creation error for ${admin.email}:`, profileError.message)
-          // If auth user was just created and profile fails, consider deleting the auth user
-          if (authUserCreated) {
-            // await supabase.auth.admin.deleteUser(userId);
-            console.warn(`Auth user ${admin.email} was created but profile creation failed. Manual cleanup might be needed.`);
-          }
-          results.push({
-            success: false,
-            email: admin.email,
-            error: profileError.message,
-          })
-          continue // Skip to next admin account
-        }
-         console.log(`✅ Profile created/updated for ${admin.email}`);
-      }
-
-      // Log admin creation activity
-      await supabase.from("user_activities").insert({
-        user_id: userId,
-        activity_type: "admin_account_created",
-        activity_description: `Admin account processed: ${admin.roleDescription}`,
-        metadata: {
-          email: admin.email,
-          full_name: admin.fullName,
-          role_description: admin.roleDescription, // Use the descriptive role
-          auto_created: true,
-          processed_at: new Date().toISOString(),
-        },
-      })
-
-      results.push({
-        success: true,
-        email: admin.email,
-        fullName: admin.fullName,
-        role: admin.roleDescription,
-        note: authUserCreated ? "Created" : "Existing Auth User, Profile Checked/Created",
-      })
-
-    } catch (error) {
-      console.error(`Unexpected error creating admin ${admin.email}:`, error)
-      results.push({
-        success: false,
-        email: admin.email,
-        error: error instanceof Error ? error.message : "Unknown error",
-      })
+    return {
+      success: true,
+      message: `Migration completed: ${result.success}/${result.total} users migrated successfully`,
+      details: result,
     }
-  }
-
-  console.log("🎉 Admin account creation process completed:", JSON.stringify(results, null, 2))
-
-  return {
-    success: true, // Overall process success (individual results in array)
-    results,
-    totalProcessed: results.length,
-    totalSucceeded: results.filter((r) => r.success).length,
-    totalFailed: results.filter((r) => !r.success).length,
-  }
-}
-
-export async function verifyAdminAccounts() {
-  const supabase = createServerClient()
-
-  const ADMIN_EMAILS = ADMIN_ACCOUNTS_LIST.map(acc => acc.email);
-
-  const { data: adminProfiles, error } = await supabase
-    .from("profiles")
-    .select("email, full_name, role, created_at, email_verified")
-    .eq("role", "admin") // Ensure we only get actual admins from profiles
-    .in("email", ADMIN_EMAILS)
-
-  if (error) {
-    console.error("Error verifying admin accounts:", error.message)
-    return { success: false, error: error.message }
-  }
-
-  return {
-    success: true,
-    adminAccounts: adminProfiles,
-    totalFound: adminProfiles?.length || 0,
-    expectedCount: ADMIN_ACCOUNTS_LIST.length,
+  } catch (error) {
+    console.error("❌ Migration failed:", error)
+    return {
+      success: false,
+      error: "Migration failed. Please try again.",
+      details: error,
+    }
   }
 }
