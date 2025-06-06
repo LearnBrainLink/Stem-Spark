@@ -1,246 +1,200 @@
-import { createServerClient } from "@/lib/supabase"
-import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { signOut } from "@/lib/auth-actions"
-import { BookOpen, Users, LogOut, Settings, Video, Building2, GraduationCap, Award, TrendingUp } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { BookOpen, Users, GraduationCap, Award } from "lucide-react"
 import Link from "next/link"
-import { Logo } from "@/components/logo"
+import { simpleSignOut } from "@/lib/simple-auth"
 
-export default async function TeacherDashboard() {
-  const supabase = createServerClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/login")
-  }
-
-  // Get user profile
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-
-  if (!profile || profile.role !== "teacher") {
-    redirect("/login")
-  }
-
-  // Get teacher statistics
-  const { data: students } = await supabase.from("profiles").select("id").eq("role", "student")
-  const { data: videos } = await supabase.from("videos").select("id").eq("created_by", user.id)
-  const { data: internships } = await supabase.from("internships").select("id")
-
+export default function TeacherDashboard() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <Logo width={40} height={40} />
-            <span className="text-2xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
-              STEM Spark Academy
-            </span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-600">Welcome, {profile?.full_name || user.email}!</span>
-            <div className="flex items-center gap-2">
-              <Link href="/videos">
-                <Button variant="outline" size="sm">
-                  <Video className="w-4 h-4 mr-2" />
-                  Videos
-                </Button>
-              </Link>
-              <Link href="/internships">
-                <Button variant="outline" size="sm">
-                  <Building2 className="w-4 h-4 mr-2" />
-                  Internships
-                </Button>
-              </Link>
-              <Link href="/profile">
-                <Button variant="outline" size="sm">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Profile
-                </Button>
-              </Link>
-              <form action={signOut}>
-                <Button variant="outline" size="sm">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
-                </Button>
-              </form>
-            </div>
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center">
+            <GraduationCap className="h-8 w-8 text-blue-500 mr-3" />
+            <h1 className="text-2xl font-bold text-gray-900">Teacher Dashboard</h1>
           </div>
+          <form action={simpleSignOut}>
+            <Button variant="outline" type="submit">
+              Sign Out
+            </Button>
+          </form>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">
-            Welcome back, {profile?.full_name?.split(" ")[0] || "there"}! 👨‍🏫
-          </h1>
-          <p className="text-gray-600">Inspire the next generation of engineers</p>
-          <div className="flex items-center gap-4 mt-2">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="w-4 h-4 text-green-600" />
-              <span className="text-sm text-green-600">Teacher Account</span>
-            </div>
-            {profile.school_name && <span className="text-sm text-gray-500">• {profile.school_name}</span>}
+          <h2 className="text-xl font-semibold mb-4">Welcome back, Teacher!</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <Users className="h-5 w-5 mr-2 text-blue-500" />
+                  Students
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-500">You have 24 active students</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <BookOpen className="h-5 w-5 mr-2 text-green-500" />
+                  Courses
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-500">3 active courses this semester</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <Award className="h-5 w-5 mr-2 text-amber-500" />
+                  Achievements
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-500">15 student achievements this month</p>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Students</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{students?.length || 0}</div>
-              <p className="text-xs text-muted-foreground">Registered students</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">My Videos</CardTitle>
-              <Video className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{videos?.length || 0}</div>
-              <p className="text-xs text-muted-foreground">Educational content</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Internships</CardTitle>
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{internships?.length || 0}</div>
-              <p className="text-xs text-muted-foreground">Available opportunities</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Engagement</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">94%</div>
-              <p className="text-xs text-muted-foreground">Student engagement</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Teacher Tools</CardTitle>
-            <CardDescription>Manage your educational content and track student progress</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Link href="/videos">
-                <Button className="w-full">
-                  <Video className="w-4 h-4 mr-2" />
-                  Manage Videos
-                </Button>
-              </Link>
-              <Link href="/internships">
-                <Button className="w-full" variant="outline">
-                  <Building2 className="w-4 h-4 mr-2" />
-                  View Internships
-                </Button>
-              </Link>
-              <Button className="w-full" variant="outline">
-                <Users className="w-4 h-4 mr-2" />
-                Student Progress
-              </Button>
-              <Button className="w-full" variant="outline">
-                <BookOpen className="w-4 h-4 mr-2" />
-                Create Course
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Recent Activity */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Latest updates from your students and courses</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <h3 className="font-semibold">New Student Registration</h3>
-                    <p className="text-sm text-gray-600">Sarah Johnson joined the platform</p>
-                  </div>
-                  <span className="text-xs text-gray-500">2 hours ago</span>
-                </div>
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <h3 className="font-semibold">Video Completion</h3>
-                    <p className="text-sm text-gray-600">Mike Chen completed "Introduction to Programming"</p>
-                  </div>
-                  <span className="text-xs text-gray-500">5 hours ago</span>
-                </div>
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <h3 className="font-semibold">Internship Application</h3>
-                    <p className="text-sm text-gray-600">Emma Davis applied for Summer Engineering Program</p>
-                  </div>
-                  <span className="text-xs text-gray-500">1 day ago</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Student Performance */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Student Performance</CardTitle>
-              <CardDescription>Overview of student achievements</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Award className="w-8 h-8 text-yellow-500" />
+        <Tabs defaultValue="students" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="students">My Students</TabsTrigger>
+            <TabsTrigger value="courses">My Courses</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          </TabsList>
+          <TabsContent value="students" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Student Management</CardTitle>
+                <CardDescription>View and manage your students</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between py-2 border-b">
                     <div>
-                      <h3 className="font-semibold">Top Performer</h3>
-                      <p className="text-sm text-gray-600">Alex Thompson - 98% completion rate</p>
+                      <p className="font-medium">Alex Johnson</p>
+                      <p className="text-sm text-gray-500">Grade 7 • Engineering Focus</p>
+                    </div>
+                    <Button size="sm" variant="outline">
+                      View Profile
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b">
+                    <div>
+                      <p className="font-medium">Samantha Lee</p>
+                      <p className="text-sm text-gray-500">Grade 8 • Robotics Focus</p>
+                    </div>
+                    <Button size="sm" variant="outline">
+                      View Profile
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b">
+                    <div>
+                      <p className="font-medium">Michael Chen</p>
+                      <p className="text-sm text-gray-500">Grade 6 • Environmental Science</p>
+                    </div>
+                    <Button size="sm" variant="outline">
+                      View Profile
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between py-2">
+                    <div>
+                      <p className="font-medium">Olivia Martinez</p>
+                      <p className="text-sm text-gray-500">Grade 7 • Engineering Focus</p>
+                    </div>
+                    <Button size="sm" variant="outline">
+                      View Profile
+                    </Button>
+                  </div>
+                </div>
+                <Button className="w-full mt-4">View All Students</Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="courses">
+            <Card>
+              <CardHeader>
+                <CardTitle>Course Management</CardTitle>
+                <CardDescription>Manage your teaching materials and courses</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div>
+                    <p className="font-medium">Introduction to Engineering</p>
+                    <p className="text-sm text-gray-500">Grades 6-7 • 24 students enrolled</p>
+                  </div>
+                  <Button size="sm">Manage</Button>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div>
+                    <p className="font-medium">Robotics Fundamentals</p>
+                    <p className="text-sm text-gray-500">Grades 7-8 • 18 students enrolled</p>
+                  </div>
+                  <Button size="sm">Manage</Button>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <p className="font-medium">Environmental Science</p>
+                    <p className="text-sm text-gray-500">Grades 6-8 • 22 students enrolled</p>
+                  </div>
+                  <Button size="sm">Manage</Button>
+                </div>
+                <div className="pt-4">
+                  <Button className="w-full" asChild>
+                    <Link href="/admin/videos">Manage All Courses</Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="analytics">
+            <Card>
+              <CardHeader>
+                <CardTitle>Student Performance</CardTitle>
+                <CardDescription>Track student progress and engagement</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Average Course Completion</span>
+                      <span className="text-sm text-gray-500">72%</span>
+                    </div>
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 rounded-full" style={{ width: "72%" }}></div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Student Engagement</span>
+                      <span className="text-sm text-gray-500">85%</span>
+                    </div>
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-green-500 rounded-full" style={{ width: "85%" }}></div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Assignment Completion</span>
+                      <span className="text-sm text-gray-500">68%</span>
+                    </div>
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-amber-500 rounded-full" style={{ width: "68%" }}></div>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <TrendingUp className="w-8 h-8 text-green-500" />
-                    <div>
-                      <h3 className="font-semibold">Most Improved</h3>
-                      <p className="text-sm text-gray-600">Jordan Lee - 45% improvement this month</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Users className="w-8 h-8 text-blue-500" />
-                    <div>
-                      <h3 className="font-semibold">Class Average</h3>
-                      <p className="text-sm text-gray-600">87% completion rate across all courses</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+                <Button className="w-full mt-6">View Detailed Analytics</Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   )
 }

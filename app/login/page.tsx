@@ -16,8 +16,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { signUp, signIn, forgotPassword } from "@/lib/fixed-auth-actions"
-import { Mail, Lock, User, GraduationCap, MapPin, School, Phone, Users, CheckCircle, Copy, Loader2 } from "lucide-react"
+import { simpleLogin, simpleSignup, simpleResetPassword } from "@/lib/simple-auth"
+import { Mail, Lock, User, CheckCircle, Copy, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
 
@@ -103,14 +103,17 @@ export default function AuthPage() {
     setMessage(null)
 
     try {
-      const result = await signIn(formData)
+      const result = await simpleLogin(formData)
       if (result?.error) {
         setMessage({ type: "error", text: result.error })
       }
       // If successful, the user will be redirected by the server action
     } catch (error) {
       console.error("Login error:", error)
-      setMessage({ type: "error", text: "Connection error. Please check your database setup and try again." })
+      setMessage({
+        type: "error",
+        text: "Connection error. Please check your database setup and try again.",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -121,7 +124,7 @@ export default function AuthPage() {
     setMessage(null)
 
     try {
-      const result = await signUp(formData)
+      const result = await simpleSignup(formData)
       if (result?.error) {
         setMessage({ type: "error", text: result.error })
       } else if (result?.success) {
@@ -131,7 +134,11 @@ export default function AuthPage() {
         })
       }
     } catch (error) {
-      setMessage({ type: "error", text: "An unexpected error occurred. Please try again." })
+      console.error("Signup error:", error)
+      setMessage({
+        type: "error",
+        text: "An unexpected error occurred. Please try again.",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -142,7 +149,7 @@ export default function AuthPage() {
     setMessage(null)
 
     try {
-      const result = await forgotPassword(formData)
+      const result = await simpleResetPassword(formData)
       if (result?.error) {
         setMessage({ type: "error", text: result.error })
       } else if (result?.success) {
@@ -153,7 +160,11 @@ export default function AuthPage() {
         setIsForgotPasswordOpen(false)
       }
     } catch (error) {
-      setMessage({ type: "error", text: "An unexpected error occurred. Please try again." })
+      console.error("Password reset error:", error)
+      setMessage({
+        type: "error",
+        text: "An unexpected error occurred. Please try again.",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -414,166 +425,20 @@ export default function AuthPage() {
                     </div>
                   </div>
 
-                  {/* Role and Grade */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="role">I am a... *</Label>
-                      <Select name="role" required onValueChange={setSelectedRole} disabled={isLoading}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select your role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="student">Student</SelectItem>
-                          <SelectItem value="teacher">Teacher</SelectItem>
-                          <SelectItem value="parent">Parent</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {selectedRole === "student" && (
-                      <div className="space-y-2">
-                        <Label htmlFor="grade">Grade *</Label>
-                        <div className="relative">
-                          <GraduationCap className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                          <Select name="grade" required disabled={isLoading}>
-                            <SelectTrigger className="pl-10">
-                              <SelectValue placeholder="Select grade" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="5">5th Grade</SelectItem>
-                              <SelectItem value="6">6th Grade</SelectItem>
-                              <SelectItem value="7">7th Grade</SelectItem>
-                              <SelectItem value="8">8th Grade</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Location */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="country">Country *</Label>
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Select name="country" required onValueChange={setSelectedCountry} disabled={isLoading}>
-                          <SelectTrigger className="pl-10">
-                            <SelectValue placeholder="Select country" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {countries.map((country) => (
-                              <SelectItem key={country} value={country}>
-                                {country}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="state">State/Province *</Label>
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Select name="state" required disabled={isLoading}>
-                          <SelectTrigger className="pl-10">
-                            <SelectValue placeholder="Select state" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {selectedCountry === "United States" ? (
-                              usStates.map((state) => (
-                                <SelectItem key={state} value={state}>
-                                  {state}
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <SelectItem value="other">Other</SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* School Name */}
+                  {/* Role Selection */}
                   <div className="space-y-2">
-                    <Label htmlFor="school-name">School Name {selectedRole === "student" ? "*" : "(Optional)"}</Label>
-                    <div className="relative">
-                      <School className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="school-name"
-                        name="schoolName"
-                        type="text"
-                        placeholder="Your school name"
-                        className="pl-10"
-                        required={selectedRole === "student"}
-                        disabled={isLoading}
-                      />
-                    </div>
+                    <Label htmlFor="role">I am a... *</Label>
+                    <Select name="role" required onValueChange={setSelectedRole} disabled={isLoading}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="student">Student</SelectItem>
+                        <SelectItem value="teacher">Teacher</SelectItem>
+                        <SelectItem value="parent">Parent</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-
-                  {/* Parent Information (for students) */}
-                  {selectedRole === "student" && (
-                    <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <h3 className="font-semibold text-blue-800 flex items-center gap-2">
-                        <Users className="w-4 h-4" />
-                        Parent/Guardian Information
-                      </h3>
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="parent-name">Parent/Guardian Name *</Label>
-                          <Input
-                            id="parent-name"
-                            name="parentName"
-                            type="text"
-                            placeholder="Parent's full name"
-                            required
-                            disabled={isLoading}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="parent-email">Parent/Guardian Email *</Label>
-                          <Input
-                            id="parent-email"
-                            name="parentEmail"
-                            type="email"
-                            placeholder="parent@email.com"
-                            required
-                            disabled={isLoading}
-                          />
-                        </div>
-                      </div>
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="parent-phone">Phone Number (Optional)</Label>
-                          <div className="relative">
-                            <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                            <Input
-                              id="parent-phone"
-                              name="parentPhone"
-                              type="tel"
-                              placeholder="(555) 123-4567"
-                              className="pl-10"
-                              disabled={isLoading}
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="relationship">Relationship *</Label>
-                          <Select name="relationship" required disabled={isLoading}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select relationship" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="mother">Mother</SelectItem>
-                              <SelectItem value="father">Father</SelectItem>
-                              <SelectItem value="guardian">Guardian</SelectItem>
-                              <SelectItem value="other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
                   <Button
                     type="submit"
@@ -591,8 +456,7 @@ export default function AuthPage() {
                   </Button>
 
                   <p className="text-xs text-gray-500 text-center">
-                    By creating an account, you agree to our Terms of Service and Privacy Policy. Students under 13
-                    require parent/guardian consent.
+                    By creating an account, you agree to our Terms of Service and Privacy Policy.
                   </p>
                 </form>
               </TabsContent>

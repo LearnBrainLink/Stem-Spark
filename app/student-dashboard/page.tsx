@@ -1,263 +1,166 @@
-import { createServerClient } from "@/lib/supabase"
-import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { signOut } from "@/lib/auth-actions"
-import { BookOpen, Trophy, LogOut, Settings, Video, Building2, GraduationCap, Bell } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { BookOpen, Calendar, GraduationCap, Clock, Award } from "lucide-react"
 import Link from "next/link"
-import { Logo } from "@/components/logo"
+import { simpleSignOut } from "@/lib/simple-auth"
 
-export default async function StudentDashboard() {
-  const supabase = createServerClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/login")
-  }
-
-  // Get user profile
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-
-  if (!profile || profile.role !== "student") {
-    redirect("/login")
-  }
-
-  // Get student's applications
-  const { data: applications } = await supabase
-    .from("internship_applications")
-    .select("*, internships(title, company)")
-    .eq("student_id", user.id)
-    .order("applied_at", { ascending: false })
-
-  // Get recent activities
-  const { data: activities } = await supabase
-    .from("user_activities")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(5)
-
+export default function StudentDashboard() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <Logo width={40} height={40} />
-            <span className="text-2xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
-              STEM Spark Academy
-            </span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-600">Welcome, {profile?.full_name || user.email}!</span>
-            <div className="flex items-center gap-2">
-              <Link href="/videos">
-                <Button variant="outline" size="sm">
-                  <Video className="w-4 h-4 mr-2" />
-                  Videos
-                </Button>
-              </Link>
-              <Link href="/internships">
-                <Button variant="outline" size="sm">
-                  <Building2 className="w-4 h-4 mr-2" />
-                  Internships
-                </Button>
-              </Link>
-              <Link href="/profile">
-                <Button variant="outline" size="sm">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Profile
-                </Button>
-              </Link>
-              <form action={signOut}>
-                <Button variant="outline" size="sm">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
-                </Button>
-              </form>
-            </div>
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center">
+            <GraduationCap className="h-8 w-8 text-red-500 mr-3" />
+            <h1 className="text-2xl font-bold text-gray-900">Student Dashboard</h1>
           </div>
+          <form action={simpleSignOut}>
+            <Button variant="outline" type="submit">
+              Sign Out
+            </Button>
+          </form>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">
-            Welcome back, {profile?.full_name?.split(" ")[0] || "there"}! 👋
-          </h1>
-          <p className="text-gray-600">Continue your STEM learning journey</p>
-          {profile?.grade && (
-            <div className="flex items-center gap-2 mt-2">
-              <GraduationCap className="w-4 h-4 text-blue-600" />
-              <span className="text-sm text-blue-600">Grade {profile.grade}</span>
-              {profile.school_name && <span className="text-sm text-gray-500">• {profile.school_name}</span>}
+          <h2 className="text-xl font-semibold mb-4">Welcome back, Student!</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <Calendar className="h-5 w-5 mr-2 text-blue-500" />
+                  Upcoming Events
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-500">You have 2 upcoming events this week</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <BookOpen className="h-5 w-5 mr-2 text-green-500" />
+                  Learning Progress
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-500">75% complete in current courses</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <Award className="h-5 w-5 mr-2 text-amber-500" />
+                  Achievements
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-500">3 new badges earned this month</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <Tabs defaultValue="internships" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="internships">Internships</TabsTrigger>
+            <TabsTrigger value="courses">Courses</TabsTrigger>
+            <TabsTrigger value="progress">My Progress</TabsTrigger>
+          </TabsList>
+          <TabsContent value="internships" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Summer Engineering Program</CardTitle>
+                  <CardDescription>TechCorp Industries</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex items-center text-sm">
+                    <Clock className="h-4 w-4 mr-2 text-gray-500" />
+                    <span>8 weeks (Jun 15 - Aug 10)</span>
+                  </div>
+                  <p className="text-sm text-gray-600">Work on real-world projects with experienced engineers.</p>
+                  <div className="pt-2">
+                    <Button size="sm" asChild>
+                      <Link href="/internships">View Details</Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Robotics Workshop</CardTitle>
+                  <CardDescription>Innovation Labs</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex items-center text-sm">
+                    <Clock className="h-4 w-4 mr-2 text-gray-500" />
+                    <span>6 weeks (Jun 20 - Aug 1)</span>
+                  </div>
+                  <p className="text-sm text-gray-600">Build and program robots with cutting-edge technology.</p>
+                  <div className="pt-2">
+                    <Button size="sm" asChild>
+                      <Link href="/internships">View Details</Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          )}
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Applications</CardTitle>
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{applications?.length || 0}</div>
-              <p className="text-xs text-muted-foreground">Internship applications</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Videos Watched</CardTitle>
-              <Video className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">12</div>
-              <p className="text-xs text-muted-foreground">+3 this week</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Projects Built</CardTitle>
-              <BookOpen className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">8</div>
-              <p className="text-xs text-muted-foreground">+2 this month</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Achievements</CardTitle>
-              <Trophy className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">5</div>
-              <p className="text-xs text-muted-foreground">Badges earned</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Continue your learning journey</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Link href="/videos">
-                <Button className="w-full">
-                  <Video className="w-4 h-4 mr-2" />
-                  Watch Videos
+          </TabsContent>
+          <TabsContent value="courses">
+            <Card>
+              <CardHeader>
+                <CardTitle>My Courses</CardTitle>
+                <CardDescription>Track your enrolled courses and progress</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p>You are currently enrolled in 3 courses.</p>
+                <Button className="mt-4" asChild>
+                  <Link href="/videos">Browse All Courses</Link>
                 </Button>
-              </Link>
-              <Link href="/internships">
-                <Button className="w-full" variant="outline">
-                  <Building2 className="w-4 h-4 mr-2" />
-                  Find Internships
-                </Button>
-              </Link>
-              <Link href="/profile">
-                <Button className="w-full" variant="outline">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Update Profile
-                </Button>
-              </Link>
-              <Button className="w-full" variant="outline">
-                <BookOpen className="w-4 h-4 mr-2" />
-                Start Project
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* My Applications */}
-          <Card>
-            <CardHeader>
-              <CardTitle>My Internship Applications</CardTitle>
-              <CardDescription>Track your application status</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {applications && applications.length > 0 ? (
-                <div className="space-y-4">
-                  {applications.map((application: any) => (
-                    <div key={application.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <h3 className="font-semibold">{application.internships?.title}</h3>
-                        <p className="text-sm text-gray-600">{application.internships?.company}</p>
-                        <p className="text-xs text-gray-500">
-                          Applied: {new Date(application.applied_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-medium ${
-                            application.status === "pending"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : application.status === "approved"
-                                ? "bg-green-100 text-green-800"
-                                : application.status === "rejected"
-                                  ? "bg-red-100 text-red-800"
-                                  : "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="progress">
+            <Card>
+              <CardHeader>
+                <CardTitle>Learning Progress</CardTitle>
+                <CardDescription>Track your achievements and growth</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Introduction to Engineering</span>
+                    <span className="text-sm text-gray-500">75%</span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full" style={{ width: "75%" }}></div>
+                  </div>
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-600 mb-2">No Applications Yet</h3>
-                  <p className="text-gray-500 mb-4">Start exploring internship opportunities!</p>
-                  <Link href="/internships">
-                    <Button>Browse Internships</Button>
-                  </Link>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Robotics Fundamentals</span>
+                    <span className="text-sm text-gray-500">40%</span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full" style={{ width: "40%" }}></div>
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recent Activity */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Your latest actions and achievements</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {activities && activities.length > 0 ? (
-                <div className="space-y-4">
-                  {activities.map((activity: any) => (
-                    <div key={activity.id} className="flex items-start gap-3 p-3 border rounded-lg">
-                      <Bell className="w-4 h-4 text-blue-500 mt-1" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{activity.activity_description}</p>
-                        <p className="text-xs text-gray-500">{new Date(activity.created_at).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                  ))}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Environmental Science</span>
+                    <span className="text-sm text-gray-500">90%</span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full" style={{ width: "90%" }}></div>
+                  </div>
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Bell className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No recent activity</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   )
 }
