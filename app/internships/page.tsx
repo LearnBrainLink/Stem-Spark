@@ -12,6 +12,7 @@ import { Building2, Calendar, MapPin, Users, Clock, Search, CheckCircle, AlertCi
 import { supabase } from "@/lib/supabase"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
+import { BrandedImage } from "@/components/branded-image"
 
 interface Internship {
   id: string
@@ -198,10 +199,7 @@ export default function InternshipsPage() {
       <header className="bg-white/80 backdrop-blur-sm border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-3">
-            <Logo width={40} height={40} />
-            <span className="text-xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
-              STEM Spark Academy
-            </span>
+            <Logo width={40} height={40} variant="with-text" showText />
           </Link>
           <div className="flex items-center gap-4">
             <Link href="/dashboard">
@@ -222,12 +220,23 @@ export default function InternshipsPage() {
       <div className="container mx-auto px-4 py-8">
         {/* Hero Section */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            STEM Internships
-          </h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 brand-text-gradient">STEM Internships</h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Discover amazing internship opportunities to gain real-world experience in STEM fields
+            Discover amazing internship opportunities to gain real-world experience in STEM fields through STEM Spark
+            Academy
           </p>
+        </div>
+
+        <div className="max-w-4xl mx-auto mt-8">
+          <BrandedImage
+            src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1200&auto=format&fit=crop"
+            alt="Students participating in STEM internships at STEM Spark Academy"
+            width={800}
+            height={300}
+            className="rounded-2xl shadow-xl"
+            showBranding={true}
+            brandingPosition="bottom-left"
+          />
         </div>
 
         {/* Login Required Message */}
@@ -439,7 +448,9 @@ export default function InternshipsPage() {
 
         {filteredInternships.length === 0 && (
           <div className="text-center py-12">
+            <Logo width={80} height={80} className="mx-auto mb-4 opacity-50" />
             <p className="text-gray-500 text-lg">No internships found.</p>
+            <p className="text-sm text-gray-400 mt-2">STEM Spark Academy</p>
           </div>
         )}
       </div>

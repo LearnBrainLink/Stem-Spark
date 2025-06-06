@@ -2,9 +2,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Rocket, Users, BookOpen, Lightbulb, Wrench, Target, Heart, Play, CheckCircle, ArrowRight } from "lucide-react"
-import Image from "next/image"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
+import { BrandedImage } from "@/components/branded-image"
 
 export default function HomePage() {
   return (
@@ -13,7 +13,7 @@ export default function HomePage() {
       <header className="bg-white/80 backdrop-blur-sm border-b sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
-            <Logo width={40} height={40} />
+            <Logo width={40} height={40} variant="with-text" showText />
           </Link>
           <nav className="hidden md:flex items-center gap-6">
             <Link href="#about" className="text-gray-600 hover:text-brand-navy transition-colors">
@@ -67,12 +67,15 @@ export default function HomePage() {
           {/* Hero Image */}
           <div className="relative max-w-4xl mx-auto">
             <div className="bg-gradient-to-r from-brand-navy to-brand-dark rounded-2xl p-8 shadow-2xl">
-              <Image
+              <BrandedImage
                 src="https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=2070&auto=format&fit=crop"
-                alt="Students engaged in hands-on STEM activities"
+                alt="Students engaged in hands-on STEM activities at STEM Spark Academy"
                 width={800}
                 height={400}
                 className="rounded-xl w-full"
+                showBranding={true}
+                brandingPosition="bottom-right"
+                priority={true}
               />
             </div>
             {/* Floating elements */}
@@ -106,7 +109,7 @@ export default function HomePage() {
                 <h3 className="text-2xl font-bold mb-4 text-brand-navy">Accessible to All</h3>
                 <p className="text-gray-600">
                   Free resources ensure every student, regardless of background, can explore engineering and STEM
-                  concepts.
+                  concepts through STEM Spark Academy.
                 </p>
               </CardContent>
             </Card>
@@ -119,7 +122,7 @@ export default function HomePage() {
                 <h3 className="text-2xl font-bold mb-4 text-brand-navy">Hands-On Learning</h3>
                 <p className="text-gray-600">
                   Engaging, interactive activities that make complex engineering concepts accessible and fun for young
-                  minds.
+                  minds at STEM Spark Academy.
                 </p>
               </CardContent>
             </Card>
@@ -147,7 +150,7 @@ export default function HomePage() {
             <h2 className="text-4xl md:text-5xl font-bold mb-6 brand-text-gradient">What Makes Us Different</h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               Our platform combines proven educational methods with cutting-edge technology to create an unparalleled
-              learning experience.
+              learning experience at STEM Spark Academy.
             </p>
           </div>
 
@@ -161,7 +164,8 @@ export default function HomePage() {
                   <div>
                     <h3 className="text-xl font-bold mb-2 text-brand-navy">100% Free Resources</h3>
                     <p className="text-gray-600">
-                      No hidden costs, no premium tiers. Quality STEM education should be accessible to everyone.
+                      No hidden costs, no premium tiers. Quality STEM education should be accessible to everyone through
+                      STEM Spark Academy.
                     </p>
                   </div>
                 </div>
@@ -205,12 +209,14 @@ export default function HomePage() {
             </div>
 
             <div className="relative">
-              <Image
+              <BrandedImage
                 src="https://images.unsplash.com/photo-1581092335397-9fa341108e1e?q=80&w=1974&auto=format&fit=crop"
-                alt="Students working on engineering projects"
+                alt="Students working on engineering projects at STEM Spark Academy"
                 width={600}
                 height={500}
                 className="rounded-2xl shadow-2xl"
+                showBranding={true}
+                brandingPosition="top-right"
               />
             </div>
           </div>
@@ -223,7 +229,7 @@ export default function HomePage() {
           <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">Creating Tomorrow's Innovators</h2>
           <p className="text-xl mb-12 max-w-3xl mx-auto opacity-90">
             Join thousands of students already exploring the exciting world of engineering and building the skills they
-            need for the future.
+            need for the future through STEM Spark Academy.
           </p>
 
           <div className="grid md:grid-cols-4 gap-8 max-w-4xl mx-auto mb-12">
@@ -259,7 +265,7 @@ export default function HomePage() {
             <h2 className="text-4xl md:text-5xl font-bold mb-6 brand-text-gradient">Ready to Spark Curiosity?</h2>
             <p className="text-xl text-gray-600 mb-8">
               Join our community of young engineers and start building the future today. It's completely free and always
-              will be.
+              will be at STEM Spark Academy.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/login">
@@ -285,7 +291,7 @@ export default function HomePage() {
           <div className="grid md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <Logo width={32} height={32} />
+                <Logo width={32} height={32} variant="with-text" showText />
               </div>
               <p className="text-gray-400">
                 Empowering the next generation of engineers through free, accessible STEM education.
