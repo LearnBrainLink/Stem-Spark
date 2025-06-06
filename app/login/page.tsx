@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -29,7 +28,6 @@ export default function AuthPage() {
   const [selectedRole, setSelectedRole] = useState("")
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null)
-  const router = useRouter()
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -51,10 +49,6 @@ export default function AuthPage() {
         // Handle redirect
         if (result.redirectUrl) {
           setRedirectUrl(result.redirectUrl)
-          // Also try immediate redirect as fallback
-          setTimeout(() => {
-            router.push(result.redirectUrl!)
-          }, 1500)
         }
       }
     } catch (error) {
@@ -122,24 +116,21 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+    <div className="min-h-screen hero-gradient flex items-center justify-center p-4">
       <RedirectHandler redirectUrl={redirectUrl || undefined} />
 
       <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-3 mb-4">
-            <Logo width={60} height={60} />
-            <span className="text-2xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
-              STEM Spark Academy
-            </span>
+            <Logo width={120} height={60} />
           </Link>
           <p className="text-gray-600">Join our community of young engineers!</p>
         </div>
 
         <Card className="shadow-xl border-0">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">Welcome</CardTitle>
+            <CardTitle className="text-2xl text-center text-brand-navy">Welcome</CardTitle>
             <CardDescription className="text-center">Sign in to your account or create a new one</CardDescription>
           </CardHeader>
           <CardContent>
@@ -202,7 +193,7 @@ export default function AuthPage() {
                   <div className="flex items-center justify-between">
                     <Dialog open={isForgotPasswordOpen} onOpenChange={setIsForgotPasswordOpen}>
                       <DialogTrigger asChild>
-                        <Button variant="link" className="px-0 text-sm" disabled={isLoading}>
+                        <Button variant="link" className="px-0 text-sm text-brand-navy" disabled={isLoading}>
                           Forgot password?
                         </Button>
                       </DialogTrigger>
@@ -230,7 +221,7 @@ export default function AuthPage() {
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <Button type="submit" disabled={isLoading} className="flex-1">
+                            <Button type="submit" disabled={isLoading} className="flex-1 bg-brand-navy text-white">
                               {isLoading ? (
                                 <>
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -256,7 +247,7 @@ export default function AuthPage() {
 
                   <Button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600"
+                    className="w-full bg-brand-navy hover:bg-brand-dark text-white"
                     disabled={isLoading}
                   >
                     {isLoading ? (
@@ -396,7 +387,7 @@ export default function AuthPage() {
 
                   <Button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600"
+                    className="w-full bg-brand-navy hover:bg-brand-dark text-white"
                     disabled={isLoading}
                   >
                     {isLoading ? (
@@ -419,7 +410,7 @@ export default function AuthPage() {
         </Card>
 
         <div className="text-center mt-6">
-          <Link href="/" className="text-sm text-gray-600 hover:text-red-600 transition-colors">
+          <Link href="/" className="text-sm text-gray-600 hover:text-brand-navy transition-colors">
             ← Back to Home
           </Link>
         </div>
