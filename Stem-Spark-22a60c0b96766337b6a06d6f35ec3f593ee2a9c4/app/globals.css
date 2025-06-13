@@ -1,0 +1,242 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 50% 98%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 217 91% 60%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 221 39% 96%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221 83% 53%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading font-bold text-brand-primary;
+  }
+}
+
+/* NOVAKINETIX brand-specific styles */
+.brand-gradient {
+  @apply bg-gradient-to-r from-brand-primary via-brand-secondary to-brand-light;
+}
+
+.brand-gradient-subtle {
+  @apply bg-gradient-to-br from-brand-accent via-white to-brand-surface;
+}
+
+.brand-text-gradient {
+  @apply bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent;
+}
+
+.brand-shadow {
+  @apply shadow-brand;
+}
+
+.brand-shadow-lg {
+  @apply shadow-brand-lg;
+}
+
+.hero-gradient {
+  @apply bg-gradient-to-br from-brand-accent/30 via-white to-brand-surface;
+}
+
+.card-hover {
+  @apply transition-all duration-300 hover:shadow-brand-lg hover:-translate-y-1;
+}
+
+.button-primary {
+  @apply bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-dark hover:to-brand-primary text-white font-semibold px-8 py-4 rounded-xl transition-all duration-300 shadow-brand hover:shadow-brand-lg transform hover:scale-105;
+}
+
+.button-secondary {
+  @apply bg-white border-2 border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white font-semibold px-8 py-4 rounded-xl transition-all duration-300 transform hover:scale-105;
+}
+
+.input-brand {
+  @apply border-brand-light focus:border-brand-primary focus:ring-brand-primary/20 rounded-xl;
+}
+
+.nav-link {
+  @apply text-gray-700 hover:text-brand-primary transition-colors duration-200 font-medium text-lg;
+}
+
+.nav-link-active {
+  @apply text-brand-primary font-semibold;
+}
+
+/* Admin dashboard specific styles */
+.admin-sidebar {
+  @apply bg-gradient-to-b from-white to-brand-surface border-r border-brand-light/30;
+}
+
+.admin-nav-item {
+  @apply flex items-center gap-4 px-6 py-4 rounded-xl transition-all duration-200 hover:bg-brand-accent/50 mx-2;
+}
+
+.admin-nav-item-active {
+  @apply bg-gradient-to-r from-brand-primary to-brand-secondary text-white shadow-brand-lg;
+}
+
+.admin-card {
+  @apply bg-white rounded-2xl shadow-brand border border-brand-light/20 hover:shadow-brand-lg transition-all duration-300;
+}
+
+.stat-card {
+  @apply bg-gradient-to-br from-white to-brand-surface border border-brand-light/30 rounded-2xl p-8 hover:shadow-brand transition-all duration-300 transform hover:scale-105;
+}
+
+/* Logo specific styles */
+.logo-container {
+  @apply transition-all duration-300 hover:scale-110 drop-shadow-xl;
+}
+
+.logo-hero {
+  @apply drop-shadow-2xl filter brightness-110;
+}
+
+.logo-nav {
+  @apply drop-shadow-lg hover:drop-shadow-xl transition-all duration-300;
+}
+
+/* Enhanced responsive design utilities */
+@media (max-width: 768px) {
+  .mobile-nav {
+    @apply fixed inset-x-0 top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-brand-light/30;
+  }
+
+  .mobile-menu {
+    @apply absolute top-full left-0 right-0 bg-white border-b border-brand-light/30 shadow-brand-lg;
+  }
+
+  .button-primary {
+    @apply px-6 py-3 text-base;
+  }
+
+  .button-secondary {
+    @apply px-6 py-3 text-base;
+  }
+}
+
+/* Animation utilities */
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+.animate-slide-in {
+  animation: slide-in 0.4s ease-out;
+}
+
+/* Loading states */
+.loading-spinner {
+  @apply w-8 h-8 border-2 border-brand-light border-t-brand-primary rounded-full animate-spin;
+}
+
+.loading-skeleton {
+  @apply bg-gradient-to-r from-brand-accent to-brand-surface animate-pulse rounded-xl;
+}
+
+/* Enhanced shadows and effects */
+.shadow-brand-xl {
+  box-shadow: 0 20px 40px -12px rgba(37, 99, 235, 0.25);
+}
+
+.glow-effect {
+  @apply shadow-brand-lg;
+  filter: drop-shadow(0 0 20px rgba(37, 99, 235, 0.3));
+}
+
+/* Typography enhancements */
+.text-hero {
+  @apply text-5xl md:text-7xl lg:text-8xl font-bold leading-tight;
+}
+
+.text-display {
+  @apply text-3xl md:text-5xl lg:text-6xl font-bold;
+}
+
+.text-heading {
+  @apply text-2xl md:text-3xl lg:text-4xl font-bold;
+}
+
+/* Interactive elements */
+.interactive-card {
+  @apply transform transition-all duration-300 hover:scale-105 hover:shadow-brand-lg cursor-pointer;
+}
+
+.interactive-button {
+  @apply transform transition-all duration-200 hover:scale-105 active:scale-95;
+}
+
+/* Focus states for accessibility */
+.focus-brand {
+  @apply focus:outline-none focus:ring-4 focus:ring-brand-primary/20 focus:border-brand-primary;
+}
