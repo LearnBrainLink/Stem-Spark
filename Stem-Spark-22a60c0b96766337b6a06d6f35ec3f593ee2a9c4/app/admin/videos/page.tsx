@@ -99,9 +99,9 @@ export default function AdminVideosPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b shadow-sm sticky top-0 z-30 shrink-0">
+      <header className="bg-white/80 backdrop-blur-sm border-b shadow-sm sticky top-0 z-30">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/admin" className="flex items-center gap-3">
             <Logo width={48} height={48} />
@@ -117,8 +117,8 @@ export default function AdminVideosPage() {
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4 px-4 pt-4 shrink-0">
+      <main className="container mx-auto px-4 py-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">Manage Videos</h1>
             <p className="text-gray-600 text-base md:text-lg">Upload and manage learning video content</p>
@@ -215,7 +215,7 @@ export default function AdminVideosPage() {
         </div>
 
         {message && (
-          <Alert className={`mb-2 ${message.type === "error" ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"} shrink-0`}>
+          <Alert className={`mb-8 ${message.type === "error" ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"}`}>
             <AlertDescription className={message.type === "error" ? "text-red-700" : "text-green-700"}>
               {message.text}
             </AlertDescription>
@@ -223,60 +223,58 @@ export default function AdminVideosPage() {
         )}
 
         {/* Videos Grid */}
-        <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {videos.map((video) => (
-              <Card key={video.id} className="border-0 shadow-xl rounded-xl overflow-hidden bg-white">
-                <CardHeader className="p-4">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg font-semibold text-gray-800">{video.title}</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedVideo(video)
-                          setIsEditDialogOpen(true)
-                        }}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteVideo(video.id)}>
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </Button>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {videos.map((video) => (
+            <Card key={video.id} className="border-0 shadow-xl rounded-xl overflow-hidden bg-white">
+              <CardHeader className="p-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-semibold text-gray-800">{video.title}</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedVideo(video)
+                        setIsEditDialogOpen(true)
+                      }}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteVideo(video.id)}>
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden mb-4">
+                  {video.thumbnail_url ? (
+                    <img
+                      src={video.thumbnail_url}
+                      alt={video.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                      <Play className="w-12 h-12 text-gray-400" />
                     </div>
+                  )}
+                </div>
+                <p className="text-sm text-gray-600 mb-4 line-clamp-2">{video.description}</p>
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline" className="text-sm">
+                    {video.category}
+                  </Badge>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Clock className="w-4 h-4 mr-1" />
+                    {formatDuration(video.duration)}
                   </div>
-                </CardHeader>
-                <CardContent className="p-4 pt-0">
-                  <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden mb-4">
-                    {video.thumbnail_url ? (
-                      <img
-                        src={video.thumbnail_url}
-                        alt={video.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                        <Play className="w-12 h-12 text-gray-400" />
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">{video.description}</p>
-                  <div className="flex items-center justify-between">
-                    <Badge variant="outline" className="text-sm">
-                      {video.category}
-                    </Badge>
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Clock className="w-4 h-4 mr-1" />
-                      {formatDuration(video.duration)}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-      </div>
+      </main>
 
       {/* Edit Video Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
