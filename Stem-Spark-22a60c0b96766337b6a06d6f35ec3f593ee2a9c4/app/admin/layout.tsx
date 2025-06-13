@@ -195,17 +195,8 @@ export default function AdminLayout({
       </header>
 
       {/* Main Content */}
-      <div className="pt-[120px]">
-        {/* Page Header */}
-        <div className="bg-white/90 backdrop-blur-sm border-b border-brand-light/30 sticky top-[120px] z-20 shadow-sm">
-          <div className="px-6 py-4">
-            <h1 className="text-2xl font-bold text-brand-primary">{currentPage?.title || "Admin Dashboard"}</h1>
-            <p className="text-sm text-brand-secondary font-medium mt-1">
-              {currentPage?.description || "Manage your NOVAKINETIX ACADEMY platform"}
-            </p>
-          </div>
-        </div>
-
+      <div className="pt-[76px]">
+        
         {/* Page Content */}
         <main className="p-6 animate-fade-in">{children}</main>
       </div>
