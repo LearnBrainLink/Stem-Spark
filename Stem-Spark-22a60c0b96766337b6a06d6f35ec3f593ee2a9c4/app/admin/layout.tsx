@@ -109,7 +109,15 @@ export default function AdminLayout({
   }, [])
 
   const handleSignOut = async () => {
-    await signOut()
+    try {
+      const result = await signOut()
+      if (result.error) {
+        console.error("Sign out error:", result.error)
+      }
+      // The signOut function will handle the redirect
+    } catch (error) {
+      console.error("Sign out error:", error)
+    }
   }
 
   const currentPage = navigationItems.find((item) => item.href === pathname)

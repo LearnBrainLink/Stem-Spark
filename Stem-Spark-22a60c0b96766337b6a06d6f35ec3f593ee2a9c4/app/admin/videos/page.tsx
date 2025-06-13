@@ -17,27 +17,16 @@ import {
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { supabase } from "@/lib/supabase"
 import { Plus, Edit, Trash2, Play, Clock } from "lucide-react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
-
-interface Video {
-  id: string
-  title: string
-  description: string
-  video_url: string
-  thumbnail_url: string
-  duration: number
-  category: string
-  grade_level: number
-  status: string
-  created_at: string
-}
+import { Video, createVideo, updateVideo, deleteVideo, getVideos } from "@/lib/video-actions"
 
 export default function AdminVideosPage() {
   const [videos, setVideos] = useState<Video[]>([])
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
@@ -46,10 +35,11 @@ export default function AdminVideosPage() {
   }, [])
 
   const fetchVideos = async () => {
-    const { data, error } = await supabase.from("videos").select("*").order("created_at", { ascending: false })
-
-    if (data) {
-      setVideos(data)
+    const result = await getVideos()
+    if (result.error) {
+      setMessage({ type: "error", text: result.error })
+    } else if (result.videos) {
+      setVideos(result.videos)
     }
   }
 
@@ -57,44 +47,33 @@ export default function AdminVideosPage() {
     setIsLoading(true)
     setMessage(null)
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const result = await createVideo(formData)
 
-    if (!user) {
-      setMessage({ type: "error", text: "You must be logged in" })
-      setIsLoading(false)
-      return
-    }
-
-    const videoData = {
-      title: formData.get("title") as string,
-      description: formData.get("description") as string,
-      video_url: formData.get("videoUrl") as string,
-      thumbnail_url: formData.get("thumbnailUrl") as string,
-      duration: Number.parseInt(formData.get("duration") as string),
-      category: formData.get("category") as string,
-      grade_level: Number.parseInt(formData.get("gradeLevel") as string),
-      created_by: user.id,
-      status: "active",
-    }
-
-    const { error } = await supabase.from("videos").insert(videoData)
-
-    if (error) {
-      setMessage({ type: "error", text: "Failed to create video" })
+    if (result.error) {
+      setMessage({ type: "error", text: result.error })
     } else {
       setMessage({ type: "success", text: "Video created successfully!" })
       setIsCreateDialogOpen(false)
       fetchVideos()
+    }
 
-      // Log activity
-      await supabase.from("user_activities").insert({
-        user_id: user.id,
-        activity_type: "video_created",
-        activity_description: `Created video: ${videoData.title}`,
-        metadata: { title: videoData.title, category: videoData.category },
-      })
+    setIsLoading(false)
+  }
+
+  const handleUpdateVideo = async (formData: FormData) => {
+    if (!selectedVideo) return
+
+    setIsLoading(true)
+    setMessage(null)
+
+    const result = await updateVideo(selectedVideo.id, formData)
+
+    if (result.error) {
+      setMessage({ type: "error", text: result.error })
+    } else {
+      setMessage({ type: "success", text: "Video updated successfully!" })
+      setIsEditDialogOpen(false)
+      fetchVideos()
     }
 
     setIsLoading(false)
@@ -103,10 +82,10 @@ export default function AdminVideosPage() {
   const handleDeleteVideo = async (videoId: string) => {
     if (!confirm("Are you sure you want to delete this video?")) return
 
-    const { error } = await supabase.from("videos").delete().eq("id", videoId)
+    const result = await deleteVideo(videoId)
 
-    if (error) {
-      setMessage({ type: "error", text: "Failed to delete video" })
+    if (result.error) {
+      setMessage({ type: "error", text: result.error })
     } else {
       setMessage({ type: "success", text: "Video deleted successfully!" })
       fetchVideos()
@@ -243,72 +222,185 @@ export default function AdminVideosPage() {
           </Alert>
         )}
 
-        {/* Videos Grid - scrollable, compact */}
+        {/* Videos Grid */}
         <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {videos.map((video) => (
               <Card key={video.id} className="border-0 shadow-xl rounded-xl overflow-hidden bg-white">
-                <div className="relative">
-                  <div className="aspect-video bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-                    {video.thumbnail_url ? (
-                      <img
-                        src={video.thumbnail_url || "/placeholder.svg"}
-                        alt={video.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <Play className="w-16 h-16 text-white" />
-                    )}
-                  </div>
-                  <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {formatDuration(video.duration)}
-                  </div>
-                </div>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg mb-2 line-clamp-2">{video.title}</CardTitle>
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {video.category}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          Grade {video.grade_level}
-                        </Badge>
-                        <Badge variant={video.status === "active" ? "default" : "secondary"} className="text-xs">
-                          {video.status}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button variant="outline" size="sm">
+                <CardHeader className="p-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg font-semibold text-gray-800">{video.title}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedVideo(video)
+                          setIsEditDialogOpen(true)
+                        }}
+                      >
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleDeleteVideo(video.id)}>
-                        <Trash2 className="w-4 h-4" />
+                      <Button variant="ghost" size="sm" onClick={() => handleDeleteVideo(video.id)}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 text-sm line-clamp-3 min-h-[3.5em]">{video.description}</p>
+                <CardContent className="p-4 pt-0">
+                  <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden mb-4">
+                    {video.thumbnail_url ? (
+                      <img
+                        src={video.thumbnail_url}
+                        alt={video.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                        <Play className="w-12 h-12 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">{video.description}</p>
+                  <div className="flex items-center justify-between">
+                    <Badge variant="outline" className="text-sm">
+                      {video.category}
+                    </Badge>
+                    <div className="flex items-center text-sm text-gray-500">
+                      <Clock className="w-4 h-4 mr-1" />
+                      {formatDuration(video.duration)}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             ))}
           </div>
-
-          {videos.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-base mb-3">No videos uploaded yet</p>
-              <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 shadow-md text-sm px-4 py-2">
-                <Plus className="w-5 h-5 mr-2" />
-                Add Your First Video
-              </Button>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Edit Video Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Video</DialogTitle>
+            <DialogDescription>Update video information</DialogDescription>
+          </DialogHeader>
+
+          {selectedVideo && (
+            <form action={handleUpdateVideo} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-title">Title *</Label>
+                <Input
+                  id="edit-title"
+                  name="title"
+                  defaultValue={selectedVideo.title}
+                  placeholder="Introduction to Robotics"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  name="description"
+                  defaultValue={selectedVideo.description}
+                  placeholder="Describe what students will learn..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-videoUrl">Video URL *</Label>
+                  <Input
+                    id="edit-videoUrl"
+                    name="videoUrl"
+                    defaultValue={selectedVideo.video_url}
+                    placeholder="https://youtube.com/watch?v=..."
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-thumbnailUrl">Thumbnail URL</Label>
+                  <Input
+                    id="edit-thumbnailUrl"
+                    name="thumbnailUrl"
+                    defaultValue={selectedVideo.thumbnail_url}
+                    placeholder="https://example.com/thumbnail.jpg"
+                  />
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-duration">Duration (seconds) *</Label>
+                  <Input
+                    id="edit-duration"
+                    name="duration"
+                    type="number"
+                    defaultValue={selectedVideo.duration}
+                    placeholder="300"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-category">Category *</Label>
+                  <Select name="category" defaultValue={selectedVideo.category} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Engineering">Engineering</SelectItem>
+                      <SelectItem value="Programming">Programming</SelectItem>
+                      <SelectItem value="Mathematics">Mathematics</SelectItem>
+                      <SelectItem value="Science">Science</SelectItem>
+                      <SelectItem value="Robotics">Robotics</SelectItem>
+                      <SelectItem value="Design">Design</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-gradeLevel">Grade Level *</Label>
+                  <Select name="gradeLevel" defaultValue={selectedVideo.grade_level.toString()} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select grade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5th Grade</SelectItem>
+                      <SelectItem value="6">6th Grade</SelectItem>
+                      <SelectItem value="7">7th Grade</SelectItem>
+                      <SelectItem value="8">8th Grade</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-status">Status</Label>
+                <Select name="status" defaultValue={selectedVideo.status}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button type="submit" disabled={isLoading} className="flex-1">
+                  {isLoading ? "Saving..." : "Save Changes"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
