@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import {
   GraduationCap,
@@ -16,6 +16,9 @@ import {
   Menu,
   X,
   PlayCircle,
+  ChevronRight,
+  Star,
+  CheckCircle2,
 } from "lucide-react"
 import { Logo } from "../components/logo"
 
@@ -39,8 +42,8 @@ const Button = ({
     "inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50"
 
   const variantClasses = {
-    default: "bg-purple-600 text-white hover:bg-purple-700 focus:ring-purple-500",
-    outline: "border border-purple-600 text-purple-600 hover:bg-purple-50 focus:ring-purple-500",
+    default: "bg-[#FF6B6B] text-white hover:bg-[#FF5252] focus:ring-[#FF6B6B]",
+    outline: "border border-[#FF6B6B] text-[#FF6B6B] hover:bg-[#FFF5F5] focus:ring-[#FF6B6B]",
     ghost: "text-gray-600 hover:bg-gray-100 focus:ring-gray-500",
   }
 
@@ -90,6 +93,11 @@ const Badge = ({ children, className = "" }: { children: React.ReactNode; classN
 export default function HomePage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    setIsVisible(true)
+  }, [])
 
   // Modal component for video demo
   const VideoModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
@@ -107,12 +115,12 @@ export default function HomePage() {
             <X className="w-5 h-5" />
           </Button>
           <div className="text-center">
-            <PlayCircle className="w-16 h-16 text-purple-600 mx-auto mb-4" />
+            <PlayCircle className="w-16 h-16 text-[#FF6B6B] mx-auto mb-4" />
             <h3 className="text-2xl font-bold text-gray-900 mb-3">Video Demo Coming Soon!</h3>
             <p className="text-gray-700 mb-6">
               Thank you for your interest. A demo video will be available here shortly.
             </p>
-            <Button onClick={onClose} className="bg-purple-600 text-white">
+            <Button onClick={onClose} className="bg-[#FF6B6B] text-white">
               Close
             </Button>
           </div>
@@ -161,6 +169,27 @@ export default function HomePage() {
     { number: "200+", label: "Partner Companies" },
   ]
 
+  const testimonials = [
+    {
+      name: "Sarah Johnson",
+      role: "Computer Science Student",
+      content: "The interactive learning platform has transformed my understanding of complex programming concepts.",
+      rating: 5,
+    },
+    {
+      name: "Michael Chen",
+      role: "Data Science Intern",
+      content: "The internship program provided me with real-world experience and valuable industry connections.",
+      rating: 5,
+    },
+    {
+      name: "Emily Rodriguez",
+      role: "Web Development Graduate",
+      content: "The expert-led videos and hands-on projects helped me land my dream job in tech.",
+      rating: 5,
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation */}
@@ -173,16 +202,16 @@ export default function HomePage() {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
-              <Link href="/videos" className="text-gray-700 hover:text-purple-600 transition-colors">
+              <Link href="/videos" className="text-gray-700 hover:text-[#FF6B6B] transition-colors">
                 Videos
               </Link>
-              <Link href="/internships" className="text-gray-700 hover:text-purple-600 transition-colors">
+              <Link href="/internships" className="text-gray-700 hover:text-[#FF6B6B] transition-colors">
                 Internships
               </Link>
-              <Link href="/about" className="text-gray-700 hover:text-purple-600 transition-colors">
+              <Link href="/about" className="text-gray-700 hover:text-[#FF6B6B] transition-colors">
                 About
               </Link>
-              <Link href="/contact" className="text-gray-700 hover:text-purple-600 transition-colors">
+              <Link href="/contact" className="text-gray-700 hover:text-[#FF6B6B] transition-colors">
                 Contact
               </Link>
               <Link href="/login">
@@ -197,7 +226,7 @@ export default function HomePage() {
             <Button
               variant="ghost"
               size="sm"
-              className="md:hidden text-purple-600"
+              className="md:hidden text-[#FF6B6B]"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
               {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -208,16 +237,16 @@ export default function HomePage() {
           {isMenuOpen && (
             <div className="md:hidden bg-white shadow-lg rounded-b-lg">
               <div className="px-2 pt-2 pb-3 space-y-1">
-                <Link href="/videos" className="block px-3 py-2 text-gray-700 hover:bg-purple-50 rounded-md">
+                <Link href="/videos" className="block px-3 py-2 text-gray-700 hover:bg-[#FFF5F5] rounded-md">
                   Videos
                 </Link>
-                <Link href="/internships" className="block px-3 py-2 text-gray-700 hover:bg-purple-50 rounded-md">
+                <Link href="/internships" className="block px-3 py-2 text-gray-700 hover:bg-[#FFF5F5] rounded-md">
                   Internships
                 </Link>
-                <Link href="/about" className="block px-3 py-2 text-gray-700 hover:bg-purple-50 rounded-md">
+                <Link href="/about" className="block px-3 py-2 text-gray-700 hover:bg-[#FFF5F5] rounded-md">
                   About
                 </Link>
-                <Link href="/contact" className="block px-3 py-2 text-gray-700 hover:bg-purple-50 rounded-md">
+                <Link href="/contact" className="block px-3 py-2 text-gray-700 hover:bg-[#FFF5F5] rounded-md">
                   Contact
                 </Link>
                 <div className="flex gap-2 px-3 py-2">
@@ -237,11 +266,11 @@ export default function HomePage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 bg-gradient-to-br from-purple-50 to-white">
+      <section className="pt-32 pb-20 bg-gradient-to-br from-[#FFF5F5] to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-gray-900 mb-6 leading-tight">
-              Empowering Future <span className="text-purple-600">Innovators</span>
+              Empowering Future <span className="text-[#FF6B6B]">Innovators</span>
             </h1>
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
               Join our community of learners and innovators. Access expert-led courses, real-world internships, and cutting-edge resources.
@@ -280,7 +309,7 @@ export default function HomePage() {
             {features.map((feature, index) => (
               <Card key={index} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <feature.icon className="w-12 h-12 text-purple-600 mb-4" />
+                  <feature.icon className="w-12 h-12 text-[#FF6B6B] mb-4" />
                   <CardTitle>{feature.title}</CardTitle>
                   <CardDescription>{feature.description}</CardDescription>
                 </CardHeader>
@@ -291,14 +320,46 @@ export default function HomePage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 bg-purple-50">
+      <section className="py-20 bg-[#FFF5F5]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {stats.map((stat, index) => (
               <div key={index}>
-                <div className="text-4xl font-bold text-purple-600 mb-2">{stat.number}</div>
+                <div className="text-4xl font-bold text-[#FF6B6B] mb-2">{stat.number}</div>
                 <div className="text-gray-600">{stat.label}</div>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              What Our Students Say
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Hear from our community of learners about their experiences.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {testimonials.map((testimonial, index) => (
+              <Card key={index} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex items-center mb-4">
+                    {[...Array(testimonial.rating)].map((_, i) => (
+                      <Star key={i} className="w-5 h-5 text-[#FF6B6B] fill-[#FF6B6B]" />
+                    ))}
+                  </div>
+                  <p className="text-gray-600 mb-4">{testimonial.content}</p>
+                  <div>
+                    <p className="font-semibold text-gray-900">{testimonial.name}</p>
+                    <p className="text-sm text-gray-500">{testimonial.role}</p>
+                  </div>
+                </CardHeader>
+              </Card>
             ))}
           </div>
         </div>
@@ -307,15 +368,15 @@ export default function HomePage() {
       {/* CTA Section */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-purple-600 rounded-2xl p-8 md:p-12 text-center">
+          <div className="bg-[#FF6B6B] rounded-2xl p-8 md:p-12 text-center">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
               Ready to Start Your Journey?
             </h2>
-            <p className="text-xl text-purple-100 mb-8 max-w-3xl mx-auto">
+            <p className="text-xl text-white/90 mb-8 max-w-3xl mx-auto">
               Join thousands of students who are already learning and growing with Novakinetix Spark Academy.
             </p>
             <Link href="/sign up">
-              <Button size="lg" className="bg-white text-purple-600 hover:bg-purple-50">
+              <Button size="lg" className="bg-white text-[#FF6B6B] hover:bg-[#FFF5F5]">
                 Get Started Now <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
