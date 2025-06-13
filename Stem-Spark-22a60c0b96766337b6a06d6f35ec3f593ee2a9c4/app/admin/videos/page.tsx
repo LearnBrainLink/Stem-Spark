@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge"
 import { Plus, Edit, Trash2, Play, Clock } from "lucide-react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
-import { Video, createVideo, updateVideo, deleteVideo, getVideos } from "@/lib/video-actions"
+import { Video, createVideo, updateVideo, deleteVideo, getVideos } from "@/app/actions"
 
 export default function AdminVideosPage() {
   const [videos, setVideos] = useState<Video[]>([])
