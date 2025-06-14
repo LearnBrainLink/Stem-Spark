@@ -173,17 +173,68 @@ export default function SecureLoginPage() {
     }
   }
 
+  // Animated background gradient and floating particles
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 px-2 sm:px-6">
-      <Logo variant="mega" className="mb-10 drop-shadow-2xl w-40 h-40 sm:w-56 sm:h-56" />
-      <div className="w-full max-w-xs sm:max-w-sm">
-        <Card className="shadow-xl border-0 w-full mx-auto p-4 sm:p-8 bg-white/80">
+    <div className="relative flex flex-col items-center justify-center min-h-screen overflow-hidden">
+      {/* Animated Gradient Background */}
+      <div className="absolute inset-0 z-0 animate-gradient bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 opacity-80 blur-2xl" />
+      {/* Floating Particles */}
+      <div className="absolute inset-0 z-10 pointer-events-none">
+        {[...Array(18)].map((_, i) => (
+          <span
+            key={i}
+            className={`absolute rounded-full opacity-40 animate-float${i % 3 + 1}`}
+            style={{
+              width: `${32 + (i % 4) * 12}px`,
+              height: `${32 + (i % 4) * 12}px`,
+              left: `${Math.random() * 90}%`,
+              top: `${Math.random() * 90}%`,
+              background: `linear-gradient(135deg, #fff 0%, #${(Math.floor(Math.random()*16777215)).toString(16)} 100%)`,
+              filter: 'blur(2px)',
+            }}
+          />
+        ))}
+      </div>
+      {/* Centered Logo Card with glassmorphism effect */}
+      <div className="relative z-20 w-full max-w-xs sm:max-w-sm">
+        <Card className="shadow-2xl border-0 w-full mx-auto p-8 bg-white/30 backdrop-blur-lg rounded-3xl flex items-center justify-center">
           <CardContent className="flex flex-col items-center justify-center">
-            {/* Only show the logo image, no text, no form, no buttons */}
-            <Logo variant="mega" className="drop-shadow-2xl w-32 h-32 sm:w-40 sm:h-40" />
+            <Logo variant="mega" className="drop-shadow-2xl w-40 h-40 sm:w-56 sm:h-56 animate-bounce-slow" />
           </CardContent>
         </Card>
       </div>
+      {/* Custom CSS for animation */}
+      <style jsx global>{`
+        @keyframes gradient {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .animate-gradient {
+          background-size: 200% 200%;
+          animation: gradient 8s ease-in-out infinite;
+        }
+        @keyframes float1 {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-30px) scale(1.1); }
+        }
+        @keyframes float2 {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(30px) scale(0.9); }
+        }
+        @keyframes float3 {
+          0%, 100% { transform: translateX(0) scale(1); }
+          50% { transform: translateX(30px) scale(1.05); }
+        }
+        .animate-float1 { animation: float1 7s ease-in-out infinite; }
+        .animate-float2 { animation: float2 9s ease-in-out infinite; }
+        .animate-float3 { animation: float3 11s ease-in-out infinite; }
+        .animate-bounce-slow { animation: bounce 2.5s infinite alternate; }
+        @keyframes bounce {
+          0% { transform: translateY(0); }
+          100% { transform: translateY(-18px); }
+        }
+      `}</style>
     </div>
   )
 }
