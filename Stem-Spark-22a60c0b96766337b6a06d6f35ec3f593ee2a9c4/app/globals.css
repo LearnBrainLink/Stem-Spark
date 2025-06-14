@@ -240,3 +240,19 @@
 .focus-brand {
   @apply focus:outline-none focus:ring-4 focus:ring-brand-primary/20 focus:border-brand-primary;
 }
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(40px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}

@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 text-center animate-fade-in px-4 sm:px-8">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 text-center px-4 sm:px-8 animate-fade-in">
       <Logo width={80} height={80} className="mb-6 drop-shadow-2xl sm:mb-8 sm:w-[100px] sm:h-[100px]" />
       <h1 className="text-4xl sm:text-6xl font-extrabold text-brand-primary mb-2 tracking-tight">404</h1>
       <p className="text-lg sm:text-2xl text-brand-secondary mb-6 font-semibold">Oops! The page you’re looking for doesn’t exist.</p>
@@ -22,15 +22,6 @@ export default function NotFound() {
           Go Home
         </span>
       </Link>
-      <style jsx>{`
-        .animate-fade-in {
-          animation: fadeIn 0.8s cubic-bezier(0.4,0,0.2,1);
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(40px); }
-          to { opacity: 1; transform: none; }
-        }
-      `}</style>
     </div>
   );
 }
