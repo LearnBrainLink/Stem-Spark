@@ -165,9 +165,8 @@ export default function HomePage() {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 px-2 sm:px-6 md:px-12">
       {/* Responsive header and nav */}
       <header className="flex flex-col sm:flex-row items-center justify-between py-6 gap-4 sm:gap-0">
-        <div className="flex items-center gap-3">
-          <Logo width={56} height={56} className="w-12 h-12 sm:w-14 sm:h-14" />
-          <span className="text-2xl sm:text-3xl font-bold text-brand-primary">STEM Spark Academy</span>
+        <div className="flex items-center justify-center w-full sm:w-auto">
+          <Logo variant="large" className="w-24 h-24 sm:w-32 sm:h-32 drop-shadow-2xl" />
         </div>
         <nav className="flex flex-wrap gap-2 sm:gap-4 mt-2 sm:mt-0">
           {/* Desktop Navigation */}
@@ -240,7 +239,7 @@ export default function HomePage() {
           <div className="text-center">
             {/* Large prominent logo */}
             <div className="flex justify-center mb-[-32px]">
-              <Logo variant="mega" priority />
+              <Logo variant="mega" className="w-48 h-48 sm:w-64 sm:h-64 drop-shadow-2xl" priority />
             </div>
 
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-gray-900 mb-2 leading-tight">

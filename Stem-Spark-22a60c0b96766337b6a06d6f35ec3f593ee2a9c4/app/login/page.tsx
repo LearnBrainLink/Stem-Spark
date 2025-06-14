@@ -186,7 +186,7 @@ export default function SecureLoginPage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 px-2 sm:px-6">
-      <Logo width={60} height={60} className="mb-6 sm:mb-8" />
+      <Logo variant="mega" className="mb-10 drop-shadow-2xl" />
       <h1 className="text-2xl sm:text-4xl font-bold text-brand-primary mb-2">Login</h1>
       <div className="w-full max-w-md">
         {/* Back to Home */}
@@ -203,8 +203,8 @@ export default function SecureLoginPage() {
         <Card className="shadow-xl border-0 w-full max-w-md mx-auto p-4 sm:p-8">
           <CardHeader className="text-center pb-8">
             {/* Large Logo */}
-            <div className="flex justify-center mb-8">
-              <Logo variant="large" className="drop-shadow-lg logo-hero" />
+            <div className="flex justify-center mb-10">
+              <Logo variant="mega" className="drop-shadow-2xl" />
             </div>
             <CardTitle className="text-3xl font-bold text-brand-primary">
               {showForgotPassword ? "Reset Password" : "Welcome Back"}
@@ -227,11 +227,9 @@ export default function SecureLoginPage() {
                     {message.requiresVerification && email && (
                       <div className="mt-3">
                         <Button
-                          variant="outline"
-                          size="sm"
                           onClick={handleResendVerification}
                           disabled={isLoading}
-                          className="text-sm"
+                          className="text-sm border border-gray-300 bg-white hover:bg-gray-100 px-3 py-1 rounded-md"
                         >
                           <RefreshCw className="w-3 h-3 mr-1" />
                           Resend Verification Email
@@ -277,12 +275,11 @@ export default function SecureLoginPage() {
                   </Button>
                   <Button
                     type="button"
-                    variant="outline"
-                    className="px-6 h-12"
                     onClick={() => setShowForgotPassword(false)}
                     disabled={isLoading}
+                    className="border border-gray-300 bg-white hover:bg-gray-100 px-4 py-2 rounded-md"
                   >
-                    Cancel
+                    Back to Login
                   </Button>
                 </div>
               </form>
@@ -344,24 +341,20 @@ export default function SecureLoginPage() {
                   <div className="flex items-center justify-between">
                     <Button
                       type="button"
-                      variant="link"
-                      className="px-0 text-sm text-brand-primary hover:text-brand-dark"
                       onClick={() => setShowForgotPassword(true)}
                       disabled={isLoading}
+                      className="text-blue-600 hover:underline bg-transparent px-0 py-0"
                     >
-                      Forgot your password?
+                      Forgot password?
                     </Button>
                   </div>
 
-                  <Button type="submit" className="w-full button-primary h-12 text-lg" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Signing in...
-                      </>
-                    ) : (
-                      "Sign In"
-                    )}
+                  <Button
+                    className="w-full border border-gray-300 bg-white hover:bg-gray-100 px-4 py-2 rounded-md"
+                    onClick={handleEmailLogin}
+                    disabled={isLoading}
+                  >
+                    Sign In
                   </Button>
                 </form>
 
@@ -379,8 +372,7 @@ export default function SecureLoginPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <Button
                     type="button"
-                    variant="outline"
-                    className="h-12 text-base border-2 border-brand-light hover:bg-brand-accent interactive-button"
+                    className="w-full bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-md"
                     onClick={() => handleSocialLogin("google")}
                     disabled={isLoading || socialLoading !== null}
                   >
@@ -413,8 +405,7 @@ export default function SecureLoginPage() {
 
                   <Button
                     type="button"
-                    variant="outline"
-                    className="h-12 text-base border-2 border-brand-light hover:bg-brand-accent interactive-button"
+                    className="w-full bg-gray-900 text-white hover:bg-gray-800 px-4 py-2 rounded-md"
                     onClick={() => handleSocialLogin("github")}
                     disabled={isLoading || socialLoading !== null}
                   >

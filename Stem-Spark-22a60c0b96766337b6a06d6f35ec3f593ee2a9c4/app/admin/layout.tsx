@@ -125,13 +125,13 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen hero-gradient">
       {/* Top Navigation Bar */}
-      <header className="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-sm border-b border-brand-light/30 z-30 shadow-sm">
+      <header className="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-sm border-b border-brand-light/30 z-[9999] shadow-lg">
         <div className="flex flex-col">
           {/* Top Bar */}
           <div className="flex items-center justify-between px-6 py-3">
             <div className="flex items-center gap-4">
               <Link href="/admin" className="flex items-center">
-                <Logo variant="large" className="h-8 w-auto hover:scale-105 transition-transform duration-300" />
+                <Logo variant="large" className="h-10 w-auto hover:scale-105 transition-transform duration-300" />
               </Link>
               <Badge className="bg-brand-primary text-white border-0 shadow-brand text-sm px-3 py-1">
                 <GraduationCap className="w-4 h-4 mr-2" />
@@ -199,10 +199,8 @@ export default function AdminLayout({
           </div>
         </div>
       </header>
-
       {/* Main Content */}
-      <div className="pt-[76px]">
-        
+      <div className="pt-[90px]">
         {/* Page Content */}
         <main className="p-6 animate-fade-in">{children}</main>
       </div>
