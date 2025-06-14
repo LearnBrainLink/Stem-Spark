@@ -246,6 +246,22 @@ export default function SecureLoginPage() {
             <div className="mb-8 transform hover:scale-105 transition-transform duration-500">
               <Logo variant="mega" className="w-80 h-auto drop-shadow-2xl animate-pulse" />
             </div>
+            <div className="space-y-4 text-white">
+              <p className="text-xl lg:text-2xl text-blue-100 max-w-md mx-auto leading-relaxed">
+                Unlock your potential with cutting-edge education and innovation
+              </p>
+              <div className="flex flex-wrap justify-center gap-4 pt-4">
+                <div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 text-sm font-medium">
+                  🚀 Advanced Learning
+                </div>
+                <div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 text-sm font-medium">
+                  🎓 Expert Instructors
+                </div>
+                <div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 text-sm font-medium">
+                  🌟 Career Growth
+                </div>
+              </div>
+            </div>
           </div>
           {/* Authentication Form */}
           <div className="w-full max-w-md mx-auto">
