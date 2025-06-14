@@ -162,79 +162,77 @@ export default function HomePage() {
   ]
 
   return (
-    <div className="min-h-screen">
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm shadow-md border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-24">
-            <Link href="/" className="flex items-center">
-              <Logo width={250} height={100} variant="nav" priority />
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 px-2 sm:px-6 md:px-12">
+      {/* Responsive header and nav */}
+      <header className="flex flex-col sm:flex-row items-center justify-between py-6 gap-4 sm:gap-0">
+        <div className="flex items-center gap-3">
+          <Logo width={56} height={56} className="w-12 h-12 sm:w-14 sm:h-14" />
+          <span className="text-2xl sm:text-3xl font-bold text-brand-primary">STEM Spark Academy</span>
+        </div>
+        <nav className="flex flex-wrap gap-2 sm:gap-4 mt-2 sm:mt-0">
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center space-x-8">
+            <Link href="/videos" className="text-gray-700 hover:text-blue-600 transition-colors">
+              Videos
             </Link>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
-              <Link href="/videos" className="text-gray-700 hover:text-blue-600 transition-colors">
-                Videos
-              </Link>
-              <Link href="/internships" className="text-gray-700 hover:text-blue-600 transition-colors">
-                Internships
-              </Link>
-              <Link href="/about" className="text-gray-700 hover:text-blue-600 transition-colors">
-                About
-              </Link>
-              <Link href="/contact" className="text-gray-700 hover:text-blue-600 transition-colors">
-                Contact
-              </Link>
-              <Link href="/login">
-                <Button variant="outline">Sign In</Button>
-              </Link>
-              <Link href="/sign up">
-                <Button>Get Started</Button>
-              </Link>
-            </div>
-
-            {/* Mobile menu button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="md:hidden text-blue-600"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </Button>
+            <Link href="/internships" className="text-gray-700 hover:text-blue-600 transition-colors">
+              Internships
+            </Link>
+            <Link href="/about" className="text-gray-700 hover:text-blue-600 transition-colors">
+              About
+            </Link>
+            <Link href="/contact" className="text-gray-700 hover:text-blue-600 transition-colors">
+              Contact
+            </Link>
+            <Link href="/login">
+              <Button variant="outline">Sign In</Button>
+            </Link>
+            <Link href="/sign up">
+              <Button>Get Started</Button>
+            </Link>
           </div>
 
-          {/* Mobile Navigation */}
-          {isMenuOpen && (
-            <div className="md:hidden bg-white shadow-lg rounded-b-lg">
-              <div className="px-2 pt-2 pb-3 space-y-1">
-                <Link href="/videos" className="block px-3 py-2 text-gray-700 hover:bg-blue-50 rounded-md">
-                  Videos
-                </Link>
-                <Link href="/internships" className="block px-3 py-2 text-gray-700 hover:bg-blue-50 rounded-md">
-                  Internships
-                </Link>
-                <Link href="/about" className="block px-3 py-2 text-gray-700 hover:bg-blue-50 rounded-md">
-                  About
-                </Link>
-                <Link href="/contact" className="block px-3 py-2 text-gray-700 hover:bg-blue-50 rounded-md">
-                  Contact
-                </Link>
-                <div className="flex gap-2 px-3 py-2">
-                  <Link href="/login" className="flex-1">
-                    <Button variant="outline" className="w-full">
-                      Sign In
-                    </Button>
-                  </Link>
-                  <Link href="/sign up" className="flex-1">
-                    <Button className="w-full">Get Started</Button>
-                  </Link>
-                </div>
-              </div>
+          {/* Mobile menu button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="md:hidden text-blue-600"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </Button>
+        </nav>
+      </header>
+
+      {/* Mobile Navigation */}
+      {isMenuOpen && (
+        <div className="md:hidden bg-white shadow-lg rounded-b-lg">
+          <div className="px-2 pt-2 pb-3 space-y-1">
+            <Link href="/videos" className="block px-3 py-2 text-gray-700 hover:bg-blue-50 rounded-md">
+              Videos
+            </Link>
+            <Link href="/internships" className="block px-3 py-2 text-gray-700 hover:bg-blue-50 rounded-md">
+              Internships
+            </Link>
+            <Link href="/about" className="block px-3 py-2 text-gray-700 hover:bg-blue-50 rounded-md">
+              About
+            </Link>
+            <Link href="/contact" className="block px-3 py-2 text-gray-700 hover:bg-blue-50 rounded-md">
+              Contact
+            </Link>
+            <div className="flex gap-2 px-3 py-2">
+              <Link href="/login" className="flex-1">
+                <Button variant="outline" className="w-full">
+                  Sign In
+                </Button>
+              </Link>
+              <Link href="/sign up" className="flex-1">
+                <Button className="w-full">Get Started</Button>
+              </Link>
             </div>
-          )}
+          </div>
         </div>
-      </nav>
+      )}
 
       {/* Hero Section */}
       <section className="pt-32 pb-20 bg-gradient-to-br from-blue-50 to-white">
@@ -291,9 +289,17 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="text-4xl md:text-5xl lg:text-6xl font-bold text-blue-600 mb-4">{stat.number}</div>
-                <div className="text-lg md:text-xl text-gray-700 font-medium">{stat.label}</div>
+              <div
+                key={index}
+                className="text-center group transition-transform duration-300 hover:scale-105"
+                aria-label={stat.label}
+              >
+                <div className="text-4xl md:text-5xl lg:text-6xl font-bold text-brand-primary mb-4 animate-pulse group-hover:animate-none">
+                  {stat.number}
+                </div>
+                <div className="text-lg md:text-xl text-brand-secondary font-medium">
+                  {stat.label}
+                </div>
               </div>
             ))}
           </div>
@@ -362,6 +368,45 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Featured Courses & Student Stories - Supabase Placeholder */}
+      <section className="py-20 bg-gradient-to-br from-blue-100 to-blue-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl md:text-4xl font-bold text-brand-primary mb-8 text-center">
+            Featured Courses & Student Stories
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {/* TODO: Fetch and map featured courses and stories from Supabase */}
+            <Card className="border-brand-primary/20 shadow-md hover:shadow-lg transition-all duration-300">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-to-r from-brand-primary to-brand-secondary rounded-xl flex items-center justify-center mb-6 shadow-md">
+                  <BookOpen className="w-8 h-8 text-white" />
+                </div>
+                <CardTitle className="text-brand-primary">Sample Course</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-brand-secondary leading-relaxed">
+                  This is a placeholder for a featured course. Real data will be loaded from Supabase soon!
+                </CardDescription>
+              </CardContent>
+            </Card>
+            <Card className="border-brand-primary/20 shadow-md hover:shadow-lg transition-all duration-300">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-to-r from-brand-primary to-brand-secondary rounded-xl flex items-center justify-center mb-6 shadow-md">
+                  <Award className="w-8 h-8 text-white" />
+                </div>
+                <CardTitle className="text-brand-primary">Student Story</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-brand-secondary leading-relaxed">
+                  This is a placeholder for a student success story. Real data will be loaded from Supabase soon!
+                </CardDescription>
+              </CardContent>
+            </Card>
+            {/* ...more cards as needed... */}
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -375,12 +420,11 @@ export default function HomePage() {
                 experiences.
               </p>
               <div className="flex gap-4">
-                <Badge className="bg-blue-600 text-white px-4 py-2">🚀 Innovation</Badge>
-                <Badge className="bg-blue-700 text-white px-4 py-2">🎓 Education</Badge>
+                <Badge className="bg-brand-primary text-white px-4 py-2">🚀 Innovation</Badge>
+                <Badge className="bg-brand-secondary text-white px-4 py-2">🎓 Education</Badge>
                 <Badge className="bg-blue-400 text-gray-900 px-4 py-2">💡 Excellence</Badge>
               </div>
             </div>
-
             <div>
               <h3 className="font-semibold mb-6 text-xl">Quick Links</h3>
               <div className="space-y-3">
@@ -390,29 +434,28 @@ export default function HomePage() {
                 <Link href="/internships" className="block text-gray-300 hover:text-white transition-colors text-lg">
                   Internships
                 </Link>
-                <Link href="/about" className="block text-gray-300 hover:text-white transition-colors text-lg">
-                  About
+                <Link href="/resource-library" className="block text-gray-300 hover:text-white transition-colors text-lg">
+                  Resource Library
                 </Link>
-                <Link href="/contact" className="block text-gray-300 hover:text-white transition-colors text-lg">
-                  Contact
+                <Link href="/calendar" className="block text-gray-300 hover:text-white transition-colors text-lg">
+                  Calendar
                 </Link>
               </div>
             </div>
-
             <div>
               <h3 className="font-semibold mb-6 text-xl">Support</h3>
               <div className="space-y-3">
-                <Link href="/help" className="block text-gray-300 hover:text-white transition-colors text-lg">
+                <Link href="/help-support" className="block text-gray-300 hover:text-white transition-colors text-lg">
                   Help Center
                 </Link>
-                <Link href="/privacy" className="block text-gray-300 hover:text-white transition-colors text-lg">
-                  Privacy Policy
+                <Link href="/accessibility" className="block text-gray-300 hover:text-white transition-colors text-lg">
+                  Accessibility
                 </Link>
-                <Link href="/terms" className="block text-gray-300 hover:text-white transition-colors text-lg">
-                  Terms of Service
+                <Link href="/parent-portal" className="block text-gray-300 hover:text-white transition-colors text-lg">
+                  Parent Portal
                 </Link>
-                <Link href="/faq" className="block text-gray-300 hover:text-white transition-colors text-lg">
-                  FAQ
+                <Link href="/analytics" className="block text-gray-300 hover:text-white transition-colors text-lg">
+                  Analytics
                 </Link>
               </div>
             </div>

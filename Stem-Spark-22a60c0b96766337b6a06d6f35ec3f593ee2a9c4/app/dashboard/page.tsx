@@ -44,83 +44,65 @@ export default async function DashboardPage() {
 
     dashboardData = {
       totalUsers: userStats?.length || 0,
-      activeInternships: internshipStats?.filter((i) => i.status === "active").length || 0,
+      activeInternships: internshipStats?.filter((i: { status: string }) => i.status === "active").length || 0,
       totalVideos: videoStats?.length || 0,
     }
   }
 
   return (
-    <div className="min-h-screen hero-gradient">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 px-2 sm:px-6 md:px-12">
       {/* Enhanced Header with Larger Logo */}
-      <header className="bg-white/90 backdrop-blur-md border-b border-brand-light/30 shadow-brand">
-        <div className="container mx-auto px-6 py-6 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-4 group">
-            <Logo variant="large" className="group-hover:scale-110 transition-transform duration-300 logo-nav" />
-            <div className="hidden md:block">
-              <h1 className="text-3xl font-bold brand-text-gradient">NOVAKINETIX</h1>
-              <p className="text-lg font-semibold text-brand-secondary">ACADEMY</p>
-            </div>
-          </Link>
+      <header className="flex flex-col sm:flex-row items-center justify-between py-6 gap-4 sm:gap-0">
+        <div className="flex items-center gap-3">
+          <Logo width={56} height={56} className="w-12 h-12 sm:w-14 sm:h-14" />
+          <span className="text-2xl sm:text-3xl font-bold text-brand-primary">Dashboard</span>
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="hidden lg:flex items-center gap-2 bg-brand-accent/20 px-4 py-2 rounded-full">
+            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-sm font-medium text-brand-primary">
+              Welcome, {profile?.full_name?.split(" ")[0] || "User"}!
+            </span>
+          </div>
 
-          <div className="flex items-center gap-6">
-            <div className="hidden lg:flex items-center gap-2 bg-brand-accent/20 px-4 py-2 rounded-full">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-sm font-medium text-brand-primary">
-                Welcome, {profile?.full_name?.split(" ")[0] || "User"}!
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Link href="/videos">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="interactive-button border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white"
-                >
-                  <Video className="w-5 h-5 mr-2" />
-                  Videos
+          <div className="flex items-center gap-3">
+            <Link href="/videos">
+              <Button className="border border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white px-4 py-2 rounded-md transition">
+                <Video className="w-5 h-5 mr-2" />
+                Videos
+              </Button>
+            </Link>
+            <Link href="/internships">
+              <Button className="border border-brand-secondary text-brand-secondary hover:bg-brand-secondary hover:text-white px-4 py-2 rounded-md transition">
+                <Building2 className="w-5 h-5 mr-2" />
+                Internships
+              </Button>
+            </Link>
+            <Link href="/profile">
+              <Button className="border border-brand-accent text-brand-accent hover:bg-brand-accent hover:text-white px-4 py-2 rounded-md transition">
+                <Settings className="w-5 h-5 mr-2" />
+                Profile
+              </Button>
+            </Link>
+            {profile?.role === "admin" && (
+              <Link href="/admin">
+                <Button className="button-primary px-4 py-2">
+                  <Users className="w-5 h-5 mr-2" />
+                  Admin
                 </Button>
               </Link>
-              <Link href="/internships">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="interactive-button border-brand-secondary text-brand-secondary hover:bg-brand-secondary hover:text-white"
-                >
-                  <Building2 className="w-5 h-5 mr-2" />
-                  Internships
-                </Button>
-              </Link>
-              <Link href="/profile">
-                <Button variant="outline" size="lg" className="interactive-button">
-                  <Settings className="w-5 h-5 mr-2" />
-                  Profile
-                </Button>
-              </Link>
-              {profile?.role === "admin" && (
-                <Link href="/admin">
-                  <Button size="lg" className="button-primary">
-                    <Users className="w-5 h-5 mr-2" />
-                    Admin
-                  </Button>
-                </Link>
-              )}
-              <form action={signOut}>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="interactive-button border-red-300 text-red-600 hover:bg-red-50"
-                >
-                  <LogOut className="w-5 h-5 mr-2" />
-                  Sign Out
-                </Button>
-              </form>
-            </div>
+            )}
+            <form onSubmit={async (e) => { e.preventDefault(); await signOut(); }}>
+              <Button className="border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2 rounded-md transition">
+                <LogOut className="w-5 h-5 mr-2" />
+                Sign Out
+              </Button>
+            </form>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-6 py-12">
+      <main className="flex-1 flex flex-col items-center justify-center text-center py-8 sm:py-16 w-full">
         {/* Enhanced Welcome Section */}
         <div className="mb-12 text-center">
           <h1 className="text-display brand-text-gradient mb-4">
@@ -275,25 +257,25 @@ export default async function DashboardPage() {
               {profile?.role === "admin" ? (
                 <>
                   <Link href="/admin/videos">
-                    <Button className="w-full h-20 text-lg button-primary group" size="lg">
+                    <Button className="w-full h-20 text-lg button-primary group px-4 py-4 sm:px-8 sm:py-6">
                       <Video className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
                       Manage Videos
                     </Button>
                   </Link>
                   <Link href="/admin/internships">
-                    <Button className="w-full h-20 text-lg button-secondary group" size="lg">
+                    <Button className="w-full h-20 text-lg button-secondary group px-4 py-4 sm:px-8 sm:py-6">
                       <Building2 className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
                       Manage Internships
                     </Button>
                   </Link>
                   <Link href="/admin/applications">
-                    <Button className="w-full h-20 text-lg button-primary group" size="lg">
+                    <Button className="w-full h-20 text-lg button-primary group px-4 py-4 sm:px-8 sm:py-6">
                       <Users className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
                       View Applications
                     </Button>
                   </Link>
                   <Link href="/admin/setup">
-                    <Button className="w-full h-20 text-lg button-secondary group" size="lg">
+                    <Button className="w-full h-20 text-lg button-secondary group px-4 py-4 sm:px-8 sm:py-6">
                       <Settings className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
                       Admin Setup
                     </Button>
@@ -302,24 +284,24 @@ export default async function DashboardPage() {
               ) : (
                 <>
                   <Link href="/videos">
-                    <Button className="w-full h-20 text-lg button-primary group" size="lg">
+                    <Button className="w-full h-20 text-lg button-primary group px-4 py-4 sm:px-8 sm:py-6">
                       <Video className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
                       Watch Videos
                     </Button>
                   </Link>
                   <Link href="/internships">
-                    <Button className="w-full h-20 text-lg button-secondary group" size="lg">
+                    <Button className="w-full h-20 text-lg button-secondary group px-4 py-4 sm:px-8 sm:py-6">
                       <Building2 className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
                       Find Internships
                     </Button>
                   </Link>
                   <Link href="/profile">
-                    <Button className="w-full h-20 text-lg button-primary group" size="lg">
+                    <Button className="w-full h-20 text-lg button-primary group px-4 py-4 sm:px-8 sm:py-6">
                       <Settings className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
                       Update Profile
                     </Button>
                   </Link>
-                  <Button className="w-full h-20 text-lg button-secondary group" size="lg">
+                  <Button className="w-full h-20 text-lg button-secondary group px-4 py-4 sm:px-8 sm:py-6">
                     <BookOpen className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
                     Start Project
                   </Button>
@@ -400,7 +382,7 @@ export default async function DashboardPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </main>
     </div>
   )
 }

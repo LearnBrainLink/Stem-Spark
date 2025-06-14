@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Save, RefreshCw, Shield, Mail, Database, Globe, Palette } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 
 interface SystemSettings {
   siteName: string
@@ -57,27 +58,65 @@ export default function SettingsPage() {
   }, [])
 
   const loadSettings = async () => {
+    setIsLoading(true)
     try {
-      // In a real app, you'd load these from a settings table
-      // For now, we'll use the default values
-      console.log("Settings loaded")
-    } catch (error) {
-      console.error("Error loading settings:", error)
+      const { data, error } = await supabase
+        .from("system_settings")
+        .select("*")
+        .single()
+      if (error) throw error
+      if (data) {
+        setSettings({
+          siteName: data.site_name || "STEM Spark Academy",
+          siteDescription: data.site_description || "Empowering young engineers through innovative STEM education",
+          contactEmail: data.contact_email || "admin@stemspark.academy",
+          maintenanceMode: data.maintenance_mode ?? false,
+          registrationEnabled: data.registration_enabled ?? true,
+          emailVerificationRequired: data.email_verification_required ?? true,
+          maxFileUploadSize: data.max_file_upload_size ?? 10,
+          allowedFileTypes: data.allowed_file_types || ["jpg", "jpeg", "png", "pdf", "mp4"],
+          defaultUserRole: data.default_user_role || "student",
+          sessionTimeout: data.session_timeout ?? 30,
+          enableNotifications: data.enable_notifications ?? true,
+          enableAnalytics: data.enable_analytics ?? true,
+          themeColor: data.theme_color || "#EF4444",
+          logoUrl: data.logo_url || "",
+        })
+      }
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "Failed to load settings" })
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const saveSettings = async () => {
     setIsLoading(true)
     try {
-      // In a real app, you'd save these to a settings table
-      await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulate API call
-
+      const { error } = await supabase
+        .from("system_settings")
+        .upsert({
+          id: 1, // assuming single row
+          site_name: settings.siteName,
+          site_description: settings.siteDescription,
+          contact_email: settings.contactEmail,
+          maintenance_mode: settings.maintenanceMode,
+          registration_enabled: settings.registrationEnabled,
+          email_verification_required: settings.emailVerificationRequired,
+          max_file_upload_size: settings.maxFileUploadSize,
+          allowed_file_types: settings.allowedFileTypes,
+          default_user_role: settings.defaultUserRole,
+          session_timeout: settings.sessionTimeout,
+          enable_notifications: settings.enableNotifications,
+          enable_analytics: settings.enableAnalytics,
+          theme_color: settings.themeColor,
+          logo_url: settings.logoUrl,
+        }, { onConflict: 'id' })
+      if (error) throw error
       setMessage({ type: "success", text: "Settings saved successfully!" })
-
-      // Clear message after 3 seconds
       setTimeout(() => setMessage(null), 3000)
-    } catch (error) {
-      setMessage({ type: "error", text: "Failed to save settings" })
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "Failed to save settings" })
     } finally {
       setIsLoading(false)
     }
@@ -139,11 +178,11 @@ export default function SettingsPage() {
           <p className="text-gray-600">Configure platform settings and preferences</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={resetToDefaults}>
+          <Button className="outline" onClick={resetToDefaults}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Reset to Defaults
           </Button>
-          <Button onClick={saveSettings} disabled={isLoading} className="button-primary">
+          <Button onClick={saveSettings as React.MouseEventHandler<HTMLButtonElement>} disabled={isLoading} className="button-primary">
             <Save className="w-4 h-4 mr-2" />
             {isLoading ? "Saving..." : "Save Settings"}
           </Button>
@@ -217,7 +256,7 @@ export default function SettingsPage() {
                       <Switch
                         id="maintenanceMode"
                         checked={settings.maintenanceMode}
-                        onCheckedChange={(checked) => setSettings({ ...settings, maintenanceMode: checked })}
+                        onCheckedChange={(checked: boolean) => setSettings({ ...settings, maintenanceMode: checked })}
                       />
                     </div>
                     <div className="flex items-center justify-between">
@@ -228,7 +267,7 @@ export default function SettingsPage() {
                       <Switch
                         id="registrationEnabled"
                         checked={settings.registrationEnabled}
-                        onCheckedChange={(checked) => setSettings({ ...settings, registrationEnabled: checked })}
+                        onCheckedChange={(checked: boolean) => setSettings({ ...settings, registrationEnabled: checked })}
                       />
                     </div>
                   </div>
@@ -254,7 +293,7 @@ export default function SettingsPage() {
                       <Switch
                         id="emailVerificationRequired"
                         checked={settings.emailVerificationRequired}
-                        onCheckedChange={(checked) => setSettings({ ...settings, emailVerificationRequired: checked })}
+                        onCheckedChange={(checked: boolean) => setSettings({ ...settings, emailVerificationRequired: checked })}
                       />
                     </div>
                     <div className="grid md:grid-cols-2 gap-4">
@@ -262,7 +301,7 @@ export default function SettingsPage() {
                         <Label htmlFor="defaultUserRole">Default User Role</Label>
                         <Select
                           value={settings.defaultUserRole}
-                          onValueChange={(value) => setSettings({ ...settings, defaultUserRole: value })}
+                          onValueChange={(value: string) => setSettings({ ...settings, defaultUserRole: value })}
                         >
                           <SelectTrigger>
                             <SelectValue />
@@ -353,7 +392,7 @@ export default function SettingsPage() {
                     <Switch
                       id="enableNotifications"
                       checked={settings.enableNotifications}
-                      onCheckedChange={(checked) => setSettings({ ...settings, enableNotifications: checked })}
+                      onCheckedChange={(checked: boolean) => setSettings({ ...settings, enableNotifications: checked })}
                     />
                   </div>
                   <div className="pt-4">
@@ -451,11 +490,11 @@ export default function SettingsPage() {
                     <Switch
                       id="enableAnalytics"
                       checked={settings.enableAnalytics}
-                      onCheckedChange={(checked) => setSettings({ ...settings, enableAnalytics: checked })}
+                      onCheckedChange={(checked: boolean) => setSettings({ ...settings, enableAnalytics: checked })}
                     />
                   </div>
                   <div className="pt-4 space-y-2">
-                    <Button onClick={clearCache} disabled={isLoading} variant="outline">
+                    <Button onClick={clearCache as React.MouseEventHandler<HTMLButtonElement>} disabled={isLoading} className="outline">
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Clear System Cache
                     </Button>
@@ -473,7 +512,7 @@ export default function SettingsPage() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-700">Platform Version</span>
-                      <Badge variant="outline" className="font-semibold">v2.1.0</Badge>
+                      <Badge className="font-semibold border border-input bg-background">v2.1.0</Badge>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-700">Database Status</span>
@@ -481,11 +520,11 @@ export default function SettingsPage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-700">Storage Usage</span>
-                      <Badge variant="outline" className="font-semibold">2.3 GB / 10 GB</Badge>
+                      <Badge className="font-semibold border border-input bg-background">2.3 GB / 10 GB</Badge>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-700">Last Backup</span>
-                      <Badge variant="outline" className="font-semibold">2 hours ago</Badge>
+                      <Badge className="font-semibold border border-input bg-background">2 hours ago</Badge>
                     </div>
                   </div>
                 </CardContent>

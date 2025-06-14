@@ -185,7 +185,9 @@ export default function SecureLoginPage() {
   }
 
   return (
-    <div className="min-h-screen hero-gradient flex items-center justify-center p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 px-2 sm:px-6">
+      <Logo width={60} height={60} className="mb-6 sm:mb-8" />
+      <h1 className="text-2xl sm:text-4xl font-bold text-brand-primary mb-2">Login</h1>
       <div className="w-full max-w-md">
         {/* Back to Home */}
         <div className="mb-8">
@@ -198,7 +200,7 @@ export default function SecureLoginPage() {
           </Link>
         </div>
 
-        <Card className="admin-card shadow-brand-lg">
+        <Card className="shadow-xl border-0 w-full max-w-md mx-auto p-4 sm:p-8">
           <CardHeader className="text-center pb-8">
             {/* Large Logo */}
             <div className="flex justify-center mb-8">

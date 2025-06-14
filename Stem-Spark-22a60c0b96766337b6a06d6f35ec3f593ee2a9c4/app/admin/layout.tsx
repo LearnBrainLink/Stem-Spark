@@ -140,25 +140,31 @@ export default function AdminLayout({
             </div>
             <div className="flex items-center gap-4">
               {user && (
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 brand-gradient rounded-full flex items-center justify-center text-white font-bold text-lg shadow-brand">
-                    {user.email?.charAt(0).toUpperCase()}
+                <>
+                  <Link href="/profile">
+                    <Button className="border-brand-accent text-brand-accent hover:bg-brand-accent hover:text-white px-4 py-2 rounded-md transition flex items-center">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Profile
+                    </Button>
+                  </Link>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 brand-gradient rounded-full flex items-center justify-center text-white font-bold text-lg shadow-brand">
+                      {user.email?.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="hidden md:block">
+                      <p className="text-sm font-semibold text-brand-primary">
+                        {user.user_metadata?.full_name || user.email}
+                      </p>
+                    </div>
                   </div>
-                  <div className="hidden md:block">
-                    <p className="text-sm font-semibold text-brand-primary">
-                      {user.user_metadata?.full_name || user.email}
-                    </p>
-                  </div>
-                </div>
+                </>
               )}
               <Badge className="bg-green-100 text-green-700 border-green-200 font-medium text-sm px-3 py-1">
                 <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
                 System Online
               </Badge>
               <Button
-                variant="outline"
-                size="sm"
-                className="border-brand-light text-brand-primary hover:bg-brand-primary hover:text-white transition-all duration-200"
+                className="border-brand-light text-brand-primary hover:bg-brand-primary hover:text-white transition-all duration-200 px-4 py-2 rounded-md flex items-center"
                 onClick={handleSignOut}
               >
                 <LogOut className="w-4 h-4 mr-2" />
