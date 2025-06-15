@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator"
 import { Logo } from "@/components/logo"
 import { useRouter } from "next/navigation"
 import { secureSignInWithEmail, secureSignInWithGoogle, secureSignInWithGitHub, secureForgotPassword, resendVerificationEmail } from "@/lib/secure-auth-actions"
+import { enhancedSignUp } from "@/lib/enhanced-auth-actions"
 import { Eye, EyeOff, Mail, Lock, Github, Loader2, AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
 
 interface AuthMessage {
@@ -25,11 +26,21 @@ export default function SecureLoginPage() {
   const [message, setMessage] = useState<AuthMessage | null>(null)
   const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [email, setEmail] = useState("")
+  const [selectedRole, setSelectedRole] = useState("")
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     confirmPassword: '',
-    fullName: ''
+    fullName: '',
+    grade: '',
+    country: '',
+    state: '',
+    schoolName: '',
+    parentName: '',
+    parentEmail: '',
+    parentPhone: '',
+    relationship: '',
+    role: '',
   })
   const router = useRouter()
 
@@ -51,21 +62,26 @@ export default function SecureLoginPage() {
     delay: Math.random() * 5
   }))
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
-    })
-  }
+    });
+  };
+
+  const handleRoleChange = (value: string) => {
+    setSelectedRole(value);
+    setFormData({ ...formData, role: value });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setMessage(null)
+    e.preventDefault();
+    setIsLoading(true);
+    setMessage(null);
 
     try {
       if (isLogin) {
-        const result = await secureSignInWithEmail(formData)
+        const result = await secureSignInWithEmail(new FormData(e.target as HTMLFormElement));
 
         if (result.error) {
           setMessage({
@@ -92,26 +108,25 @@ export default function SecureLoginPage() {
           }
         }
       } else {
-        // Handle sign up logic here
-        // For now, we just simulate a successful sign up
-        setTimeout(() => {
-          setIsLoading(false)
-          setMessage({
-            type: "success",
-            text: "Account created successfully!",
-          })
-
-          // Auto-login after sign up
-          setIsLogin(true)
-        }, 2000)
+        // Create FormData for enhancedSignUp
+        const form = new FormData(e.target as HTMLFormElement);
+        const result = await enhancedSignUp(form);
+        if (result?.error) {
+          setMessage({ type: "error", text: result.error });
+        } else if (result?.success) {
+          setMessage({ type: "success", text: result.message || "Account created successfully! Please check your email to verify your account." });
+          setIsLogin(true);
+        }
+        setIsLoading(false);
+        return;
       }
     } catch (error: any) {
       setMessage({
         type: "error",
         text: error.message || "An unexpected error occurred",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
@@ -291,7 +306,25 @@ export default function SecureLoginPage() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {!isLogin && (
                     <div className="space-y-2">
-                      <Label htmlFor="fullName" className="text-white font-medium">Full Name</Label>
+                      <Label htmlFor="role" className="text-white font-medium">I am a... *</Label>
+                      <select
+                        id="role"
+                        name="role"
+                        value={selectedRole}
+                        onChange={e => handleRoleChange(e.target.value)}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20 w-full py-2 px-3 rounded"
+                        required
+                      >
+                        <option value="">Select your role</option>
+                        <option value="student">Student</option>
+                        <option value="teacher">Teacher</option>
+                        <option value="parent">Parent</option>
+                      </select>
+                    </div>
+                  )}
+                  {!isLogin && (
+                    <div className="space-y-2">
+                      <Label htmlFor="fullName" className="text-white font-medium">Full Name *</Label>
                       <Input
                         id="fullName"
                         name="fullName"
@@ -394,12 +427,11 @@ export default function SecureLoginPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Button
-                    variant="outline"
-                    onClick={() => handleSocialLogin('Google')}
-                    disabled={socialLoading === 'Google'}
+                    onClick={() => handleSocialLogin('google')}
+                    disabled={socialLoading === 'google'}
                     className="bg-white/10 border-white/20 text-white hover:bg-white/20 transition-all duration-200"
                   >
-                    {socialLoading === 'Google' ? (
+                    {socialLoading === 'google' ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
                       <span className="mr-2 h-4 w-4 flex items-center justify-center">
@@ -414,7 +446,6 @@ export default function SecureLoginPage() {
                     Google
                   </Button>
                   <Button
-                    variant="outline"
                     onClick={() => handleSocialLogin('github')}
                     disabled={socialLoading === 'github'}
                     className="bg-white/10 border-white/20 text-white hover:bg-white/20 transition-all duration-200"
@@ -445,7 +476,7 @@ export default function SecureLoginPage() {
         </div>
       </div>
       {/* Custom animations */}
-      <style jsx>{`
+      <style>{`
         @keyframes fade-in {
           from {
             opacity: 0;
