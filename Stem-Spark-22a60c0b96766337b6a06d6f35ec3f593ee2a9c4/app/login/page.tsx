@@ -216,6 +216,26 @@ export default function SecureLoginPage() {
     }
   }
 
+  // Motivational section (shared for both login and sign up)
+  const MotivationalSection = () => (
+    <div className="w-full flex flex-col items-center justify-center text-center mb-8 mt-8">
+      <p className="text-xl lg:text-2xl text-blue-100 max-w-md mx-auto leading-relaxed">
+        Unlock your potential with cutting-edge education and innovation
+      </p>
+      <div className="flex flex-wrap justify-center gap-4 pt-4">
+        <div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 text-sm font-medium">
+          🚀 Advanced Learning
+        </div>
+        <div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 text-sm font-medium">
+          🎓 Expert Instructors
+        </div>
+        <div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 text-sm font-medium">
+          🌟 Career Growth
+        </div>
+      </div>
+    </div>
+  )
+
   // Animated background gradient and floating particles
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900">
@@ -239,28 +259,13 @@ export default function SecureLoginPage() {
         ))}
       </div>
       {/* Main Content */}
-      <div className="relative z-10 flex items-center justify-center min-h-screen p-4">
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-4">
+        <MotivationalSection />
         <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
           {/* Logo Section */}
           <div className="flex flex-col items-center justify-center text-center lg:pr-8">
             <div className="mb-8 transform hover:scale-105 transition-transform duration-500">
               <Logo variant="mega" className="w-80 h-auto drop-shadow-2xl animate-pulse" />
-            </div>
-            <div className="space-y-4 text-white">
-              <p className="text-xl lg:text-2xl text-blue-100 max-w-md mx-auto leading-relaxed">
-                Unlock your potential with cutting-edge education and innovation
-              </p>
-              <div className="flex flex-wrap justify-center gap-4 pt-4">
-                <div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 text-sm font-medium">
-                  🚀 Advanced Learning
-                </div>
-                <div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 text-sm font-medium">
-                  🎓 Expert Instructors
-                </div>
-                <div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 text-sm font-medium">
-                  🌟 Career Growth
-                </div>
-              </div>
             </div>
           </div>
           {/* Authentication Form */}
