@@ -57,6 +57,24 @@ export default function SignUpPage() {
           <p className="text-lg text-gray-700">Join our community of young engineers!</p>
         </div>
 
+        {/* Motivational section below logo, as previously structured */}
+        <div className="flex flex-col items-center justify-center text-center mb-8 mt-8">
+          <p className="text-xl lg:text-2xl text-blue-700 max-w-md mx-auto leading-relaxed">
+            Unlock your potential with cutting-edge education and innovation
+          </p>
+          <div className="flex flex-wrap justify-center gap-4 pt-4">
+            <div className="bg-blue-100 rounded-full px-4 py-2 text-sm font-medium">
+              🚀 Advanced Learning
+            </div>
+            <div className="bg-blue-100 rounded-full px-4 py-2 text-sm font-medium">
+              🎓 Expert Instructors
+            </div>
+            <div className="bg-blue-100 rounded-full px-4 py-2 text-sm font-medium">
+              🌟 Career Growth
+            </div>
+          </div>
+        </div>
+
         <Card className="shadow-2xl border-0 rounded-2xl">
           <CardHeader className="space-y-2">
             <CardTitle className="text-3xl text-center text-blue-800">Create Your Account</CardTitle>

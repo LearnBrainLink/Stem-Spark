@@ -277,15 +277,8 @@ export default function SecureLoginPage() {
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-4 bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900">
         <div className="mb-6 flex flex-col items-center">
           <Logo variant="mega" className="w-64 h-auto drop-shadow-2xl animate-pulse mb-4" />
-          <div className="flex flex-col items-center gap-2 mt-2">
-            <span className="text-2xl font-bold text-white tracking-wide">innovation</span>
-            <div className="flex flex-wrap justify-center gap-3 mt-2">
-              <span className="bg-white/10 backdrop-blur-md rounded-full px-5 py-2 text-base font-semibold text-white flex items-center gap-2">🚀 Advanced Learning</span>
-              <span className="bg-white/10 backdrop-blur-md rounded-full px-5 py-2 text-base font-semibold text-white flex items-center gap-2">🎓 Expert Instructors</span>
-              <span className="bg-white/10 backdrop-blur-md rounded-full px-5 py-2 text-base font-semibold text-white flex items-center gap-2">🌟 Career Growth</span>
-            </div>
-          </div>
         </div>
+        <MotivationalSection />
         <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
           {/* Authentication Form */}
           <div className="w-full max-w-md mx-auto">
