@@ -47,32 +47,10 @@ export default function SignUpPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
       <div className="w-full max-w-3xl">
         <div className="text-center mb-8">
-          <Logo width={160} height={80} className="mb-2 mx-auto" />
-          <span className="text-2xl font-bold text-blue-900 tracking-wide mb-2 block">innovation</span>
-          <div className="flex flex-wrap justify-center gap-3 mb-2">
-            <span className="bg-blue-100 rounded-full px-5 py-2 text-base font-semibold text-blue-800 flex items-center gap-2">🚀 Advanced Learning</span>
-            <span className="bg-blue-100 rounded-full px-5 py-2 text-base font-semibold text-blue-800 flex items-center gap-2">🎓 Expert Instructors</span>
-            <span className="bg-blue-100 rounded-full px-5 py-2 text-base font-semibold text-blue-800 flex items-center gap-2">🌟 Career Growth</span>
-          </div>
+          <Link href="/" className="inline-flex items-center gap-3 mb-4">
+            <Logo width={160} height={80} />
+          </Link>
           <p className="text-lg text-gray-700">Join our community of young engineers!</p>
-        </div>
-
-        {/* Motivational section below logo, as previously structured */}
-        <div className="flex flex-col items-center justify-center text-center mb-8 mt-8">
-          <p className="text-xl lg:text-2xl text-blue-700 max-w-md mx-auto leading-relaxed">
-            Unlock your potential with cutting-edge education and innovation
-          </p>
-          <div className="flex flex-wrap justify-center gap-4 pt-4">
-            <div className="bg-blue-100 rounded-full px-4 py-2 text-sm font-medium">
-              🚀 Advanced Learning
-            </div>
-            <div className="bg-blue-100 rounded-full px-4 py-2 text-sm font-medium">
-              🎓 Expert Instructors
-            </div>
-            <div className="bg-blue-100 rounded-full px-4 py-2 text-sm font-medium">
-              🌟 Career Growth
-            </div>
-          </div>
         </div>
 
         <Card className="shadow-2xl border-0 rounded-2xl">

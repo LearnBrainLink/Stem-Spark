@@ -274,12 +274,15 @@ export default function SecureLoginPage() {
         ))}
       </div>
       {/* Main Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-4 bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900">
-        <div className="mb-6 flex flex-col items-center">
-          <Logo variant="mega" className="w-64 h-auto drop-shadow-2xl animate-pulse mb-4" />
-        </div>
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-4">
         <MotivationalSection />
         <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
+          {/* Logo Section */}
+          <div className="flex flex-col items-center justify-center text-center lg:pr-8">
+            <div className="mb-8 transform hover:scale-105 transition-transform duration-500">
+              <Logo variant="mega" className="w-80 h-auto drop-shadow-2xl animate-pulse" />
+            </div>
+          </div>
           {/* Authentication Form */}
           <div className="w-full max-w-md mx-auto">
             <Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-2xl rounded-2xl overflow-hidden">
