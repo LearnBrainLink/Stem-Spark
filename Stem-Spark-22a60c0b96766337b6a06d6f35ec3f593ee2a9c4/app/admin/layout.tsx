@@ -21,7 +21,7 @@ import {
   GraduationCap,
 } from "lucide-react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Logo } from "@/components/logo"
 import { supabase } from "@/lib/supabase"
 import { signOut } from "@/lib/enhanced-auth-actions"
@@ -96,7 +96,9 @@ export default function AdminLayout({
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
+  const [signingOut, setSigningOut] = useState(false);
   const pathname = usePathname()
+  const router = useRouter();
 
   useEffect(() => {
     const getUser = async () => {
@@ -109,14 +111,16 @@ export default function AdminLayout({
   }, [])
 
   const handleSignOut = async () => {
+    setSigningOut(true);
     try {
-      const result = await signOut()
-      if (result.error) {
-        console.error("Sign out error:", result.error)
+      const result = await signOut();
+      if (result?.redirectPath) {
+        router.push(result.redirectPath);
       }
-      // The signOut function will handle the redirect
     } catch (error) {
-      console.error("Sign out error:", error)
+      console.error("Sign out error:", error);
+    } finally {
+      setSigningOut(false);
     }
   }
 
@@ -166,9 +170,10 @@ export default function AdminLayout({
               <Button
                 className="border-brand-light text-brand-primary hover:bg-brand-primary hover:text-white transition-all duration-200 px-4 py-2 rounded-md flex items-center"
                 onClick={handleSignOut}
+                disabled={signingOut}
               >
                 <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
+                {signingOut ? "Signing Out..." : "Sign Out"}
               </Button>
             </div>
           </div>
