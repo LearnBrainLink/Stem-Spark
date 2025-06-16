@@ -47,23 +47,12 @@ export default function SignUpPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
       <div className="w-full max-w-3xl">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-3 mb-4">
-            <Logo width={160} height={80} />
-          </Link>
-          <div className="flex flex-col items-center mb-8">
-            <Logo width={160} height={80} className="mb-2" />
-            <span className="text-2xl font-bold text-blue-900 tracking-wide mb-2">innovation</span>
-            <div className="flex flex-wrap justify-center gap-3 mb-2">
-              <span className="bg-blue-100 rounded-full px-5 py-2 text-base font-semibold text-blue-800 flex items-center gap-2">
-                🚀 Advanced Learning
-              </span>
-              <span className="bg-blue-100 rounded-full px-5 py-2 text-base font-semibold text-blue-800 flex items-center gap-2">
-                🎓 Expert Instructors
-              </span>
-              <span className="bg-blue-100 rounded-full px-5 py-2 text-base font-semibold text-blue-800 flex items-center gap-2">
-                🌟 Career Growth
-              </span>
-            </div>
+          <Logo width={160} height={80} className="mb-2 mx-auto" />
+          <span className="text-2xl font-bold text-blue-900 tracking-wide mb-2 block">innovation</span>
+          <div className="flex flex-wrap justify-center gap-3 mb-2">
+            <span className="bg-blue-100 rounded-full px-5 py-2 text-base font-semibold text-blue-800 flex items-center gap-2">🚀 Advanced Learning</span>
+            <span className="bg-blue-100 rounded-full px-5 py-2 text-base font-semibold text-blue-800 flex items-center gap-2">🎓 Expert Instructors</span>
+            <span className="bg-blue-100 rounded-full px-5 py-2 text-base font-semibold text-blue-800 flex items-center gap-2">🌟 Career Growth</span>
           </div>
           <p className="text-lg text-gray-700">Join our community of young engineers!</p>
         </div>
