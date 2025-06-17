@@ -240,14 +240,16 @@ export default function UserManagementPage() {
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {/* Logo */}
-        <Image
-          src="/images/novakinetix-logo.png"
-          alt="Novakinetix Academy Logo"
-          width={260}
-          height={90}
-          className="mx-auto my-8 drop-shadow-2xl"
-          priority
-        />
+        <div className="flex justify-center items-center w-full py-8">
+          <Image
+            src="/images/novakinetix-logo.png"
+            alt="Novakinetix Academy Logo"
+            width={320}
+            height={100}
+            className="drop-shadow-2xl"
+            priority
+          />
+        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2 shrink-0">
@@ -327,7 +329,7 @@ export default function UserManagementPage() {
                   <CardDescription className="text-base">Manage all users and their permissions</CardDescription>
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                  <Button variant="outline" onClick={exportUsers} className="flex items-center">
+                  <Button onClick={exportUsers} className="flex items-center border border-gray-300 bg-white hover:bg-gray-50">
                     <Download className="w-4 h-4 mr-2" />
                     Export
                   </Button>
@@ -402,7 +404,7 @@ export default function UserManagementPage() {
                           <Button type="submit" className="flex-1">
                             Create User
                           </Button>
-                          <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                          <Button type="button" onClick={() => setIsCreateDialogOpen(false)} className="border border-gray-300 bg-white hover:bg-gray-50">
                             Cancel
                           </Button>
                         </div>
@@ -483,7 +485,7 @@ export default function UserManagementPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={user.email_verified ? "default" : "secondary"}>
+                          <Badge className={user.email_verified ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}>
                             {user.email_verified ? "Verified" : "Unverified"}
                           </Badge>
                         </TableCell>
@@ -492,10 +494,10 @@ export default function UserManagementPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => setEditingUser(user)}>
+                            <Button onClick={() => setEditingUser(user)} className="border border-gray-300 bg-white hover:bg-gray-50">
                               <Edit className="w-4 h-4" />
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleDeleteUser(user.id)}>
+                            <Button onClick={() => handleDeleteUser(user.id)} className="border border-gray-300 bg-white hover:bg-gray-50">
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
@@ -587,7 +589,7 @@ export default function UserManagementPage() {
                   <Button type="submit" className="flex-1">
                     Update User
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => setEditingUser(null)}>
+                  <Button type="button" onClick={() => setEditingUser(null)} className="border border-gray-300 bg-white hover:bg-gray-50">
                     Cancel
                   </Button>
                 </div>

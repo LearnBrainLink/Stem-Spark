@@ -62,7 +62,7 @@ export default function AdminApplicationsPage() {
     if (data) {
       // Fetch parent info for each student
       const applicationsWithParents = await Promise.all(
-        data.map(async (app) => {
+        data.map(async (app: any) => {
           const { data: parentInfo } = await supabase.from("parent_info").select("*").eq("student_id", app.student_id)
 
           return {
@@ -143,10 +143,10 @@ export default function AdminApplicationsPage() {
           </Link>
           <div className="flex items-center gap-2">
             <Link href="/admin">
-              <Button variant="outline" size="sm">Admin Dashboard</Button>
+              <Button className="border border-gray-300 rounded-md px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100">Admin Dashboard</Button>
             </Link>
             <Link href="/admin/internships">
-              <Button variant="outline" size="sm">Manage Internships</Button>
+              <Button className="border border-gray-300 rounded-md px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100">Manage Internships</Button>
             </Link>
           </div>
         </div>
@@ -155,6 +155,11 @@ export default function AdminApplicationsPage() {
       <div className="mb-4">
         <h1 className="text-xl md:text-2xl font-bold text-gray-800 mb-1">Internship Applications</h1>
         <p className="text-gray-600 text-xs md:text-sm">Review and manage student applications for internships</p>
+      </div>
+
+      {/* Logo */}
+      <div className="flex justify-center items-center w-full py-8">
+        <Image src="/images/novakinetix-logo.png" alt="Novakinetix Academy Logo" width={320} height={100} className="drop-shadow-2xl" priority />
       </div>
 
       {/* Filters */}
@@ -233,8 +238,8 @@ export default function AdminApplicationsPage() {
                 </div>
                 {application.status === "pending" && (
                   <div className="flex gap-1 mt-2">
-                    <Button size="sm" onClick={() => updateApplicationStatus(application.id, "approved")} className="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1">Approve</Button>
-                    <Button size="sm" variant="destructive" onClick={() => updateApplicationStatus(application.id, "rejected")} className="text-xs px-2 py-1">Reject</Button>
+                    <Button onClick={() => updateApplicationStatus(application.id, "approved")} className="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1">Approve</Button>
+                    <Button onClick={() => updateApplicationStatus(application.id, "rejected")} className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700 text-white">Reject</Button>
                   </div>
                 )}
               </div>

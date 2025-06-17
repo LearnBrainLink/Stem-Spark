@@ -4,194 +4,354 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, GraduationCap, Video, Briefcase, Mail, BarChart3, Shield, ArrowRight, Bell, Search, Menu, X } from "lucide-react";
-import Image from "next/image";
+import { Users, GraduationCap, Video, Briefcase, Mail, BarChart3, Shield, ArrowRight, Bell, Search, Menu, X, Settings, LogOut, ChevronDown, TrendingUp, Activity, Calendar, Clock } from "lucide-react";
+import { supabase } from "@/lib/supabase"
 
 export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [activeTab, setActiveTab] = useState('overview');
+  const [notifications, setNotifications] = useState(3);
+
+  // Add state for live stats
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeStudents: 0,
+    videoLessons: 0,
+    internships: 0,
+    admins: 0,
+    emailTemplates: 0,
+  })
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const fetchStats = async () => {
+      // Users
+      const { count: userCount } = await supabase.from("profiles").select("id", { count: "exact", head: true })
+      // Students
+      const { count: studentCount } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student")
+      // Videos
+      const { count: videoCount } = await supabase.from("videos").select("id", { count: "exact", head: true })
+      // Internships
+      const { count: internshipCount } = await supabase.from("internships").select("id", { count: "exact", head: true })
+      // Admins
+      const { count: adminCount } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "admin")
+      // Email templates
+      const { count: emailTemplateCount } = await supabase.from("email_templates").select("id", { count: "exact", head: true })
+      setStats({
+        totalUsers: userCount || 0,
+        activeStudents: studentCount || 0,
+        videoLessons: videoCount || 0,
+        internships: internshipCount || 0,
+        admins: adminCount || 0,
+        emailTemplates: emailTemplateCount || 0,
+      })
+    }
+    fetchStats()
+  }, [])
+
   const adminStats = [
-    { label: "Total Users", value: "1,234", icon: Users, color: "from-blue-500 to-blue-600", change: "+12%" },
-    { label: "Active Students", value: "856", icon: GraduationCap, color: "from-emerald-500 to-emerald-600", change: "+8%" },
-    { label: "Video Lessons", value: "45", icon: Video, color: "from-purple-500 to-purple-600", change: "+3" },
-    { label: "Internships", value: "23", icon: Briefcase, color: "from-orange-500 to-orange-600", change: "+5" },
+    {
+      label: "Total Users",
+      value: stats.totalUsers.toLocaleString(),
+      icon: Users,
+      gradient: "from-blue-500 via-blue-600 to-indigo-600",
+      change: "+12%",
+      trend: "up",
+      description: "Active platform users"
+    },
+    {
+      label: "Active Students",
+      value: stats.activeStudents.toLocaleString(),
+      icon: GraduationCap,
+      gradient: "from-emerald-500 via-green-600 to-teal-600",
+      change: "+8%",
+      trend: "up",
+      description: "Currently enrolled"
+    },
+    {
+      label: "Video Lessons",
+      value: stats.videoLessons.toLocaleString(),
+      icon: Video,
+      gradient: "from-purple-500 via-violet-600 to-purple-700",
+      change: "+3",
+      trend: "up",
+      description: "Available content"
+    },
+    {
+      label: "Internships",
+      value: stats.internships.toLocaleString(),
+      icon: Briefcase,
+      gradient: "from-orange-500 via-amber-600 to-yellow-600",
+      change: "+5",
+      trend: "up",
+      description: "Open positions"
+    },
   ];
 
   const quickActions = [
     {
       title: "User Management",
-      description: "Manage user accounts and permissions",
+      description: "Manage accounts, roles & permissions",
       href: "/admin/users",
       icon: Users,
-      gradient: "from-blue-500 to-cyan-500",
+      gradient: "from-blue-500 via-cyan-500 to-teal-500",
+      count: `${stats.totalUsers.toLocaleString()} users`
     },
     {
       title: "Video Management",
-      description: "Upload and manage educational videos",
+      description: "Upload, organize & manage content",
       href: "/admin/videos",
       icon: Video,
-      gradient: "from-purple-500 to-pink-500",
+      gradient: "from-purple-500 via-pink-500 to-rose-500",
+      count: `${stats.videoLessons.toLocaleString()} videos`
     },
     {
-      title: "Internship Applications",
-      description: "Review and manage applications",
+      title: "Internship Hub",
+      description: "Review applications & manage programs",
       href: "/admin/applications",
       icon: Briefcase,
-      gradient: "from-orange-500 to-red-500",
+      gradient: "from-orange-500 via-red-500 to-pink-500",
+      count: `${stats.internships.toLocaleString()} active`
     },
     {
-      title: "Email Configuration",
-      description: "Configure email settings and templates",
+      title: "Email Center",
+      description: "Configure templates & campaigns",
       href: "/admin/email-config",
       icon: Mail,
-      gradient: "from-emerald-500 to-teal-500",
+      gradient: "from-emerald-500 via-green-500 to-lime-500",
+      count: `${stats.emailTemplates.toLocaleString()} templates`
     },
     {
-      title: "Admin Setup",
-      description: "Create and manage admin accounts",
+      title: "Admin Console",
+      description: "Manage administrators & security",
       href: "/admin/setup",
       icon: Shield,
-      gradient: "from-red-500 to-pink-500",
+      gradient: "from-red-500 via-rose-500 to-pink-500",
+      count: `${stats.admins.toLocaleString()} admins`
     },
     {
       title: "Analytics",
-      description: "View platform analytics and reports",
+      description: "Insights, reports & performance data",
       href: "/admin/analytics",
       icon: BarChart3,
-      gradient: "from-indigo-500 to-blue-500",
+      gradient: "from-indigo-500 via-blue-500 to-cyan-500",
+      count: "Live data"
     },
   ];
 
   const recentActivities = [
     {
       icon: Users,
-      title: "New user registration",
-      description: "student@example.com joined as a student",
-      time: "2 hours ago",
-      color: "text-blue-500"
+      title: "New student enrollment",
+      description: "Sarah Johnson enrolled in Advanced Robotics",
+      time: "2 minutes ago",
+      gradient: "from-blue-500 to-cyan-500",
+      type: "enrollment"
     },
     {
       icon: Video,
-      title: "Video uploaded",
-      description: "Introduction to Robotics added to library",
-      time: "5 hours ago",
-      color: "text-purple-500"
+      title: "Content published",
+      description: "Machine Learning Basics - Chapter 3 is now live",
+      time: "15 minutes ago",
+      gradient: "from-purple-500 to-pink-500",
+      type: "content"
     },
     {
       icon: Briefcase,
       title: "Internship application",
-      description: "New application for Summer Engineering Program",
-      time: "1 day ago",
-      color: "text-orange-500"
+      description: "Alex Chen applied for Software Engineering role",
+      time: "1 hour ago",
+      gradient: "from-orange-500 to-red-500",
+      type: "application"
+    },
+    {
+      icon: BarChart3,
+      title: "Monthly report generated",
+      description: "October performance metrics are ready",
+      time: "2 hours ago",
+      gradient: "from-emerald-500 to-teal-500",
+      type: "report"
     }
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Animated Background Pattern */}
+      <div className="fixed inset-0 opacity-30">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent_50%)]"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(139,92,246,0.1),transparent_50%)]"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,rgba(34,197,94,0.1),transparent_50%)]"></div>
+      </div>
+
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" onClick={() => setSidebarOpen(false)} />
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden transition-opacity duration-300" 
+          onClick={() => setSidebarOpen(false)} 
+        />
       )}
 
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-30 shadow-sm">
-        <div className="flex items-center justify-between px-4 py-4">
+      <header className="relative bg-white/70 backdrop-blur-xl border-b border-white/20 sticky top-0 z-30 shadow-lg shadow-blue-500/10">
+        <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="md:hidden p-2.5 rounded-xl bg-white/80 hover:bg-white transition-all duration-200 shadow-md hover:shadow-lg"
             >
-              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {sidebarOpen ? <X className="w-5 h-5 text-gray-700" /> : <Menu className="w-5 h-5 text-gray-700" />}
             </button>
             
             {/* Logo */}
-            <div className="flex items-center gap-3">
-              <div className="w-16 h-12 flex items-center justify-center">
-                <Image src="/images/novakinetix-logo.png" alt="Novakinetix Academy Logo" width={260} height={90} className="mx-auto my-8 drop-shadow-2xl" priority />
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25">
+                  <GraduationCap className="w-7 h-7 text-white" />
+                </div>
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
               </div>
-              <div className="hidden md:block">
-                <p className="text-sm text-gray-500">Admin Dashboard</p>
+              <div className="hidden sm:block">
+                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  Novakinetix Academy
+                </h1>
+                <p className="text-sm text-gray-500 font-medium">Admin Dashboard</p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2">
-              <Search className="w-4 h-4 text-gray-400" />
+          <div className="flex items-center gap-3">
+            {/* Search */}
+            <div className="hidden lg:flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-xl px-4 py-2.5 border border-white/20 shadow-md hover:shadow-lg transition-all duration-200 group">
+              <Search className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-colors" />
               <input
                 type="text"
-                placeholder="Search..."
-                className="bg-transparent border-none outline-none text-sm w-32"
+                placeholder="Search anything..."
+                className="bg-transparent border-none outline-none text-sm w-40 placeholder-gray-400"
               />
+              <kbd className="hidden md:inline-block px-2 py-1 text-xs text-gray-400 bg-gray-100 rounded border">⌘K</kbd>
             </div>
             
-            <button className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors">
-              <Bell className="w-5 h-5 text-gray-600" />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+            {/* Notifications */}
+            <button className="relative p-2.5 rounded-xl bg-white/80 hover:bg-white transition-all duration-200 shadow-md hover:shadow-lg group">
+              <Bell className="w-5 h-5 text-gray-600 group-hover:text-blue-600 transition-colors" />
+              {notifications > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full flex items-center justify-center font-bold animate-pulse">
+                  {notifications}
+                </span>
+              )}
             </button>
 
-            <Badge className="text-emerald-600 border-emerald-200 bg-emerald-50 px-3 py-1">
-              System Online
+            {/* Profile */}
+            <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm rounded-xl px-3 py-2 shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer group">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                A
+              </div>
+              <div className="hidden md:block text-left">
+                <p className="text-sm font-semibold text-gray-800">Admin User</p>
+                <p className="text-xs text-gray-500">Super Admin</p>
+              </div>
+              <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-colors" />
+            </div>
+
+            <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white border-0 px-3 py-1.5 shadow-md">
+              <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></div>
+              Online
             </Badge>
           </div>
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex relative">
         {/* Sidebar */}
-        <aside className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 fixed md:relative z-30 w-64 h-screen bg-white/90 backdrop-blur-md border-r border-gray-200 transition-transform duration-300 ease-in-out shadow-lg md:shadow-none`}>
-          <div className="p-6">
-            <div className="mb-8">
-              <div className="text-sm text-gray-500 mb-2">Current Time</div>
-              <div className="text-lg font-mono text-gray-800">
-                {currentTime.toLocaleTimeString()}
+        <aside className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 fixed md:relative z-30 w-72 h-screen bg-white/80 backdrop-blur-xl border-r border-white/20 transition-all duration-300 ease-out shadow-2xl md:shadow-none`}>
+          <div className="p-6 h-full flex flex-col">
+            {/* Time Widget */}
+            <div className="mb-8 p-4 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-2xl border border-blue-200/20">
+              <div className="flex items-center gap-3 mb-2">
+                <Clock className="w-5 h-5 text-blue-600" />
+                <span className="text-sm font-medium text-gray-600">Current Time</span>
+              </div>
+              <div className="text-2xl font-mono font-bold text-gray-800">
+                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+              <div className="text-sm text-gray-500 mt-1">
+                {currentTime.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}
               </div>
             </div>
 
-            <nav className="space-y-2">
+            {/* Navigation */}
+            <nav className="flex-1 space-y-3">
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Navigation</div>
               {quickActions.map((action, index) => (
                 <button
                   key={index}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 transition-all duration-200 text-left group"
+                  className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 transition-all duration-300 text-left group hover:shadow-lg hover:shadow-blue-500/10"
                 >
-                  <div className={`p-2 rounded-lg bg-gradient-to-r ${action.gradient} text-white shadow-md group-hover:shadow-lg transition-shadow`}>
-                    <action.icon className="w-4 h-4" />
+                  <div className={`p-3 rounded-xl bg-gradient-to-r ${action.gradient} text-white shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300`}>
+                    <action.icon className="w-5 h-5" />
                   </div>
-                  <div>
-                    <div className="font-medium text-gray-800">{action.title}</div>
-                    <div className="text-xs text-gray-500">{action.description}</div>
+                  <div className="flex-1">
+                    <div className="font-semibold text-gray-800 group-hover:text-gray-900">{action.title}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">{action.count}</div>
                   </div>
+                  <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-blue-500 group-hover:translate-x-1 transition-all duration-300" />
                 </button>
               ))}
             </nav>
+
+            {/* Quick Settings */}
+            <div className="mt-auto pt-6 border-t border-gray-200/50">
+              <div className="flex gap-2">
+                <button className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors">
+                  <Settings className="w-4 h-4" />
+                  <span className="text-sm font-medium">Settings</span>
+                </button>
+                <button className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl bg-red-100 hover:bg-red-200 text-red-600 transition-colors">
+                  <LogOut className="w-4 h-4" />
+                  <span className="text-sm font-medium">Logout</span>
+                </button>
+              </div>
+            </div>
           </div>
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-6 space-y-6 overflow-auto">
+        <main className="flex-1 p-6 space-y-8 overflow-auto relative">
+          {/* Welcome Section */}
+          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl p-8 text-white relative overflow-hidden">
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iZ3JpZCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLW9wYWNpdHk9IjAuMSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-20"></div>
+            <div className="relative">
+              <h1 className="text-3xl font-bold mb-2">Welcome back, Admin! 👋</h1>
+              <p className="text-blue-100 text-lg">Here's what's happening with your academy today</p>
+            </div>
+          </div>
+
           {/* Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {adminStats.map((stat, index) => (
-              <Card key={index} className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 group bg-white/80 backdrop-blur-sm">
-                <div className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-5 group-hover:opacity-10 transition-opacity`}></div>
+              <Card key={index} className="relative overflow-hidden border-0 shadow-xl hover:shadow-2xl transition-all duration-500 group bg-white/80 backdrop-blur-sm hover:scale-105">
+                <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-500`}></div>
                 <CardContent className="p-6 relative">
                   <div className="flex items-center justify-between mb-4">
-                    <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.color} text-white shadow-lg`}>
+                    <div className={`p-4 rounded-2xl bg-gradient-to-br ${stat.gradient} text-white shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-500`}>
                       <stat.icon className="w-6 h-6" />
                     </div>
-                    <Badge className="text-xs bg-green-100 text-green-700">
-                      {stat.change}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      <TrendingUp className="w-4 h-4 text-green-500" />
+                      <Badge className="text-xs bg-green-100 text-green-700 border-green-200">
+                        {stat.change}
+                      </Badge>
+                    </div>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-600 mb-1">{stat.label}</p>
-                    <p className="text-3xl font-bold text-gray-800">{stat.value}</p>
+                    <p className="text-3xl font-bold text-gray-800 mb-2">{stat.value}</p>
+                    <p className="text-xs text-gray-400">{stat.description}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -200,26 +360,34 @@ export default function AdminDashboard() {
 
           {/* Quick Actions Grid */}
           <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Quick Actions</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">Quick Actions</h2>
+              <Button className="bg-white/80 backdrop-blur-sm border-gray-200 hover:bg-white">
+                View All
+              </Button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {quickActions.map((action, index) => (
-                <Card key={index} className="group hover:shadow-xl transition-all duration-300 border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden">
-                  <div className={`h-2 bg-gradient-to-r ${action.gradient}`}></div>
+                <Card key={index} className="group hover:shadow-2xl transition-all duration-500 border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden hover:scale-105">
+                  <div className={`h-1 bg-gradient-to-r ${action.gradient}`}></div>
                   <CardHeader className="pb-4">
-                    <div className="flex items-center gap-4">
-                      <div className={`p-4 rounded-xl bg-gradient-to-r ${action.gradient} text-white shadow-lg group-hover:shadow-xl transition-shadow`}>
+                    <div className="flex items-start gap-4">
+                      <div className={`p-4 rounded-2xl bg-gradient-to-r ${action.gradient} text-white shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-500`}>
                         <action.icon className="w-6 h-6" />
                       </div>
-                      <div>
-                        <CardTitle className="text-lg font-semibold text-gray-800">{action.title}</CardTitle>
-                        <CardDescription className="text-gray-600">{action.description}</CardDescription>
+                      <div className="flex-1">
+                        <CardTitle className="text-lg font-bold text-gray-800 group-hover:text-gray-900">{action.title}</CardTitle>
+                        <CardDescription className="text-gray-600 text-sm mt-1">{action.description}</CardDescription>
+                        <Badge className="mt-3 text-xs bg-gray-100 text-gray-600">
+                          {action.count}
+                        </Badge>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <Button className={`w-full bg-gradient-to-r ${action.gradient} hover:shadow-lg transition-all duration-200 border-0 text-white font-semibold`}>
-                      Access {action.title}
-                      <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                    <Button className={`w-full bg-gradient-to-r ${action.gradient} hover:shadow-lg transition-all duration-300 border-0 text-white font-semibold rounded-xl`}>
+                      Open {action.title}
+                      <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
                     </Button>
                   </CardContent>
                 </Card>
@@ -228,28 +396,42 @@ export default function AdminDashboard() {
           </div>
 
           {/* Recent Activity */}
-          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+          <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                Recent Activity
-              </CardTitle>
-              <CardDescription className="text-gray-600">Latest platform activities and updates</CardDescription>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg">
+                    <Activity className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl font-bold text-gray-800">Recent Activity</CardTitle>
+                    <CardDescription className="text-gray-600">Latest platform activities and updates</CardDescription>
+                  </div>
+                </div>
+                <Button className="bg-white/80 text-xs px-3 py-1">
+                  View All
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {recentActivities.map((activity, index) => (
-                  <div key={index} className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl shadow-sm hover:shadow-md transition-shadow group">
-                    <div className={`p-3 rounded-xl ${activity.color} bg-current bg-opacity-10`}>
-                      <activity.icon className={`w-5 h-5 ${activity.color}`} />
+                  <div key={index} className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 group border border-gray-100">
+                    <div className={`p-3 rounded-xl bg-gradient-to-r ${activity.gradient} text-white shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300`}>
+                      <activity.icon className="w-5 h-5" />
                     </div>
                     <div className="flex-1">
                       <p className="font-semibold text-gray-800 group-hover:text-gray-900">{activity.title}</p>
-                      <p className="text-sm text-gray-600">{activity.description}</p>
+                      <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
                     </div>
-                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                      {activity.time}
-                    </span>
+                    <div className="text-right">
+                      <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                        {activity.time}
+                      </span>
+                      <Badge className="mt-2 text-xs">
+                        {activity.type}
+                      </Badge>
+                    </div>
                   </div>
                 ))}
               </div>

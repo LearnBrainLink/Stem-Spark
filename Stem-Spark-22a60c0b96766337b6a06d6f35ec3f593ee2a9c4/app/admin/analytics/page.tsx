@@ -48,9 +48,9 @@ export default function AnalyticsPage() {
       const now = new Date()
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
-      const newUsersThisMonth = users?.filter((user) => new Date(user.created_at) >= thirtyDaysAgo).length || 0
+      const newUsersThisMonth = users?.filter((user: any) => new Date(user.created_at) >= thirtyDaysAgo).length || 0
 
-      const activeInternships = internships?.filter((internship) => internship.status === "active").length || 0
+      const activeInternships = internships?.filter((internship: any) => internship.status === "active").length || 0
 
       // Generate user growth data (mock data for demonstration)
       const userGrowth = [
@@ -73,9 +73,9 @@ export default function AnalyticsPage() {
 
       // Application stats
       const applicationStats = [
-        { status: "pending", count: applications?.filter((app) => app.status === "pending").length || 0 },
-        { status: "approved", count: applications?.filter((app) => app.status === "approved").length || 0 },
-        { status: "rejected", count: applications?.filter((app) => app.status === "rejected").length || 0 },
+        { status: "pending", count: applications?.filter((app: any) => app.status === "pending").length || 0 },
+        { status: "approved", count: applications?.filter((app: any) => app.status === "approved").length || 0 },
+        { status: "rejected", count: applications?.filter((app: any) => app.status === "rejected").length || 0 },
       ]
 
       setAnalyticsData({
@@ -157,7 +157,7 @@ export default function AnalyticsPage() {
               <SelectItem value="1y">Last year</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={exportReport} variant="outline" className="px-2 py-1 text-sm">
+          <Button onClick={exportReport} className="px-2 py-1 text-sm">
             <Download className="w-4 h-4 mr-1" />
             Export
           </Button>
@@ -165,14 +165,16 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Logo */}
-      <Image
-        src="/images/novakinetix-logo.png"
-        alt="Novakinetix Academy Logo"
-        width={260}
-        height={90}
-        className="mx-auto my-8 drop-shadow-2xl"
-        priority
-      />
+      <div className="flex justify-center items-center w-full py-8">
+        <Image
+          src="/images/novakinetix-logo.png"
+          alt="Novakinetix Academy Logo"
+          width={320}
+          height={100}
+          className="drop-shadow-2xl"
+          priority
+        />
+      </div>
 
       {/* Key Metrics - compact grid */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -307,7 +309,7 @@ export default function AnalyticsPage() {
                   {analyticsData.topVideos.map((video, index) => (
                     <div key={video.title} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <Badge variant="outline" className="w-6 h-6 p-0 flex items-center justify-center text-xs">
+                        <Badge className="w-6 h-6 p-0 flex items-center justify-center text-xs">
                           {index + 1}
                         </Badge>
                         <span className="text-sm font-medium truncate">{video.title}</span>

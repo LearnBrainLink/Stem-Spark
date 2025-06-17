@@ -62,7 +62,7 @@ export default function ContentModerationPage() {
         `)
 
       // Transform data
-      const videoItems: ContentItem[] = (videos || []).map((video) => ({
+      const videoItems: ContentItem[] = (videos || []).map((video: any) => ({
         id: video.id,
         type: "video" as const,
         title: video.title,
@@ -72,7 +72,7 @@ export default function ContentModerationPage() {
         created_at: video.created_at,
       }))
 
-      const applicationItems: ContentItem[] = (applications || []).map((app) => ({
+      const applicationItems: ContentItem[] = (applications || []).map((app: any) => ({
         id: app.id,
         type: "application" as const,
         title: `Application for ${app.internships?.title || "Unknown Position"}`,
@@ -182,7 +182,9 @@ export default function ContentModerationPage() {
   return (
     <div className="w-full h-screen max-w-7xl mx-auto p-2 md:p-4 space-y-4 overflow-hidden">
       {/* Logo */}
-      <Image src="/images/novakinetix-logo.png" alt="Novakinetix Academy Logo" width={260} height={90} className="mx-auto my-8 drop-shadow-2xl" priority />
+      <div className="flex justify-center items-center w-full py-8">
+        <Image src="/images/novakinetix-logo.png" alt="Novakinetix Academy Logo" width={320} height={100} className="drop-shadow-2xl" priority />
+      </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-2">
@@ -323,22 +325,18 @@ export default function ContentModerationPage() {
                           <TableCell>{new Date(item.created_at).toLocaleDateString()}</TableCell>
                           <TableCell>
                             <div className="flex gap-2">
-                              <Button variant="outline" size="sm">
+                              <Button className="text-blue-600 hover:text-blue-700">
                                 <Eye className="w-4 h-4" />
                               </Button>
                               {item.status === "pending" && (
                                 <>
                                   <Button
-                                    variant="outline"
-                                    size="sm"
                                     onClick={() => handleModerateContent(item.id, "approve", item.type)}
                                     className="text-green-600 hover:text-green-700"
                                   >
                                     <Check className="w-4 h-4" />
                                   </Button>
                                   <Button
-                                    variant="outline"
-                                    size="sm"
                                     onClick={() => handleModerateContent(item.id, "reject", item.type)}
                                     className="text-red-600 hover:text-red-700"
                                   >
@@ -347,8 +345,6 @@ export default function ContentModerationPage() {
                                 </>
                               )}
                               <Button
-                                variant="outline"
-                                size="sm"
                                 onClick={() => handleModerateContent(item.id, "flag", item.type)}
                                 className="text-orange-600 hover:text-orange-700"
                               >

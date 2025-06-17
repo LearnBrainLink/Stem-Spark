@@ -536,7 +536,9 @@ export default function SettingsPage() {
       </div>
 
       {/* Logo */}
-      <Image src="/images/novakinetix-logo.png" alt="Novakinetix Academy Logo" width={260} height={90} className="mx-auto my-8 drop-shadow-2xl" priority />
+      <div className="flex justify-center items-center w-full py-8">
+        <Image src="/images/novakinetix-logo.png" alt="Novakinetix Academy Logo" width={320} height={100} className="drop-shadow-2xl" priority />
+      </div>
     </div>
   )
 }

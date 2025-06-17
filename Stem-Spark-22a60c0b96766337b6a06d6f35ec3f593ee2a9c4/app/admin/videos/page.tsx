@@ -102,6 +102,17 @@ export default function AdminVideosPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       {/* Header */}
       <main className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center w-full py-8">
+          <Image
+            src="/images/novakinetix-logo.png"
+            alt="Novakinetix Academy Logo"
+            width={320}
+            height={100}
+            className="drop-shadow-2xl"
+            priority
+          />
+        </div>
+
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">Manage Videos</h1>
@@ -189,7 +200,7 @@ export default function AdminVideosPage() {
                   <Button type="submit" disabled={isLoading} className="flex-1">
                     {isLoading ? "Adding..." : "Add Video"}
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  <Button type="button" onClick={() => setIsCreateDialogOpen(false)}>
                     Cancel
                   </Button>
                 </div>
@@ -215,16 +226,15 @@ export default function AdminVideosPage() {
                   <CardTitle className="text-lg font-semibold text-gray-800">{video.title}</CardTitle>
                   <div className="flex items-center gap-2">
                     <Button
-                      variant="ghost"
-                      size="sm"
                       onClick={() => {
                         setSelectedVideo(video)
                         setIsEditDialogOpen(true)
                       }}
+                      className="bg-transparent hover:bg-gray-100"
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDeleteVideo(video.id)}>
+                    <Button onClick={() => handleDeleteVideo(video.id)}>
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </Button>
                   </div>
@@ -246,7 +256,7 @@ export default function AdminVideosPage() {
                 </div>
                 <p className="text-sm text-gray-600 mb-4 line-clamp-2">{video.description}</p>
                 <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-sm">
+                  <Badge className="text-sm">
                     {video.category}
                   </Badge>
                   <div className="flex items-center text-sm text-gray-500">
@@ -375,7 +385,7 @@ export default function AdminVideosPage() {
                 <Button type="submit" disabled={isLoading} className="flex-1">
                   {isLoading ? "Saving..." : "Save Changes"}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                <Button type="button" onClick={() => setIsEditDialogOpen(false)}>
                   Cancel
                 </Button>
               </div>
