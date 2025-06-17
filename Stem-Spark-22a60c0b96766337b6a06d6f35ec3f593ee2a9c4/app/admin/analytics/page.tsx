@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -162,6 +163,16 @@ export default function AnalyticsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Logo */}
+      <Image
+        src="/images/novakinetix-logo.png"
+        alt="Novakinetix Academy Logo"
+        width={260}
+        height={90}
+        className="mx-auto my-8 drop-shadow-2xl"
+        priority
+      />
 
       {/* Key Metrics - compact grid */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

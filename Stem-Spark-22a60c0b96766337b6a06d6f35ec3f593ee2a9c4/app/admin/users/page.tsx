@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -238,6 +239,16 @@ export default function UserManagementPage() {
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        {/* Logo */}
+        <Image
+          src="/images/novakinetix-logo.png"
+          alt="Novakinetix Academy Logo"
+          width={260}
+          height={90}
+          className="mx-auto my-8 drop-shadow-2xl"
+          priority
+        />
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2 shrink-0">
           <Card className="stat-card">

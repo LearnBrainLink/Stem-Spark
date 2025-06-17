@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { supabase } from "@/lib/supabase"
 import { Search, Eye, Check, X, Flag, MessageSquare, Video, FileText, AlertTriangle, Clock } from "lucide-react"
+import Image from "next/image"
 
 interface ContentItem {
   id: string
@@ -180,6 +181,9 @@ export default function ContentModerationPage() {
 
   return (
     <div className="w-full h-screen max-w-7xl mx-auto p-2 md:p-4 space-y-4 overflow-hidden">
+      {/* Logo */}
+      <Image src="/images/novakinetix-logo.png" alt="Novakinetix Academy Logo" width={260} height={90} className="mx-auto my-8 drop-shadow-2xl" priority />
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-2">
         <Card className="stat-card">

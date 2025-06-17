@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Save, RefreshCw, Shield, Mail, Database, Globe, Palette } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import Image from "next/image"
 
 interface SystemSettings {
   siteName: string
@@ -533,6 +534,9 @@ export default function SettingsPage() {
           </div>
         </Tabs>
       </div>
+
+      {/* Logo */}
+      <Image src="/images/novakinetix-logo.png" alt="Novakinetix Academy Logo" width={260} height={90} className="mx-auto my-8 drop-shadow-2xl" priority />
     </div>
   )
 }

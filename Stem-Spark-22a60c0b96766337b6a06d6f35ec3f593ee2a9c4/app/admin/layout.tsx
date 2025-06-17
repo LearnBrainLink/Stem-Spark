@@ -22,7 +22,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Logo } from "@/components/logo"
+import Image from "next/image"
 import { supabase } from "@/lib/supabase"
 import { signOut } from "@/lib/enhanced-auth-actions"
 
@@ -135,7 +135,7 @@ export default function AdminLayout({
           <div className="flex items-center justify-between px-6 py-3">
             <div className="flex items-center gap-4">
               <Link href="/admin" className="flex items-center">
-                <Logo variant="large" className="h-10 w-auto hover:scale-105 transition-transform duration-300" />
+                <Image src="/images/novakinetix-logo.png" alt="Novakinetix Academy Logo" width={220} height={80} className="mx-auto my-6 drop-shadow-2xl" priority />
               </Link>
               <Badge className="bg-brand-primary text-white border-0 shadow-brand text-sm px-3 py-1">
                 <GraduationCap className="w-4 h-4 mr-2" />

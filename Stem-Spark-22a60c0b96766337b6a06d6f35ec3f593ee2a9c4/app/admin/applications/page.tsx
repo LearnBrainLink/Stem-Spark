@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/lib/supabase"
 import { Search, Users, Calendar, Mail, Phone } from "lucide-react"
 import Link from "next/link"
-import { Logo } from "@/components/logo"
+import Image from "next/image"
 
 interface Application {
   id: string
@@ -139,10 +139,7 @@ export default function AdminApplicationsPage() {
       <header className="bg-white/80 backdrop-blur-sm border-b shadow-sm rounded-lg mb-4 py-2 px-4">
         <div className="flex items-center justify-between">
           <Link href="/admin" className="flex items-center gap-2">
-            <Logo width={32} height={32} />
-            <span className="text-lg font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
-              Internship Applications
-            </span>
+            <Image src="/images/novakinetix-logo.png" alt="Novakinetix Academy Logo" width={260} height={90} className="mx-auto my-8 drop-shadow-2xl" priority />
           </Link>
           <div className="flex items-center gap-2">
             <Link href="/admin">
