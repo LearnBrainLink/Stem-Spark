@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -134,7 +136,7 @@ export default function AdminDashboard() {
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
             </button>
 
-            <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50 px-3 py-1">
+            <Badge className="text-emerald-600 border-emerald-200 bg-emerald-50 px-3 py-1">
               System Online
             </Badge>
           </div>
@@ -183,7 +185,7 @@ export default function AdminDashboard() {
                     <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.color} text-white shadow-lg`}>
                       <stat.icon className="w-6 h-6" />
                     </div>
-                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                    <Badge className="text-xs bg-green-100 text-green-700">
                       {stat.change}
                     </Badge>
                   </div>
