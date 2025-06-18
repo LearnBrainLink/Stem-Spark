@@ -1,29 +1,65 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
+import { Logo } from "@/components/logo"
 import { enhancedSignUp } from "@/lib/enhanced-auth-actions"
 import { Mail, Lock, User, CheckCircle, Loader2, ArrowLeft, School, Map, Globe, UserSquare } from "lucide-react"
 import Link from "next/link"
-import { Logo } from "@/components/logo"
 
 export default function SignUpPage() {
 	const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 	const [isLoading, setIsLoading] = useState(false)
 	const [selectedRole, setSelectedRole] = useState("")
+	const [formData, setFormData] = useState({
+		fullName: "",
+		email: "",
+		password: "",
+		confirmPassword: "",
+		grade: "",
+		country: "",
+		state: "",
+		schoolName: "",
+		parentName: "",
+		parentEmail: "",
+		parentPhone: "",
+		relationship: "",
+		role: "",
+	})
 
-	const handleSignUp = async (formData: FormData) => {
+	// Floating particles animation (copied from login)
+	const particles = Array.from({ length: 20 }, (_, i) => ({
+		id: i,
+		size: Math.random() * 40 + 20,
+		left: Math.random() * 100,
+		top: Math.random() * 100,
+		duration: Math.random() * 20 + 10,
+		delay: Math.random() * 5,
+	}))
+
+	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+		setFormData({
+			...formData,
+			[e.target.name]: e.target.value,
+		})
+	}
+
+	const handleRoleChange = (value: string) => {
+		setSelectedRole(value)
+		setFormData({ ...formData, role: value })
+	}
+
+	const handleSignUp = async (e: React.FormEvent) => {
+		e.preventDefault()
 		setIsLoading(true)
 		setMessage(null)
-
 		try {
-			const result = await enhancedSignUp(formData)
-
+			const form = new FormData(e.target as HTMLFormElement)
+			const result = await enhancedSignUp(form)
 			if (result?.error) {
 				setMessage({ type: "error", text: result.error })
 			} else if (result?.success) {
@@ -33,7 +69,6 @@ export default function SignUpPage() {
 				})
 			}
 		} catch (error) {
-			console.error("Signup error:", error)
 			setMessage({
 				type: "error",
 				text: "An unexpected error occurred during signup. Please try again.",
@@ -43,210 +78,455 @@ export default function SignUpPage() {
 		}
 	}
 
-	return (
-		<div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
-			<div className="w-full max-w-3xl">
-				<div className="text-center mb-8">
-					<Link href="/" className="inline-flex items-center gap-3 mb-4">
-						<Logo width={160} height={80} />
-					</Link>
-					<p className="text-lg text-gray-700">Join our community of young engineers!</p>
+	// Motivational section (copied from login)
+	const MotivationalSection = () => (
+		<div className="w-full flex flex-col items-center justify-center text-center mb-8 mt-8">
+			<p className="text-xl lg:text-2xl text-blue-100 max-w-md mx-auto leading-relaxed">
+				Unlock your potential with cutting-edge education and innovation
+			</p>
+			<div className="flex flex-wrap justify-center gap-4 pt-4">
+				<div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 text-sm font-medium">
+					🚀 Advanced Learning
 				</div>
-
-				<Card className="shadow-2xl border-0 rounded-2xl">
-					<CardHeader className="space-y-2">
-						<CardTitle className="text-3xl text-center text-blue-800">Create Your Account</CardTitle>
-						<CardDescription className="text-center text-lg text-gray-600">
-							Start your STEM journey with Novakinetix Academy
-						</CardDescription>
-					</CardHeader>
-					<CardContent className="px-8 pb-8">
-						{message && (
-							<Alert
-								className={`mb-6 ${
-									message.type === "error" ? "border-red-300 bg-red-50 text-red-800" : "border-green-300 bg-green-50 text-green-800"
-								}`}
-							>
-								<AlertDescription className="font-medium flex items-center gap-2">
-									{message.type === "success" && <CheckCircle className="w-5 h-5" />}
-									{message.text}
-								</AlertDescription>
-							</Alert>
-						)}
-
-						<form action={handleSignUp} className="space-y-6">
-							<div className="space-y-2">
-								<Label htmlFor="role">I am a... *</Label>
-								<Select name="role" required onValueChange={setSelectedRole} disabled={isLoading}>
-									<SelectTrigger className="h-12 text-base">
-										<SelectValue placeholder="Select your role" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="student">Student</SelectItem>
-										<SelectItem value="teacher">Teacher</SelectItem>
-										<SelectItem value="parent">Parent</SelectItem>
-									</SelectContent>
-								</Select>
-							</div>
-
-							<div className="grid md:grid-cols-2 gap-6">
-								<div className="space-y-2">
-									<Label htmlFor="signup-name">Full Name *</Label>
-									<div className="relative">
-										<User className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-										<Input id="signup-name" name="fullName" type="text" placeholder="Your full name" className="pl-10 h-12 text-base" required disabled={isLoading} />
-									</div>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="signup-email">Email *</Label>
-									<div className="relative">
-										<Mail className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-										<Input id="signup-email" name="email" type="email" placeholder="your@email.com" className="pl-10 h-12 text-base" required disabled={isLoading} />
-									</div>
-								</div>
-							</div>
-							
-							<div className="grid md:grid-cols-2 gap-6">
-									<div className="space-y-2">
-										<Label htmlFor="signup-password">Password *</Label>
-										<div className="relative">
-											<Lock className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-											<Input id="signup-password" name="password" type="password" placeholder="••••••••" className="pl-10 h-12 text-base" minLength={8} required disabled={isLoading} />
-										</div>
-										<p className="text-xs text-gray-500">Minimum 8 characters</p>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="confirm-password">Confirm Password *</Label>
-										<div className="relative">
-											<Lock className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-											<Input id="confirm-password" name="confirmPassword" type="password" placeholder="••••••••" className="pl-10 h-12 text-base" minLength={8} required disabled={isLoading}/>
-										</div>
-									</div>
-							</div>
-
-							{selectedRole === 'student' && (
-								<>
-									<div className="border-t pt-6 space-y-6">
-										<h3 className="text-xl font-semibold text-blue-700">Student Information</h3>
-										<div className="grid md:grid-cols-2 gap-6">
-											<div className="space-y-2">
-												<Label htmlFor="grade">Grade Level *</Label>
-												<Select name="grade" required>
-													<SelectTrigger className="h-12 text-base">
-														<SelectValue placeholder="Select your grade" />
-													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="5">5th Grade</SelectItem>
-														<SelectItem value="6">6th Grade</SelectItem>
-														<SelectItem value="7">7th Grade</SelectItem>
-														<SelectItem value="8">8th Grade</SelectItem>
-													</SelectContent>
-												</Select>
-											</div>
-											<div className="space-y-2">
-												<Label htmlFor="schoolName">School Name</Label>
-												<div className="relative">
-													<School className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-													<Input id="schoolName" name="schoolName" type="text" placeholder="Your school's name" className="pl-10 h-12 text-base" disabled={isLoading} />
-												</div>
-											</div>
-										</div>
-										<div className="grid md:grid-cols-2 gap-6">
-											<div className="space-y-2">
-												<Label htmlFor="country">Country *</Label>
-												<div className="relative">
-													<Globe className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-													<Input id="country" name="country" type="text" placeholder="e.g. United States" className="pl-10 h-12 text-base" required disabled={isLoading} />
-												</div>
-											</div>
-											<div className="space-y-2">
-												<Label htmlFor="state">State/Province *</Label>
-												<div className="relative">
-													<Map className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-													<Input id="state" name="state" type="text" placeholder="e.g. California" className="pl-10 h-12 text-base" required disabled={isLoading} />
-												</div>
-											</div>
-										</div>
-									</div>
-									<div className="border-t pt-6 space-y-6">
-										<h3 className="text-xl font-semibold text-blue-700">Parent/Guardian Information</h3>
-										<div className="grid md:grid-cols-2 gap-6">
-											<div className="space-y-2">
-												<Label htmlFor="parentName">Parent/Guardian Name *</Label>
-												<div className="relative">
-													<UserSquare className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-													<Input id="parentName" name="parentName" type="text" placeholder="Parent's full name" className="pl-10 h-12 text-base" required disabled={isLoading} />
-												</div>
-											</div>
-											<div className="space-y-2">
-												<Label htmlFor="parentEmail">Parent/Guardian Email *</Label>
-												<div className="relative">
-													<Mail className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-													<Input id="parentEmail" name="parentEmail" type="email" placeholder="parent@email.com" className="pl-10 h-12 text-base" required disabled={isLoading} />
-												</div>
-											</div>
-										</div>
-										<div className="grid md:grid-cols-2 gap-6">
-											<div className="space-y-2">
-												<Label htmlFor="parentPhone">Parent/Guardian Phone</Label>
-												<Input id="parentPhone" name="parentPhone" type="tel" placeholder="(555) 123-4567" className="h-12 text-base" disabled={isLoading} />
-											</div>
-											<div className="space-y-2">
-												<Label htmlFor="relationship">Relationship to Student *</Label>
-												<Select name="relationship" required>
-													<SelectTrigger className="h-12 text-base">
-														<SelectValue placeholder="Select relationship" />
-													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="mother">Mother</SelectItem>
-														<SelectItem value="father">Father</SelectItem>
-														<SelectItem value="guardian">Guardian</SelectItem>
-														<SelectItem value="other">Other</SelectItem>
-													</SelectContent>
-												</Select>
-											</div>
-										</div>
-									</div>
-								</>
-							)}
-
-							<Button
-								type="submit"
-								className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white h-14 text-lg font-bold shadow-lg"
-								disabled={isLoading}
-							>
-								{isLoading ? (
-									<>
-										<Loader2 className="mr-2 h-5 w-5 animate-spin" />
-										Creating Account...
-									</>
-								) : (
-									"Create Account"
-								)}
-							</Button>
-
-							<p className="text-xs text-gray-500 text-center pt-2">
-								By creating an account, you agree to our{" "}
-								<Link href="/terms" className="underline text-blue-600">
-									Terms of Service
-								</Link>{" "}
-								and{" "}
-								<Link href="/privacy" className="underline text-blue-600">
-									Privacy Policy
-								</Link>
-								.
-							</p>
-						</form>
-					</CardContent>
-				</Card>
-
-				<div className="text-center mt-6">
-					<Link href="/login" className="text-sm text-gray-700 hover:text-blue-700 transition-colors inline-flex items-center">
-						<ArrowLeft className="w-4 h-4 mr-1" />
-						Already have an account? Sign In
-					</Link>
+				<div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 text-sm font-medium">
+					🎓 Expert Instructors
+				</div>
+				<div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 text-sm font-medium">
+					🌟 Career Growth
 				</div>
 			</div>
+		</div>
+	)
+
+	return (
+		<div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900">
+			{/* Animated Background */}
+			<div className="absolute inset-0 opacity-30">
+				<div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-pink-600/20 animate-pulse" />
+				{particles.map((particle) => (
+					<div
+						key={particle.id}
+						className="absolute rounded-full bg-white/10 backdrop-blur-sm animate-bounce"
+						style={{
+							width: `${particle.size}px`,
+							height: `${particle.size}px`,
+							left: `${particle.left}%`,
+							top: `${particle.top}%`,
+							animationDuration: `${particle.duration}s`,
+							animationDelay: `${particle.delay}s`,
+							filter: "blur(1px)",
+						}}
+					/>
+				))}
+			</div>
+			{/* Main Content */}
+			<div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-4">
+				<div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
+					{/* Logo Section */}
+					<div className="flex flex-col items-center justify-center text-center lg:pr-8">
+						<div className="mb-4 transform hover:scale-105 transition-transform duration-500">
+							<Logo variant="mega" className="w-80 h-auto drop-shadow-2xl animate-pulse" />
+						</div>
+						<div className="mb-8 w-full flex flex-col items-center">
+							<MotivationalSection />
+						</div>
+					</div>
+					{/* Sign Up Form */}
+					<div className="w-full max-w-md mx-auto">
+						<Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-2xl rounded-2xl overflow-hidden">
+							<CardHeader className="space-y-1 pb-6">
+								<CardTitle className="text-2xl font-bold text-center text-white">
+									Create Account
+								</CardTitle>
+								<p className="text-center text-blue-100">
+									Join NovaKinetix Academy today.
+								</p>
+							</CardHeader>
+							<CardContent className="space-y-6">
+								{message && (
+									<div
+										className={`p-4 rounded-lg ${
+											message.type === "success"
+												? "border-green-200 bg-green-50 text-green-700"
+												: "border-red-200 bg-red-50 text-red-700"
+										}`}
+									>
+										<div className="flex items-center">
+											{message.type === "success" ? (
+												<CheckCircle className="h-4 w-4" />
+											) : (
+												<Loader2 className="h-4 w-4 animate-spin" />
+											)}
+											<p className="ml-2 text-sm">{message.text}</p>
+										</div>
+									</div>
+								)}
+								<form onSubmit={handleSignUp} className="space-y-4">
+									<div className="space-y-2">
+										<Label
+											htmlFor="role"
+											className="text-white font-medium"
+										>
+											I am a... *
+										</Label>
+										<select
+											id="role"
+											name="role"
+											value={selectedRole}
+											onChange={(e) => handleRoleChange(e.target.value)}
+											className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20 w-full py-2 px-3 rounded"
+											required
+										>
+											<option value="">Select your role</option>
+											<option value="student">Student</option>
+											<option value="teacher">Teacher</option>
+											<option value="parent">Parent</option>
+										</select>
+									</div>
+									<div className="space-y-2">
+										<Label
+											htmlFor="fullName"
+											className="text-white font-medium"
+										>
+											Full Name *
+										</Label>
+										<Input
+											id="fullName"
+											name="fullName"
+											type="text"
+											placeholder="Enter your full name"
+											value={formData.fullName}
+											onChange={handleInputChange}
+											className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+											required
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label
+											htmlFor="email"
+											className="text-white font-medium"
+										>
+											Email Address
+										</Label>
+										<div className="relative">
+											<Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-blue-300" />
+											<Input
+												id="email"
+												name="email"
+												type="email"
+												placeholder="Enter your email"
+												value={formData.email}
+												onChange={handleInputChange}
+												className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+												required
+											/>
+										</div>
+									</div>
+									<div className="space-y-2">
+										<Label
+											htmlFor="password"
+											className="text-white font-medium"
+										>
+											Password
+										</Label>
+										<div className="relative">
+											<Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-blue-300" />
+											<Input
+												id="password"
+												name="password"
+												type="password"
+												placeholder="Enter your password"
+												value={formData.password}
+												onChange={handleInputChange}
+												className="pl-10 pr-10 bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+												required
+											/>
+										</div>
+									</div>
+									<div className="space-y-2">
+										<Label
+											htmlFor="confirmPassword"
+											className="text-white font-medium"
+										>
+											Confirm Password
+										</Label>
+										<div className="relative">
+											<Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-blue-300" />
+											<Input
+												id="confirmPassword"
+												name="confirmPassword"
+												type="password"
+												placeholder="Confirm your password"
+												value={formData.confirmPassword}
+												onChange={handleInputChange}
+												className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+												required
+											/>
+										</div>
+									</div>
+									{selectedRole === "student" && (
+										<>
+											<div className="border-t pt-6 space-y-6">
+												<h3 className="text-xl font-semibold text-blue-100">
+													Student Information
+												</h3>
+												<div className="grid md:grid-cols-2 gap-6">
+													<div className="space-y-2">
+														<Label
+															htmlFor="grade"
+															className="text-white font-medium"
+														>
+															Grade Level *
+														</Label>
+														<select
+															id="grade"
+															name="grade"
+															value={formData.grade}
+															onChange={handleInputChange}
+															className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20 w-full py-2 px-3 rounded"
+															required
+														>
+															<option value="">Select your grade</option>
+															<option value="5">5th Grade</option>
+															<option value="6">6th Grade</option>
+															<option value="7">7th Grade</option>
+															<option value="8">8th Grade</option>
+														</select>
+													</div>
+													<div className="space-y-2">
+														<Label
+															htmlFor="schoolName"
+															className="text-white font-medium"
+														>
+															School Name
+														</Label>
+														<Input
+															id="schoolName"
+															name="schoolName"
+															type="text"
+															placeholder="Your school's name"
+															value={formData.schoolName}
+															onChange={handleInputChange}
+															className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+														/>
+													</div>
+												</div>
+												<div className="grid md:grid-cols-2 gap-6">
+													<div className="space-y-2">
+														<Label
+															htmlFor="country"
+															className="text-white font-medium"
+														>
+															Country *
+														</Label>
+														<Input
+															id="country"
+															name="country"
+															type="text"
+															placeholder="e.g. United States"
+															value={formData.country}
+															onChange={handleInputChange}
+															className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+															required
+														/>
+													</div>
+													<div className="space-y-2">
+														<Label
+															htmlFor="state"
+															className="text-white font-medium"
+														>
+															State/Province *
+														</Label>
+														<Input
+															id="state"
+															name="state"
+															type="text"
+															placeholder="e.g. California"
+															value={formData.state}
+															onChange={handleInputChange}
+															className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+															required
+														/>
+													</div>
+												</div>
+											</div>
+											<div className="border-t pt-6 space-y-6">
+												<h3 className="text-xl font-semibold text-blue-100">
+													Parent/Guardian Information
+												</h3>
+												<div className="grid md:grid-cols-2 gap-6">
+													<div className="space-y-2">
+														<Label
+															htmlFor="parentName"
+															className="text-white font-medium"
+														>
+															Parent/Guardian Name *
+														</Label>
+														<Input
+															id="parentName"
+															name="parentName"
+															type="text"
+															placeholder="Parent's full name"
+															value={formData.parentName}
+															onChange={handleInputChange}
+															className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+															required
+														/>
+													</div>
+													<div className="space-y-2">
+														<Label
+															htmlFor="parentEmail"
+															className="text-white font-medium"
+														>
+															Parent/Guardian Email *
+														</Label>
+														<Input
+															id="parentEmail"
+															name="parentEmail"
+															type="email"
+															placeholder="parent@email.com"
+															value={formData.parentEmail}
+															onChange={handleInputChange}
+															className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+															required
+														/>
+													</div>
+												</div>
+												<div className="grid md:grid-cols-2 gap-6">
+													<div className="space-y-2">
+														<Label
+															htmlFor="parentPhone"
+															className="text-white font-medium"
+														>
+															Parent/Guardian Phone
+														</Label>
+														<Input
+															id="parentPhone"
+															name="parentPhone"
+															type="tel"
+															placeholder="(555) 123-4567"
+															value={formData.parentPhone}
+															onChange={handleInputChange}
+															className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+														/>
+													</div>
+													<div className="space-y-2">
+														<Label
+															htmlFor="relationship"
+															className="text-white font-medium"
+														>
+															Relationship to Student *
+														</Label>
+														<select
+															id="relationship"
+															name="relationship"
+															value={formData.relationship}
+															onChange={handleInputChange}
+															className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20 w-full py-2 px-3 rounded"
+															required
+														>
+															<option value="">Select relationship</option>
+															<option value="mother">Mother</option>
+															<option value="father">Father</option>
+															<option value="guardian">Guardian</option>
+															<option value="other">Other</option>
+														</select>
+													</div>
+												</div>
+											</div>
+										</>
+									)}
+									<Button
+										type="submit"
+										className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 rounded-lg transform hover:scale-105 transition-all duration-200 shadow-lg"
+										disabled={isLoading}
+									>
+										{isLoading ? (
+											<>
+												<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+												Creating Account...
+											</>
+										) : (
+											"Create Account"
+										)}
+									</Button>
+									<p className="text-xs text-blue-200 text-center pt-2">
+										By creating an account, you agree to our{" "}
+										<Link
+											href="/terms"
+											className="underline text-blue-200"
+										>
+											Terms of Service
+										</Link>{" "}
+										and{" "}
+										<Link
+											href="/privacy"
+											className="underline text-blue-200"
+										>
+											Privacy Policy
+										</Link>
+										.
+									</p>
+								</form>
+								<div className="text-center mt-6">
+									<Link
+										href="/login"
+										className="text-sm text-blue-200 hover:text-white transition-colors inline-flex items-center"
+									>
+										<ArrowLeft className="w-4 h-4 mr-1" />
+										Already have an account? Sign In
+									</Link>
+								</div>
+							</CardContent>
+						</Card>
+					</div>
+				</div>
+			</div>
+			{/* Custom animations */}
+			<style>{`
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fade-in {
+          animation: fade-in 1s ease-out;
+        }
+        @keyframes gradient {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .animate-gradient {
+          background-size: 200% 200%;
+          animation: gradient 8s ease-in-out infinite;
+        }
+        @keyframes float1 {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-30px) scale(1.1); }
+        }
+        @keyframes float2 {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(30px) scale(0.9); }
+        }
+        @keyframes float3 {
+          0%, 100% { transform: translateX(0) scale(1); }
+          50% { transform: translateX(30px) scale(1.05); }
+        }
+        .animate-float1 { animation: float1 7s ease-in-out infinite; }
+        .animate-float2 { animation: float2 9s ease-in-out infinite; }
+        .animate-float3 { animation: float3 11s ease-in-out infinite; }
+        .animate-bounce-slow { animation: bounce 2.5s infinite alternate; }
+        @keyframes bounce {
+          0% { transform: translateY(0); }
+          100% { transform: translateY(-18px); }
+        }
+      `}</style>
 		</div>
 	)
 }
