@@ -105,7 +105,7 @@ export default function AdminVideosPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       {/* Header */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 pt-[90px]">
         <div className="flex justify-center items-center w-full py-8">
           <Image
             src="/images/novakinetix-logo.png"
