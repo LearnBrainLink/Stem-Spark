@@ -16,10 +16,12 @@ export default function AdminDashboard() {
   // Add state for live stats
   const [stats, setStats] = useState({
     totalUsers: 0,
-    activeStudents: 0,
-    videoLessons: 0,
-    internships: 0,
+    students: 0,
+    teachers: 0,
     admins: 0,
+    videos: 0,
+    internships: 0,
+    applications: 0,
     emailTemplates: 0,
   })
 
@@ -34,62 +36,109 @@ export default function AdminDashboard() {
       const { count: userCount } = await supabase.from("profiles").select("id", { count: "exact", head: true })
       // Students
       const { count: studentCount } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student")
+      // Teachers
+      const { count: teacherCount } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "teacher")
+      // Admins
+      const { count: adminCount } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "admin")
       // Videos
       const { count: videoCount } = await supabase.from("videos").select("id", { count: "exact", head: true })
       // Internships
       const { count: internshipCount } = await supabase.from("internships").select("id", { count: "exact", head: true })
-      // Admins
-      const { count: adminCount } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "admin")
-      // Email templates
-      const { count: emailTemplateCount } = await supabase.from("email_templates").select("id", { count: "exact", head: true })
+      // Applications
+      const { count: applicationCount } = await supabase.from("internship_applications").select("id", { count: "exact", head: true })
+      // Email templates (if table exists)
+      let emailTemplateCount = 0
+      try {
+        const { count } = await supabase.from("email_templates").select("id", { count: "exact", head: true })
+        emailTemplateCount = count || 0
+      } catch {}
       setStats({
         totalUsers: userCount || 0,
-        activeStudents: studentCount || 0,
-        videoLessons: videoCount || 0,
-        internships: internshipCount || 0,
+        students: studentCount || 0,
+        teachers: teacherCount || 0,
         admins: adminCount || 0,
-        emailTemplates: emailTemplateCount || 0,
+        videos: videoCount || 0,
+        internships: internshipCount || 0,
+        applications: applicationCount || 0,
+        emailTemplates: emailTemplateCount,
       })
     }
     fetchStats()
   }, [])
 
+  // Corrected adminStats with all required properties for display
   const adminStats = [
     {
       label: "Total Users",
       value: stats.totalUsers.toLocaleString(),
       icon: Users,
       gradient: "from-blue-500 via-blue-600 to-indigo-600",
-      change: "+12%",
-      trend: "up",
-      description: "Active platform users"
+      change: "",
+      trend: "",
+      description: "All platform users"
     },
     {
-      label: "Active Students",
-      value: stats.activeStudents.toLocaleString(),
+      label: "Students",
+      value: stats.students.toLocaleString(),
       icon: GraduationCap,
       gradient: "from-emerald-500 via-green-600 to-teal-600",
-      change: "+8%",
-      trend: "up",
-      description: "Currently enrolled"
+      change: "",
+      trend: "",
+      description: "Registered students"
     },
     {
-      label: "Video Lessons",
-      value: stats.videoLessons.toLocaleString(),
+      label: "Teachers",
+      value: stats.teachers.toLocaleString(),
+      icon: Users,
+      gradient: "from-yellow-500 via-orange-400 to-orange-600",
+      change: "",
+      trend: "",
+      description: "Registered teachers"
+    },
+    {
+      label: "Admins",
+      value: stats.admins.toLocaleString(),
+      icon: Shield,
+      gradient: "from-red-500 via-rose-500 to-pink-500",
+      change: "",
+      trend: "",
+      description: "Admin accounts"
+    },
+    {
+      label: "Videos",
+      value: stats.videos.toLocaleString(),
       icon: Video,
       gradient: "from-purple-500 via-violet-600 to-purple-700",
-      change: "+3",
-      trend: "up",
-      description: "Available content"
+      change: "",
+      trend: "",
+      description: "Video lessons"
     },
     {
       label: "Internships",
       value: stats.internships.toLocaleString(),
       icon: Briefcase,
       gradient: "from-orange-500 via-amber-600 to-yellow-600",
-      change: "+5",
-      trend: "up",
-      description: "Open positions"
+      change: "",
+      trend: "",
+      description: "Internship programs"
+    },
+    {
+      label: "Applications",
+      value: stats.applications.toLocaleString(),
+      icon: Briefcase,
+      gradient: "from-blue-400 via-blue-600 to-indigo-600",
+      change: "",
+      trend: "",
+      description: "Internship applications"
+    },
+    {
+      label: "Email Templates",
+      value: stats.emailTemplates.toLocaleString(),
+      icon: Mail,
+      gradient: "from-emerald-500 via-green-500 to-lime-500",
+      change: "",
+      trend: "",
+      description: "Email templates"
     },
   ];
 
@@ -108,7 +157,7 @@ export default function AdminDashboard() {
       href: "/admin/videos",
       icon: Video,
       gradient: "from-purple-500 via-pink-500 to-rose-500",
-      count: `${stats.videoLessons.toLocaleString()} videos`
+      count: `${stats.videos.toLocaleString()} videos`
     },
     {
       title: "Internship Hub",
@@ -116,7 +165,7 @@ export default function AdminDashboard() {
       href: "/admin/applications",
       icon: Briefcase,
       gradient: "from-orange-500 via-red-500 to-pink-500",
-      count: `${stats.internships.toLocaleString()} active`
+      count: `${stats.internships.toLocaleString()} internships, ${stats.applications.toLocaleString()} applications`
     },
     {
       title: "Email Center",
@@ -333,7 +382,7 @@ export default function AdminDashboard() {
 
           {/* Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {adminStats.map((stat, index) => (
+            {adminStats.map((stat, index: number) => (
               <Card key={index} className="relative overflow-hidden border-0 shadow-xl hover:shadow-2xl transition-all duration-500 group bg-white/80 backdrop-blur-sm hover:scale-105">
                 <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-500`}></div>
                 <CardContent className="p-6 relative">
@@ -341,12 +390,7 @@ export default function AdminDashboard() {
                     <div className={`p-4 rounded-2xl bg-gradient-to-br ${stat.gradient} text-white shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-500`}>
                       <stat.icon className="w-6 h-6" />
                     </div>
-                    <div className="flex items-center gap-1">
-                      <TrendingUp className="w-4 h-4 text-green-500" />
-                      <Badge className="text-xs bg-green-100 text-green-700 border-green-200">
-                        {stat.change}
-                      </Badge>
-                    </div>
+                    {/* Remove change/trend if not used visually */}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-600 mb-1">{stat.label}</p>
@@ -367,7 +411,7 @@ export default function AdminDashboard() {
               </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {quickActions.map((action, index) => (
+              {quickActions.map((action, index: number) => (
                 <Card key={index} className="group hover:shadow-2xl transition-all duration-500 border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden hover:scale-105">
                   <div className={`h-1 bg-gradient-to-r ${action.gradient}`}></div>
                   <CardHeader className="pb-4">
