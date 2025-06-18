@@ -39,7 +39,11 @@ export default function AdminVideosPage() {
     if (result.error) {
       setMessage({ type: "error", text: result.error })
     } else if (result.videos) {
-      setVideos(result.videos)
+      // Map and filter to ensure only valid Video objects are set
+      const validVideos = (Array.isArray(result.videos)
+        ? result.videos.filter((v: any) => v && typeof v.id === "string" && typeof v.title === "string" && typeof v.video_url === "string")
+        : []) as Video[];
+      setVideos(validVideos)
     }
   }
 
