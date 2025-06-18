@@ -124,7 +124,7 @@ export default function SignUpPage() {
 				<div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-4">
 					{/* Logo and Motivation above the form, smaller logo, less gap */}
 					<div className="flex flex-col items-center w-full gap-2">
-						<Logo variant="mega" className="w-28 h-auto drop-shadow-2xl animate-pulse mb-0" />
+						<Logo variant="mega" className="w-20 h-auto drop-shadow-2xl animate-pulse mb-0" />
 						<MotivationalSection />
 					</div>
 					{/* Sign Up Form - wider */}
@@ -170,13 +170,13 @@ export default function SignUpPage() {
 											name="role"
 											value={selectedRole}
 											onChange={(e) => handleRoleChange(e.target.value)}
-											className="w-full py-2 px-3 rounded border border-gray-300 text-gray-900 bg-white focus:border-blue-400 focus:ring-blue-400/20"
+											className="w-full py-2 px-3 rounded border border-white/30 text-white bg-white/10 backdrop-blur-md placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20 transition-colors"
 											required
 										>
-											<option value="">Select your role</option>
-											<option value="student">Student</option>
-											<option value="teacher">Teacher</option>
-											<option value="parent">Parent</option>
+											<option value="" className="text-blue-200 bg-white/10">Select your role</option>
+											<option value="student" className="text-gray-900 bg-white">Student</option>
+											<option value="teacher" className="text-gray-900 bg-white">Teacher</option>
+											<option value="parent" className="text-gray-900 bg-white">Parent</option>
 										</select>
 									</div>
 									<div className="space-y-2">
@@ -279,14 +279,14 @@ export default function SignUpPage() {
 															name="grade"
 															value={formData.grade}
 															onChange={handleInputChange}
-															className="w-full py-2 px-3 rounded border border-gray-300 text-gray-900 bg-white focus:border-blue-400 focus:ring-blue-400/20"
+															className="w-full py-2 px-3 rounded border border-white/30 text-white bg-white/10 backdrop-blur-md placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20 transition-colors"
 															required
 														>
-															<option value="">Select your grade</option>
-															<option value="5">5th Grade</option>
-															<option value="6">6th Grade</option>
-															<option value="7">7th Grade</option>
-															<option value="8">8th Grade</option>
+															<option value="" className="text-blue-200 bg-white/10">Select your grade</option>
+															<option value="5" className="text-gray-900 bg-white">5th Grade</option>
+															<option value="6" className="text-gray-900 bg-white">6th Grade</option>
+															<option value="7" className="text-gray-900 bg-white">7th Grade</option>
+															<option value="8" className="text-gray-900 bg-white">8th Grade</option>
 														</select>
 													</div>
 													<div className="space-y-2">
@@ -418,14 +418,14 @@ export default function SignUpPage() {
 															name="relationship"
 															value={formData.relationship}
 															onChange={handleInputChange}
-															className="w-full py-2 px-3 rounded border border-gray-300 text-gray-900 bg-white focus:border-blue-400 focus:ring-blue-400/20"
+															className="w-full py-2 px-3 rounded border border-white/30 text-white bg-white/10 backdrop-blur-md placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20 transition-colors"
 															required
 														>
-															<option value="">Select relationship</option>
-															<option value="mother">Mother</option>
-															<option value="father">Father</option>
-															<option value="guardian">Guardian</option>
-															<option value="other">Other</option>
+															<option value="" className="text-blue-200 bg-white/10">Select relationship</option>
+															<option value="mother" className="text-gray-900 bg-white">Mother</option>
+															<option value="father" className="text-gray-900 bg-white">Father</option>
+															<option value="guardian" className="text-gray-900 bg-white">Guardian</option>
+															<option value="other" className="text-gray-900 bg-white">Other</option>
 														</select>
 													</div>
 												</div>
