@@ -37,8 +37,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onWatchDemo }) => {
         {/* Logo with glow effect */}
         <div className="mb-8 flex justify-center">
           <div className="relative">
-            <div className="absolute inset-0 bg-white rounded-full blur-xl opacity-20 animate-pulse"></div>
-            <Logo variant="mega" className="relative z-10 w-48 h-48 md:w-64 md:h-64" />
+            <div className="absolute inset-0 bg-white rounded-full blur-2xl opacity-30 animate-pulse pointer-events-none" style={{zIndex:1}}></div>
+            <Logo variant="mega" className="relative z-10 w-48 h-48 md:w-64 md:h-64 drop-shadow-2xl" />
           </div>
         </div>
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-6 leading-tight">

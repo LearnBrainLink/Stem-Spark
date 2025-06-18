@@ -106,7 +106,7 @@ export function Logo({ width = 80, height = 80, className = "", variant = "full"
   return (
     <div
       className={`relative ${className} ${variant === 'nav' ? 'header-logo' : ''}`}
-      style={{ width: dimensions.width, height: dimensions.height }}
+      style={{ width: dimensions.width, height: dimensions.height, zIndex: 10 }}
     >
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-xl">

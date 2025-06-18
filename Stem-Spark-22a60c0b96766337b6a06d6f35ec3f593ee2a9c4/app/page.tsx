@@ -126,7 +126,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
             <div className="col-span-1 md:col-span-2">
               <div className="flex items-center gap-4 mb-6">
-                <Logo variant="large" />
+                <Logo variant="large" className="drop-shadow-xl" />
                 <span className="text-2xl font-bold">Novakinetix Academy</span>
               </div>
               <p className="text-gray-300 mb-6 text-lg leading-relaxed">
