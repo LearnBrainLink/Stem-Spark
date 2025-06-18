@@ -2,13 +2,13 @@
 
 import React, { useState } from "react"
 import { Logo } from "../components/logo"
-import { FloatingElements } from "../novakinetix-future-forge/src/components/FloatingElements"
-import { HeroSection } from "../novakinetix-future-forge/src/components/HeroSection"
-import { StatsSection } from "../novakinetix-future-forge/src/components/StatsSection"
-import { InternshipGallery } from "../novakinetix-future-forge/src/components/InternshipGallery"
-import { FeaturesSection } from "../novakinetix-future-forge/src/components/FeaturesSection"
-import { CTASection } from "../novakinetix-future-forge/src/components/CTASection"
-import { VideoModal } from "../novakinetix-future-forge/src/components/VideoModal"
+import { FloatingElements } from "../components/FloatingElements"
+import { HeroSection } from "../components/HeroSection"
+import { StatsSection } from "../components/StatsSection"
+import { InternshipGallery } from "../components/InternshipGallery"
+import { FeaturesSection } from "../components/FeaturesSection"
+import { CTASection } from "../components/CTASection"
+import { VideoModal } from "../components/VideoModal"
 import { Menu, X } from "lucide-react"
 
 export default function HomePage() {
