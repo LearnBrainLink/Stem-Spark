@@ -59,7 +59,7 @@ export class RoleManager {
   }
 
   /**
-   * Get user profile with role information - ALWAYS from database
+   * Get user profile with role information - ALWAYS from supabase
    */
   async getUserProfile(userId: string): Promise<UserProfile | null> {
     try {
