@@ -465,13 +465,23 @@ export default function SecureLoginPage() {
                   <span className="text-blue-200">
                     {isLogin ? "Don't have an account?" : "Already have an account?"}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsLogin(!isLogin)}
-                    className="ml-2 text-blue-300 hover:text-white font-medium underline transition-colors"
-                  >
-                    {isLogin ? 'Sign up' : 'Sign in'}
-                  </button>
+                  {isLogin ? (
+                    <button
+                      type="button"
+                      onClick={() => router.push("/sign%20up")}
+                      className="ml-2 text-blue-300 hover:text-white font-medium underline transition-colors"
+                    >
+                      Sign up
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsLogin(true)}
+                      className="ml-2 text-blue-300 hover:text-white font-medium underline transition-colors"
+                    >
+                      Sign in
+                    </button>
+                  )}
                 </div>
               </CardContent>
             </Card>
