@@ -23,7 +23,7 @@ CREATE TABLE public.profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT UNIQUE NOT NULL,
     full_name TEXT DEFAULT '',
-    role TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'teacher', 'admin')),
+    role TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'intern', 'admin')),
     grade INTEGER CHECK (grade >= 5 AND grade <= 8),
     country TEXT DEFAULT '',
     state TEXT DEFAULT '',
@@ -371,7 +371,7 @@ BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '🔑 Test accounts to create in Supabase Dashboard:';
     RAISE NOTICE '   - student@test.com (password: TestStudent123!)';
-    RAISE NOTICE '   - teacher@test.com (password: TestTeacher123!)';
+    RAISE NOTICE '   - intern@test.com (password: TestIntern123!)';
     RAISE NOTICE '   - admin@test.com (password: TestAdmin123!)';
     RAISE NOTICE '';
 END $$;

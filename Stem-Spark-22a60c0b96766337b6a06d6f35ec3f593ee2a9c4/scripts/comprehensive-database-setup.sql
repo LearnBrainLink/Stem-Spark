@@ -24,7 +24,7 @@ BEGIN
           id UUID REFERENCES auth.users ON DELETE CASCADE,
           email TEXT NOT NULL,
           full_name TEXT NOT NULL,
-          role TEXT DEFAULT ''student'' CHECK (role IN (''student'', ''teacher'', ''parent'', ''admin'')),
+          role TEXT DEFAULT ''student'' CHECK (role IN (''student'', ''intern'', ''parent'', ''admin'')),
           grade INTEGER CHECK (grade BETWEEN 5 AND 8),
           country TEXT,
           state TEXT,

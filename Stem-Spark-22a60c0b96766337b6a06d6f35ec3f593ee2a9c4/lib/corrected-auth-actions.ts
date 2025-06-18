@@ -140,8 +140,8 @@ export async function signIn(formData: FormData) {
 
       if (userRole === "admin") {
         redirect("/admin")
-      } else if (userRole === "teacher") {
-        redirect("/teacher-dashboard")
+      } else if (userRole === "intern") {
+        redirect("/intern-dashboard")
       } else {
         redirect("/student-dashboard")
       }

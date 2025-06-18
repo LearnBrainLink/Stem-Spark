@@ -342,7 +342,7 @@ export default function AnalyticsPage() {
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Teachers</span>
+                    <span className="text-sm font-medium">Interns</span>
                     <Badge className="bg-blue-100 text-blue-800">
                       {Math.round(analyticsData.totalUsers * 0.2)} (20%)
                     </Badge>

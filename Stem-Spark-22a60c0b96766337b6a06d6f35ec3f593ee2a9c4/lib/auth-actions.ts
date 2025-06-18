@@ -222,9 +222,9 @@ export async function signIn(formData: FormData) {
       if (profile.role === "admin") {
         console.log("🔄 Redirecting to admin dashboard")
         redirect("/admin")
-      } else if (profile.role === "teacher") {
-        console.log("🔄 Redirecting to teacher dashboard")
-        redirect("/teacher-dashboard")
+      } else if (profile.role === "intern") {
+        console.log("🔄 Redirecting to intern dashboard")
+        redirect("/intern-dashboard")
       } else {
         console.log("🔄 Redirecting to student dashboard")
         redirect("/student-dashboard")

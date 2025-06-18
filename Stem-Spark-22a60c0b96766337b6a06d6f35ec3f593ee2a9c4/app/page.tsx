@@ -29,33 +29,39 @@ export default function HomePage() {
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
               <a
-                href="#"
+                href="/videos"
                 className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
               >
                 Videos
               </a>
               <a
-                href="#"
+                href="/internships"
                 className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
               >
                 Internships
               </a>
               <a
-                href="#"
+                href="/about"
                 className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
               >
                 About
               </a>
               <a
-                href="#"
+                href="/contact"
                 className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
               >
                 Contact
               </a>
-              <button className="border border-blue-600 text-blue-600 px-6 py-2 rounded-full hover:bg-blue-50 transition-colors font-medium">
+              <button
+                className="border border-blue-600 text-blue-600 px-6 py-2 rounded-full hover:bg-blue-50 transition-colors font-medium"
+                onClick={() => window.location.href = '/login'}
+              >
                 Sign In
               </button>
-              <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg hover:shadow-xl">
+              <button
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg hover:shadow-xl"
+                onClick={() => window.location.href = '/sign%20up'}
+              >
                 Get Started
               </button>
             </div>
@@ -77,34 +83,34 @@ export default function HomePage() {
           <div className="md:hidden bg-white border-t border-gray-200 animate-fade-in">
             <div className="px-4 py-6 space-y-4">
               <a
-                href="#"
+                href="/videos"
                 className="block text-gray-700 hover:text-blue-600 transition-colors font-medium"
               >
                 Videos
               </a>
               <a
-                href="#"
+                href="/internships"
                 className="block text-gray-700 hover:text-blue-600 transition-colors font-medium"
               >
                 Internships
               </a>
               <a
-                href="#"
+                href="/about"
                 className="block text-gray-700 hover:text-blue-600 transition-colors font-medium"
               >
                 About
               </a>
               <a
-                href="#"
+                href="/contact"
                 className="block text-gray-700 hover:text-blue-600 transition-colors font-medium"
               >
                 Contact
               </a>
               <div className="flex gap-3 pt-4">
-                <button className="flex-1 border border-blue-600 text-blue-600 py-3 rounded-full hover:bg-blue-50 transition-colors font-medium">
+                <button className="flex-1 border border-blue-600 text-blue-600 py-3 rounded-full hover:bg-blue-50 transition-colors font-medium" onClick={() => window.location.href = '/login'}>
                   Sign In
                 </button>
-                <button className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium">
+                <button className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium" onClick={() => window.location.href = '/sign%20up'}>
                   Get Started
                 </button>
               </div>

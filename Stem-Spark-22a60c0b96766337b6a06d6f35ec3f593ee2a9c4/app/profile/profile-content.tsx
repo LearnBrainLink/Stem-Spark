@@ -103,7 +103,7 @@ export function ProfileContent({ profile, parentInfo, activities, applications }
     switch (role) {
       case "admin":
         return "bg-red-100 text-red-800"
-      case "teacher":
+      case "intern":
         return "bg-blue-100 text-blue-800"
       case "student":
         return "bg-green-100 text-green-800"

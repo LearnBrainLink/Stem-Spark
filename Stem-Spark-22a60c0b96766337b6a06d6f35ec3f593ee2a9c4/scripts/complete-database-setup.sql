@@ -17,7 +17,7 @@ CREATE TABLE profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email TEXT UNIQUE NOT NULL,
     full_name TEXT,
-    role TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'teacher', 'admin')),
+    role TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'intern', 'admin')),
     grade INTEGER CHECK (grade >= 5 AND grade <= 8),
     country TEXT,
     state TEXT,
@@ -150,8 +150,8 @@ CREATE POLICY "Users can view own activities" ON user_activities FOR SELECT USIN
 
 -- Videos: Everyone can view active videos
 CREATE POLICY "Everyone can view active videos" ON videos FOR SELECT USING (status = 'active');
-CREATE POLICY "Teachers and admins can manage videos" ON videos FOR ALL USING (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('teacher', 'admin'))
+CREATE POLICY "Interns and admins can manage videos" ON videos FOR ALL USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('intern', 'admin'))
 );
 
 -- Create function to handle new user signup

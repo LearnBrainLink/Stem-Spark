@@ -309,7 +309,7 @@ export default function SettingsPage() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="student">Student</SelectItem>
-                            <SelectItem value="teacher">Teacher</SelectItem>
+                            <SelectItem value="intern">Intern</SelectItem>
                             <SelectItem value="parent">Parent</SelectItem>
                           </SelectContent>
                         </Select>

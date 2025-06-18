@@ -74,8 +74,8 @@ export async function GET(request: NextRequest) {
       // Determine role from email or default to student
       const role = data.user.email?.includes("admin")
         ? "admin"
-        : data.user.email?.includes("teacher")
-          ? "teacher"
+        : data.user.email?.includes("intern")
+          ? "intern"
           : "student"
 
       const profileSuccess = await roleManager.upsertUserProfile(data.user, role, {

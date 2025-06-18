@@ -320,7 +320,7 @@ export default function SecureLoginPage() {
                       >
                         <option value="">Select your role</option>
                         <option value="student">Student</option>
-                        <option value="teacher">Teacher</option>
+                        <option value="intern">Intern</option>
                         <option value="parent">Parent</option>
                       </select>
                     </div>

@@ -12,12 +12,14 @@ export default function AdminDashboard() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeTab, setActiveTab] = useState('overview');
   const [notifications, setNotifications] = useState(3);
+  const [userName, setUserName] = useState("Admin"); // New state for user name
+  const [showWelcomeModal, setShowWelcomeModal] = useState(true); // State to control welcome modal
 
   // Add state for live stats
   const [stats, setStats] = useState({
     totalUsers: 0,
     students: 0,
-    teachers: 0,
+    interns: 0,
     admins: 0,
     videos: 0,
     internships: 0,
@@ -36,8 +38,8 @@ export default function AdminDashboard() {
       const { count: userCount } = await supabase.from("profiles").select("id", { count: "exact", head: true })
       // Students
       const { count: studentCount } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student")
-      // Teachers
-      const { count: teacherCount } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "teacher")
+      // Interns
+      const { count: internCount } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "intern")
       // Admins
       const { count: adminCount } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "admin")
       // Videos
@@ -55,7 +57,7 @@ export default function AdminDashboard() {
       setStats({
         totalUsers: userCount || 0,
         students: studentCount || 0,
-        teachers: teacherCount || 0,
+        interns: internCount || 0,
         admins: adminCount || 0,
         videos: videoCount || 0,
         internships: internshipCount || 0,
@@ -87,13 +89,13 @@ export default function AdminDashboard() {
       description: "Registered students"
     },
     {
-      label: "Teachers",
-      value: stats.teachers.toLocaleString(),
+      label: "Interns",
+      value: stats.interns.toLocaleString(),
       icon: Users,
       gradient: "from-yellow-500 via-orange-400 to-orange-600",
       change: "",
       trend: "",
-      description: "Registered teachers"
+      description: "Registered interns"
     },
     {
       label: "Admins",
@@ -481,6 +483,17 @@ export default function AdminDashboard() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Welcome Back Modal */}
+          {showWelcomeModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+              <div className="bg-white/90 border-2 border-blue-400 shadow-2xl rounded-2xl px-8 py-8 flex flex-col items-center animate-fade-in-up pointer-events-auto" style={{minWidth:'320px', maxWidth:'90vw'}}>
+                <h2 className="text-3xl font-bold text-blue-700 mb-2">Welcome back, {userName}!</h2>
+                <p className="text-lg text-blue-500 mb-2">We're glad to see you again. Ready to continue your journey?</p>
+                <button className="mt-4 px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full font-semibold shadow hover:from-blue-700 hover:to-purple-700 transition-all" onClick={() => setShowWelcomeModal(false)}>Close</button>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>

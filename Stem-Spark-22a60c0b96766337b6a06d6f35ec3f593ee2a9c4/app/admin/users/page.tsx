@@ -217,7 +217,7 @@ export default function UserManagementPage() {
     switch (role) {
       case "admin":
         return "bg-red-100 text-red-800"
-      case "teacher":
+      case "intern":
         return "bg-blue-100 text-blue-800"
       case "student":
         return "bg-green-100 text-green-800"
@@ -285,9 +285,9 @@ export default function UserManagementPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-brand-secondary">Teachers</p>
+                  <p className="text-sm font-medium text-brand-secondary">Interns</p>
                   <p className="text-2xl font-bold text-brand-primary">
-                    {users.filter((u) => u.role === "teacher").length}
+                    {users.filter((u) => u.role === "intern").length}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center shadow-brand">
@@ -365,7 +365,7 @@ export default function UserManagementPage() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="student">Student</SelectItem>
-                                <SelectItem value="teacher">Teacher</SelectItem>
+                                <SelectItem value="intern">Intern</SelectItem>
                                 <SelectItem value="parent">Parent</SelectItem>
                                 <SelectItem value="admin">Admin</SelectItem>
                               </SelectContent>
@@ -432,7 +432,7 @@ export default function UserManagementPage() {
                   <SelectContent>
                     <SelectItem value="all">All Roles</SelectItem>
                     <SelectItem value="student">Students</SelectItem>
-                    <SelectItem value="teacher">Teachers</SelectItem>
+                    <SelectItem value="intern">Interns</SelectItem>
                     <SelectItem value="parent">Parents</SelectItem>
                     <SelectItem value="admin">Admins</SelectItem>
                   </SelectContent>
@@ -550,7 +550,7 @@ export default function UserManagementPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="student">Student</SelectItem>
-                        <SelectItem value="teacher">Teacher</SelectItem>
+                        <SelectItem value="intern">Intern</SelectItem>
                         <SelectItem value="parent">Parent</SelectItem>
                         <SelectItem value="admin">Admin</SelectItem>
                       </SelectContent>

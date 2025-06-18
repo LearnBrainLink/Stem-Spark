@@ -162,11 +162,13 @@ export default function SignUpPage() {
 											<div className="flex-1">
 												<Label htmlFor="role">Account Type *</Label>
 												<Select name="role" required onValueChange={setSelectedRole} value={selectedRole}>
-													<SelectTrigger className="h-12 text-base">
-														<SelectValue placeholder="Select your role" />
+													<SelectTrigger className="h-12 text-base border-2 border-blue-400 bg-white/80 shadow-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 rounded-xl font-semibold text-blue-900">
+														<SelectValue placeholder="Select your account type" />
 													</SelectTrigger>
 													<SelectContent>
-														{roles.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+														<SelectItem value="intern" className="font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg px-3 py-2 transition-all duration-150">Intern (Recommended)</SelectItem>
+														<SelectItem value="student">Student</SelectItem>
+														<SelectItem value="parent">Parent</SelectItem>
 													</SelectContent>
 												</Select>
 												{selectedRole && <p className="text-xs text-gray-500 mt-1">{roles.find(r => r.value === selectedRole)?.desc}</p>}
@@ -207,17 +209,12 @@ export default function SignUpPage() {
 												</div>
 											</div>
 											<div className="space-y-2">
-												<Label htmlFor="schoolName">School Name</Label>
-												<div className="relative">
-													<School className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-													<Input id="schoolName" name="schoolName" type="text" placeholder="Your school's name" className="pl-10 h-12 text-base" value={personalInfo.schoolName} onChange={e => setPersonalInfo({ ...personalInfo, schoolName: e.target.value })} />
-												</div>
+												<Label htmlFor="schoolName">School Name *</Label>
+												<Input id="schoolName" name="schoolName" type="text" placeholder="Your school's name" className="h-12 text-base" required value={personalInfo.schoolName} onChange={e => setPersonalInfo({ ...personalInfo, schoolName: e.target.value })} />
 											</div>
-										</div>
-										<div className="grid md:grid-cols-2 gap-6">
 											<div className="space-y-2">
-												<Label htmlFor="grade">Grade Level</Label>
-												<Select name="grade" value={personalInfo.grade} onValueChange={(val: string) => setPersonalInfo({ ...personalInfo, grade: val })}>
+												<Label htmlFor="grade">Grade Level *</Label>
+												<Select name="grade" value={personalInfo.grade} onValueChange={(val: string) => setPersonalInfo({ ...personalInfo, grade: val })} required>
 													<SelectTrigger className="h-12 text-base">
 														<SelectValue placeholder="Select your grade" />
 													</SelectTrigger>
@@ -229,6 +226,8 @@ export default function SignUpPage() {
 													</SelectContent>
 												</Select>
 											</div>
+										</div>
+										<div className="grid md:grid-cols-2 gap-6">
 											<div className="space-y-2">
 												<Label htmlFor="country">Country *</Label>
 												<div className="relative">
@@ -244,6 +243,23 @@ export default function SignUpPage() {
 												</div>
 											</div>
 										</div>
+										{/* Parent/Guardian Info for Students */}
+										{selectedRole === "student" && (
+												<div className="grid md:grid-cols-2 gap-6 mt-4 bg-blue-50/60 p-4 rounded-xl border border-blue-200">
+													<div className="space-y-2">
+														<Label htmlFor="parentName">Parent/Guardian Name *</Label>
+														<Input id="parentName" name="parentName" type="text" placeholder="Parent or guardian's full name" className="h-12 text-base" required value={personalInfo.parentName || ""} onChange={e => setPersonalInfo({ ...personalInfo, parentName: e.target.value })} />
+													</div>
+													<div className="space-y-2">
+														<Label htmlFor="parentEmail">Parent/Guardian Email *</Label>
+														<Input id="parentEmail" name="parentEmail" type="email" placeholder="Parent or guardian's email" className="h-12 text-base" required value={personalInfo.parentEmail || ""} onChange={e => setPersonalInfo({ ...personalInfo, parentEmail: e.target.value })} />
+													</div>
+													<div className="space-y-2 md:col-span-2">
+														<Label htmlFor="parentPhone">Parent/Guardian Phone</Label>
+														<Input id="parentPhone" name="parentPhone" type="tel" placeholder="(optional)" className="h-12 text-base" value={personalInfo.parentPhone || ""} onChange={e => setPersonalInfo({ ...personalInfo, parentPhone: e.target.value })} />
+													</div>
+												</div>
+											)}
 										<div className="flex justify-between mt-6">
 											<Button type="button" className="border border-gray-300" onClick={() => setStep(1)}>Back</Button>
 											<Button type="submit">Next</Button>

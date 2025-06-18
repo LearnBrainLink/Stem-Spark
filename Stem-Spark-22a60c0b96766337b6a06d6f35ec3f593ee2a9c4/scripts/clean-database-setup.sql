@@ -20,7 +20,7 @@ CREATE TABLE public.profiles (
     id UUID PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
     full_name TEXT,
-    role TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'teacher', 'admin')),
+    role TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'intern', 'admin')),
     grade INTEGER CHECK (grade >= 5 AND grade <= 8),
     country TEXT,
     state TEXT,

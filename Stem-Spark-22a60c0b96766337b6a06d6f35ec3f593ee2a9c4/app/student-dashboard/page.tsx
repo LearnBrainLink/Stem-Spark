@@ -7,6 +7,8 @@ import { Logo } from "@/components/logo"
 import { simpleSignOut } from "@/lib/simple-auth"
 
 export default function StudentDashboard() {
+  const userName = "Student" // This should be dynamically set based on the logged-in user
+
   return (
     <div className="min-h-screen hero-gradient px-2 sm:px-6 md:px-10">
       {/* Enhanced Header with Larger Logo */}
@@ -266,6 +268,15 @@ export default function StudentDashboard() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Welcome Back Modal */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+        <div className="bg-white/90 border-2 border-blue-400 shadow-2xl rounded-2xl px-8 py-8 flex flex-col items-center animate-fade-in-up pointer-events-auto" style={{minWidth:'320px', maxWidth:'90vw'}}>
+          <h2 className="text-3xl font-bold text-blue-700 mb-2">Welcome back, {userName}!</h2>
+          <p className="text-lg text-blue-500 mb-2">We're glad to see you again. Ready to continue your journey?</p>
+          <button className="mt-4 px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full font-semibold shadow hover:from-blue-700 hover:to-purple-700 transition-all" onClick={() => document.querySelector('.welcome-modal')?.classList.add('hidden')}>Close</button>
+        </div>
+      </div>
     </div>
   )
 }

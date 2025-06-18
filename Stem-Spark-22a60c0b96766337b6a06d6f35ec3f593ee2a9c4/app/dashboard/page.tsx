@@ -188,7 +188,7 @@ export default async function DashboardPage() {
             </div>
           </div>
         ) : (
-          // Enhanced Student/Teacher Dashboard
+          // Enhanced Student/Intern Dashboard
           <div className="space-y-8">
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               <Card className="stat-card group">
