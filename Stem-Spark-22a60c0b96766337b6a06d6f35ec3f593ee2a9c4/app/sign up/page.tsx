@@ -124,7 +124,7 @@ export default function SignUpPage() {
 				<div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-4">
 					{/* Logo and Motivation above the form, smaller logo, less gap */}
 					<div className="flex flex-col items-center w-full gap-2">
-						<Logo variant="mega" className="w-40 h-auto drop-shadow-2xl animate-pulse mb-0" />
+						<Logo variant="mega" className="w-28 h-auto drop-shadow-2xl animate-pulse mb-0" />
 						<MotivationalSection />
 					</div>
 					{/* Sign Up Form - wider */}
@@ -170,7 +170,7 @@ export default function SignUpPage() {
 											name="role"
 											value={selectedRole}
 											onChange={(e) => handleRoleChange(e.target.value)}
-											className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20 w-full py-2 px-3 rounded"
+											className="w-full py-2 px-3 rounded border border-gray-300 text-gray-900 bg-white focus:border-blue-400 focus:ring-blue-400/20"
 											required
 										>
 											<option value="">Select your role</option>
@@ -279,7 +279,7 @@ export default function SignUpPage() {
 															name="grade"
 															value={formData.grade}
 															onChange={handleInputChange}
-															className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20 w-full py-2 px-3 rounded"
+															className="w-full py-2 px-3 rounded border border-gray-300 text-gray-900 bg-white focus:border-blue-400 focus:ring-blue-400/20"
 															required
 														>
 															<option value="">Select your grade</option>
@@ -418,7 +418,7 @@ export default function SignUpPage() {
 															name="relationship"
 															value={formData.relationship}
 															onChange={handleInputChange}
-															className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-blue-400/20 w-full py-2 px-3 rounded"
+															className="w-full py-2 px-3 rounded border border-gray-300 text-gray-900 bg-white focus:border-blue-400 focus:ring-blue-400/20"
 															required
 														>
 															<option value="">Select relationship</option>
