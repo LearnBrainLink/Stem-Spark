@@ -10,7 +10,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onWatchDemo }) => {
   const svgBackground = "data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='3'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E";
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-32">
       {/* Animated background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-800">
         <div 
@@ -35,10 +35,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onWatchDemo }) => {
       </div>
       <div className="relative z-10 text-center text-white px-4 max-w-6xl mx-auto">
         {/* Logo with glow effect */}
-        <div className="mb-8 flex justify-center">
-          <div className="relative">
+        <div className="mb-8 flex justify-center" style={{ marginTop: '32px' }}>
+          <div className="relative flex items-center justify-center" style={{ minHeight: '220px' }}>
             <div className="absolute inset-0 bg-white rounded-full blur-2xl opacity-30 animate-pulse pointer-events-none" style={{zIndex:1}}></div>
-            <Logo variant="mega" className="relative z-10 w-48 h-48 md:w-64 md:h-64 drop-shadow-2xl" />
+            <Logo variant="mega" className="relative z-10 w-40 h-40 md:w-56 md:h-56 drop-shadow-2xl" />
           </div>
         </div>
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-6 leading-tight">
