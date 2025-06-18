@@ -80,11 +80,11 @@ export default function SignUpPage() {
 
 	// Motivational section (copied from login)
 	const MotivationalSection = () => (
-		<div className="w-full flex flex-col items-center justify-center text-center mb-8 mt-8">
+		<div className="w-full flex flex-col items-center justify-center text-center">
 			<p className="text-xl lg:text-2xl text-blue-100 max-w-md mx-auto leading-relaxed">
 				Unlock your potential with cutting-edge education and innovation
 			</p>
-			<div className="flex flex-wrap justify-center gap-4 pt-4">
+			<div className="flex flex-wrap justify-center gap-4 pt-2">
 				<div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 text-sm font-medium">
 					🚀 Advanced Learning
 				</div>
@@ -121,18 +121,14 @@ export default function SignUpPage() {
 			</div>
 			{/* Main Content */}
 			<div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-4">
-				<div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
-					{/* Logo Section */}
-					<div className="flex flex-col items-center justify-center text-center lg:pr-8">
-						<div className="mb-4 transform hover:scale-105 transition-transform duration-500">
-							<Logo variant="mega" className="w-80 h-auto drop-shadow-2xl animate-pulse" />
-						</div>
-						<div className="mb-8 w-full flex flex-col items-center">
-							<MotivationalSection />
-						</div>
+				<div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-4">
+					{/* Logo and Motivation above the form, smaller logo, less gap */}
+					<div className="flex flex-col items-center w-full gap-2">
+						<Logo variant="mega" className="w-40 h-auto drop-shadow-2xl animate-pulse mb-0" />
+						<MotivationalSection />
 					</div>
-					{/* Sign Up Form */}
-					<div className="w-full max-w-md mx-auto">
+					{/* Sign Up Form - wider */}
+					<div className="w-full max-w-2xl mx-auto">
 						<Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-2xl rounded-2xl overflow-hidden">
 							<CardHeader className="space-y-1 pb-6">
 								<CardTitle className="text-2xl font-bold text-center text-white">
