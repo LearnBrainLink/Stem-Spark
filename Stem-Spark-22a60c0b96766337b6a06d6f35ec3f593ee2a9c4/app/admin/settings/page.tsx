@@ -171,7 +171,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 pt-[90px]">
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b bg-white/80 backdrop-blur-sm shrink-0">
         <div>

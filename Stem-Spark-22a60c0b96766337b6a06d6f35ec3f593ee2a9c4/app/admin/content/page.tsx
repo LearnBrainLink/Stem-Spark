@@ -180,7 +180,7 @@ export default function ContentModerationPage() {
   }
 
   return (
-    <div className="w-full h-screen max-w-7xl mx-auto p-2 md:p-4 space-y-4 overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 pt-[90px]">
       {/* Logo */}
       <div className="flex justify-center items-center w-full py-8">
         <Image src="/images/novakinetix-logo.png" alt="Novakinetix Academy Logo" width={320} height={100} className="drop-shadow-2xl" priority />

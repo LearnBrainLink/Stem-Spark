@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Logo } from "@/components/logo"
 import { useRouter } from "next/navigation"
+import Link from "next/link";
 import { secureSignInWithEmail, secureSignInWithGoogle, secureSignInWithGitHub, secureForgotPassword, resendVerificationEmail } from "@/lib/secure-auth-actions"
 import { enhancedSignUp } from "@/lib/enhanced-auth-actions"
 import { Eye, EyeOff, Mail, Lock, Github, Loader2, AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
@@ -279,7 +280,9 @@ export default function SecureLoginPage() {
             {/* Logo Section */}
             <div className="flex flex-col items-center justify-center text-center lg:pr-8">
               <div className="mb-4 transform hover:scale-105 transition-transform duration-500">
-                <Logo variant="mega" className="w-80 h-auto drop-shadow-2xl animate-pulse" />
+                <Link href="/">
+                  <Logo variant="mega" className="w-80 h-auto drop-shadow-2xl animate-pulse cursor-pointer" />
+                </Link>
               </div>
               {/* Motivational Section directly below the logo */}
               <div className="mb-8 w-full flex flex-col items-center">

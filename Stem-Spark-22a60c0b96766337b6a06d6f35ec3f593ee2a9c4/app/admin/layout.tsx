@@ -205,7 +205,7 @@ export default function AdminLayout({
         </div>
       </header>
       {/* Main Content */}
-      <div className="pt-[90px]">
+      <div className="pt-[90px] min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         {/* Page Content */}
         <main className="p-6 animate-fade-in">{children}</main>
       </div>

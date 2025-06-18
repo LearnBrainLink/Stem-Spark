@@ -121,7 +121,9 @@ export default function SignUpPage() {
           {/* Header Section */}
           <div className="text-center mb-8">
             <div className="mb-6">
-              <Logo variant="large" className="mx-auto drop-shadow-2xl animate-pulse" />
+              <Link href="/">
+                <Logo variant="large" className="mx-auto drop-shadow-2xl animate-pulse cursor-pointer" />
+              </Link>
             </div>
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 leading-tight">
               Join{" "}

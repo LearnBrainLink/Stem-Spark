@@ -101,7 +101,7 @@ export default function AdminInternshipsPage() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-4 h-[calc(100vh-72px)] flex flex-col overflow-hidden">
+      <div className="container mx-auto px-4 py-4 h-[calc(100vh-72px)] flex flex-col overflow-hidden pt-[90px]">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4 shrink-0">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">Manage Internships</h1>
