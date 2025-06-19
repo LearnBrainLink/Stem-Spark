@@ -76,15 +76,7 @@ export default function EmailConfigPage() {
   ]
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl h-screen flex flex-col overflow-hidden">
-      <div className="flex items-center gap-3 mb-4 shrink-0">
-        <Settings className="w-7 h-7 text-blue-600" />
-        <div>
-          <h1 className="text-2xl font-bold leading-tight">Email Configuration</h1>
-          <p className="text-gray-600 text-sm md:text-base leading-tight">Manage email settings and URL configurations</p>
-        </div>
-      </div>
-
+    <div className="space-y-4">
       {message && (
         <Alert className={`${message.type === "error" ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"} shrink-0`}>
           <AlertDescription className={message.type === "error" ? "text-red-700" : "text-green-700"}>

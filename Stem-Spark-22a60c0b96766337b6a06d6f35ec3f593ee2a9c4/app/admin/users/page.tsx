@@ -237,367 +237,353 @@ export default function UserManagementPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        {/* Logo */}
-        <div className="flex justify-center items-center w-full py-8">
-          <Image
-            src="/images/novakinetix-logo.png"
-            alt="Novakinetix Academy Logo"
-            width={320}
-            height={100}
-            className="drop-shadow-2xl"
-            priority
-          />
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2 shrink-0">
-          <Card className="stat-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-brand-secondary">Total Users</p>
-                  <p className="text-2xl font-bold text-brand-primary">{users.length}</p>
-                </div>
-                <div className="w-12 h-12 brand-gradient rounded-lg flex items-center justify-center shadow-brand">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
+    <div className="space-y-4">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2 shrink-0">
+        <Card className="stat-card">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-brand-secondary">Total Users</p>
+                <p className="text-2xl font-bold text-brand-primary">{users.length}</p>
               </div>
-            </CardContent>
-          </Card>
-          <Card className="stat-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-brand-secondary">Students</p>
-                  <p className="text-2xl font-bold text-brand-primary">
-                    {users.filter((u) => u.role === "student").length}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center shadow-brand">
-                  <GraduationCap className="w-6 h-6 text-white" />
-                </div>
+              <div className="w-12 h-12 brand-gradient rounded-lg flex items-center justify-center shadow-brand">
+                <Users className="w-6 h-6 text-white" />
               </div>
-            </CardContent>
-          </Card>
-          <Card className="stat-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-brand-secondary">Interns</p>
-                  <p className="text-2xl font-bold text-brand-primary">
-                    {users.filter((u) => u.role === "intern").length}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center shadow-brand">
-                  <UserCheck className="w-6 h-6 text-white" />
-                </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="stat-card">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-brand-secondary">Students</p>
+                <p className="text-2xl font-bold text-brand-primary">
+                  {users.filter((u) => u.role === "student").length}
+                </p>
               </div>
-            </CardContent>
-          </Card>
-          <Card className="stat-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-brand-secondary">Unverified</p>
-                  <p className="text-2xl font-bold text-brand-primary">{users.filter((u) => !u.email_verified).length}</p>
-                </div>
-                <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center shadow-brand">
-                  <UserX className="w-6 h-6 text-white" />
-                </div>
+              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center shadow-brand">
+                <GraduationCap className="w-6 h-6 text-white" />
               </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {message && (
-          <Alert className={`mt-2 ${message.type === "error" ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"} shrink-0`}>
-            <AlertDescription className={message.type === "error" ? "text-red-700" : "text-green-700"}>
-              {message.text}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Filters, Actions, and Table - scrollable */}
-        <div className="flex-1 min-h-0 overflow-auto">
-          <Card className="admin-card shadow-md border-0 mb-4">
-            <CardHeader>
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                  <CardTitle className="text-2xl font-bold">User Management</CardTitle>
-                  <CardDescription className="text-base">Manage all users and their permissions</CardDescription>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <Button onClick={exportUsers} className="flex items-center border border-gray-300 bg-white hover:bg-gray-50">
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
-                  </Button>
-                  <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button className="button-primary bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 shadow-md flex items-center">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add User
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
-                      <DialogHeader>
-                        <DialogTitle>Create New User</DialogTitle>
-                        <DialogDescription>Add a new user to the platform</DialogDescription>
-                      </DialogHeader>
-                      <form action={handleCreateUser} className="space-y-4">
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="email">Email *</Label>
-                            <Input id="email" name="email" type="email" required />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="fullName">Full Name *</Label>
-                            <Input id="fullName" name="fullName" required />
-                          </div>
-                        </div>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="role">Role *</Label>
-                            <Select name="role" required>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select role" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="student">Student</SelectItem>
-                                <SelectItem value="intern">Intern</SelectItem>
-                                <SelectItem value="parent">Parent</SelectItem>
-                                <SelectItem value="admin">Admin</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="grade">Grade (for students)</Label>
-                            <Select name="grade">
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select grade" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="5">5th Grade</SelectItem>
-                                <SelectItem value="6">6th Grade</SelectItem>
-                                <SelectItem value="7">7th Grade</SelectItem>
-                                <SelectItem value="8">8th Grade</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <div className="grid md:grid-cols-3 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="schoolName">School</Label>
-                            <Input id="schoolName" name="schoolName" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="country">Country</Label>
-                            <Input id="country" name="country" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="state">State</Label>
-                            <Input id="state" name="state" />
-                          </div>
-                        </div>
-                        <div className="flex gap-2 pt-4">
-                          <Button type="submit" className="flex-1">
-                            Create User
-                          </Button>
-                          <Button type="button" onClick={() => setIsCreateDialogOpen(false)} className="border border-gray-300 bg-white hover:bg-gray-50">
-                            Cancel
-                          </Button>
-                        </div>
-                      </form>
-                    </DialogContent>
-                  </Dialog>
-                </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="stat-card">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-brand-secondary">Interns</p>
+                <p className="text-2xl font-bold text-brand-primary">
+                  {users.filter((u) => u.role === "intern").length}
+                </p>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col md:flex-row gap-4 mb-6">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search users by name, email, or school..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Select value={roleFilter} onValueChange={setRoleFilter}>
-                  <SelectTrigger className="w-full md:w-48">
-                    <SelectValue placeholder="Filter by role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Roles</SelectItem>
-                    <SelectItem value="student">Students</SelectItem>
-                    <SelectItem value="intern">Interns</SelectItem>
-                    <SelectItem value="parent">Parents</SelectItem>
-                    <SelectItem value="admin">Admins</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full md:w-48">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="verified">Verified</SelectItem>
-                    <SelectItem value="unverified">Unverified</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center shadow-brand">
+                <UserCheck className="w-6 h-6 text-white" />
               </div>
-
-              <div className="border rounded-lg overflow-x-auto bg-white shadow-sm">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>School</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{user.full_name || "No name"}</p>
-                            <p className="text-sm text-gray-500">{user.email}</p>
-                            {user.grade && <p className="text-xs text-gray-400">Grade {user.grade}</p>}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getRoleBadgeColor(user.role)}>{user.role}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="text-sm">{user.school_name || "Not specified"}</p>
-                            <p className="text-xs text-gray-500">
-                              {user.state && user.country
-                                ? `${user.state}, ${user.country}`
-                                : user.country || user.state || ""}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={user.email_verified ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}>
-                            {user.email_verified ? "Verified" : "Unverified"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <p className="text-sm">{new Date(user.created_at).toLocaleDateString()}</p>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button onClick={() => setEditingUser(user)} className="border border-gray-300 bg-white hover:bg-gray-50">
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button onClick={() => handleDeleteUser(user.id)} className="border border-gray-300 bg-white hover:bg-gray-50">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="stat-card">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-brand-secondary">Unverified</p>
+                <p className="text-2xl font-bold text-brand-primary">{users.filter((u) => !u.email_verified).length}</p>
               </div>
-              {filteredUsers.length === 0 && (
-                <div className="text-center py-12">
-                  <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-600 mb-2">No Users Found</h3>
-                  <p className="text-gray-500">
-                    {searchTerm || roleFilter !== "all" || statusFilter !== "all"
-                      ? "No users match your current filters."
-                      : "No users have been created yet."}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Edit User Dialog */}
-        {editingUser && (
-          <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Edit User</DialogTitle>
-                <DialogDescription>Update user information</DialogDescription>
-              </DialogHeader>
-              <form action={handleUpdateUser} className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-email">Email</Label>
-                    <Input id="edit-email" value={editingUser.email} disabled />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-fullName">Full Name *</Label>
-                    <Input id="edit-fullName" name="fullName" defaultValue={editingUser.full_name || ""} required />
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-role">Role *</Label>
-                    <Select name="role" defaultValue={editingUser.role} required>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="student">Student</SelectItem>
-                        <SelectItem value="intern">Intern</SelectItem>
-                        <SelectItem value="parent">Parent</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-grade">Grade</Label>
-                    <Select name="grade" defaultValue={editingUser.grade?.toString()}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select grade" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="5">5th Grade</SelectItem>
-                        <SelectItem value="6">6th Grade</SelectItem>
-                        <SelectItem value="7">7th Grade</SelectItem>
-                        <SelectItem value="8">8th Grade</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-schoolName">School</Label>
-                    <Input id="edit-schoolName" name="schoolName" defaultValue={editingUser.school_name || ""} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-country">Country</Label>
-                    <Input id="edit-country" name="country" defaultValue={editingUser.country || ""} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-state">State</Label>
-                    <Input id="edit-state" name="state" defaultValue={editingUser.state || ""} />
-                  </div>
-                </div>
-                <div className="flex gap-2 pt-4">
-                  <Button type="submit" className="flex-1">
-                    Update User
-                  </Button>
-                  <Button type="button" onClick={() => setEditingUser(null)} className="border border-gray-300 bg-white hover:bg-gray-50">
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
+              <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center shadow-brand">
+                <UserX className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {message && (
+        <Alert className={`mt-2 ${message.type === "error" ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"} shrink-0`}>
+          <AlertDescription className={message.type === "error" ? "text-red-700" : "text-green-700"}>
+            {message.text}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Filters, Actions, and Table - scrollable */}
+      <div className="flex-1 min-h-0 overflow-auto">
+        <Card className="admin-card shadow-md border-0 mb-4">
+          <CardHeader>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <CardTitle className="text-2xl font-bold">User Management</CardTitle>
+                <CardDescription className="text-base">Manage all users and their permissions</CardDescription>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Button onClick={exportUsers} className="flex items-center border border-gray-300 bg-white hover:bg-gray-50">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
+                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="button-primary bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 shadow-md flex items-center">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add User
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Create New User</DialogTitle>
+                      <DialogDescription>Add a new user to the platform</DialogDescription>
+                    </DialogHeader>
+                    <form action={handleCreateUser} className="space-y-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Email *</Label>
+                          <Input id="email" name="email" type="email" required />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="fullName">Full Name *</Label>
+                          <Input id="fullName" name="fullName" required />
+                        </div>
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="role">Role *</Label>
+                          <Select name="role" required>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="student">Student</SelectItem>
+                              <SelectItem value="intern">Intern</SelectItem>
+                              <SelectItem value="parent">Parent</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="grade">Grade (for students)</Label>
+                          <Select name="grade">
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select grade" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="5">5th Grade</SelectItem>
+                              <SelectItem value="6">6th Grade</SelectItem>
+                              <SelectItem value="7">7th Grade</SelectItem>
+                              <SelectItem value="8">8th Grade</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="schoolName">School</Label>
+                          <Input id="schoolName" name="schoolName" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="country">Country</Label>
+                          <Input id="country" name="country" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="state">State</Label>
+                          <Input id="state" name="state" />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-4">
+                        <Button type="submit" className="flex-1">
+                          Create User
+                        </Button>
+                        <Button type="button" onClick={() => setIsCreateDialogOpen(false)} className="border border-gray-300 bg-white hover:bg-gray-50">
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search users by name, email, or school..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Filter by role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="student">Students</SelectItem>
+                  <SelectItem value="intern">Interns</SelectItem>
+                  <SelectItem value="parent">Parents</SelectItem>
+                  <SelectItem value="admin">Admins</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="verified">Verified</SelectItem>
+                  <SelectItem value="unverified">Unverified</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="border rounded-lg overflow-x-auto bg-white shadow-sm">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>School</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{user.full_name || "No name"}</p>
+                          <p className="text-sm text-gray-500">{user.email}</p>
+                          {user.grade && <p className="text-xs text-gray-400">Grade {user.grade}</p>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getRoleBadgeColor(user.role)}>{user.role}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="text-sm">{user.school_name || "Not specified"}</p>
+                          <p className="text-xs text-gray-500">
+                            {user.state && user.country
+                              ? `${user.state}, ${user.country}`
+                              : user.country || user.state || ""}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={user.email_verified ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}>
+                          {user.email_verified ? "Verified" : "Unverified"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-sm">{new Date(user.created_at).toLocaleDateString()}</p>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button onClick={() => setEditingUser(user)} className="border border-gray-300 bg-white hover:bg-gray-50">
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button onClick={() => handleDeleteUser(user.id)} className="border border-gray-300 bg-white hover:bg-gray-50">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {filteredUsers.length === 0 && (
+              <div className="text-center py-12">
+                <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">No Users Found</h3>
+                <p className="text-gray-500">
+                  {searchTerm || roleFilter !== "all" || statusFilter !== "all"
+                    ? "No users match your current filters."
+                    : "No users have been created yet."}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Edit User Dialog */}
+      {editingUser && (
+        <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription>Update user information</DialogDescription>
+            </DialogHeader>
+            <form action={handleUpdateUser} className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input id="edit-email" value={editingUser.email} disabled />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-fullName">Full Name *</Label>
+                  <Input id="edit-fullName" name="fullName" defaultValue={editingUser.full_name || ""} required />
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-role">Role *</Label>
+                  <Select name="role" defaultValue={editingUser.role} required>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="student">Student</SelectItem>
+                      <SelectItem value="intern">Intern</SelectItem>
+                      <SelectItem value="parent">Parent</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-grade">Grade</Label>
+                  <Select name="grade" defaultValue={editingUser.grade?.toString()}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select grade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5th Grade</SelectItem>
+                      <SelectItem value="6">6th Grade</SelectItem>
+                      <SelectItem value="7">7th Grade</SelectItem>
+                      <SelectItem value="8">8th Grade</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-schoolName">School</Label>
+                  <Input id="edit-schoolName" name="schoolName" defaultValue={editingUser.school_name || ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-country">Country</Label>
+                  <Input id="edit-country" name="country" defaultValue={editingUser.country || ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-state">State</Label>
+                  <Input id="edit-state" name="state" defaultValue={editingUser.state || ""} />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button type="submit" className="flex-1">
+                  Update User
+                </Button>
+                <Button type="button" onClick={() => setEditingUser(null)} className="border border-gray-300 bg-white hover:bg-gray-50">
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
