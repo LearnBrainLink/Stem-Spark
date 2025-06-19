@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { Logo } from "../components/logo"
 import { FloatingElements } from "../components/FloatingElements"
 import { HeroSection } from "../components/HeroSection"
@@ -10,10 +10,21 @@ import { FeaturesSection } from "../components/FeaturesSection"
 import { CTASection } from "../components/CTASection"
 import { VideoModal } from "../components/VideoModal"
 import { Menu, X } from "lucide-react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 export default function HomePage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const supabase = createClientComponentClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      setIsLoggedIn(!!user)
+    }
+    checkAuth()
+  }, [])
 
   return (
     <div className="min-h-screen bg-white relative overflow-x-hidden">
@@ -60,7 +71,7 @@ export default function HomePage() {
               </button>
               <button
                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg hover:shadow-xl"
-                onClick={() => window.location.href = '/sign%20up'}
+                onClick={() => window.location.href = isLoggedIn ? "/dashboard" : "/sign%20up"}
               >
                 Get Started
               </button>
@@ -107,10 +118,10 @@ export default function HomePage() {
                 Contact
               </a>
               <div className="flex gap-3 pt-4">
-                <button className="flex-1 border border-blue-600 text-blue-600 py-3 rounded-full hover:bg-blue-50 transition-colors font-medium" onClick={() => window.location.href = '/login'}>
+                <button className="flex-1 border border-blue-600 text-blue-600 py-3 rounded-full hover:bg-blue-50 transition-colors" onClick={() => window.location.href = '/login'}>
                   Sign In
                 </button>
-                <button className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium" onClick={() => window.location.href = '/sign%20up'}>
+                <button className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium" onClick={() => window.location.href = isLoggedIn ? "/dashboard" : "/sign%20up"}>
                   Get Started
                 </button>
               </div>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, GraduationCap, Video, Briefcase, Mail, BarChart3, Shield, ArrowRight, Bell, Search, Menu, X, Settings, LogOut, ChevronDown, TrendingUp, Activity, Calendar, Clock } from "lucide-react";
 import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
 export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -26,6 +27,8 @@ export default function AdminDashboard() {
     applications: 0,
     emailTemplates: 0,
   })
+
+  const router = useRouter();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -342,6 +345,7 @@ export default function AdminDashboard() {
                 <button
                   key={index}
                   className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 transition-all duration-300 text-left group hover:shadow-lg hover:shadow-blue-500/10"
+                  onClick={() => router.push(action.href)}
                 >
                   <div className={`p-3 rounded-xl bg-gradient-to-r ${action.gradient} text-white shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300`}>
                     <action.icon className="w-5 h-5" />
