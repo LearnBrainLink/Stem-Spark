@@ -10,7 +10,7 @@ import { FeaturesSection } from "../components/FeaturesSection"
 import { CTASection } from "../components/CTASection"
 import { VideoModal } from "../components/VideoModal"
 import { Menu, X } from "lucide-react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createClient } from "@supabase/supabase-js"
 
 export default function HomePage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -19,7 +19,10 @@ export default function HomePage() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const supabase = createClientComponentClient()
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
       const { data: { user } } = await supabase.auth.getUser()
       setIsLoggedIn(!!user)
     }
