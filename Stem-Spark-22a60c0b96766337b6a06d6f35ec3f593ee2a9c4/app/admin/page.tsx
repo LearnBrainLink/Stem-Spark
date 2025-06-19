@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, GraduationCap, Video, Briefcase, Mail, BarChart3, Shield, ArrowRight, Bell, Search, Menu, X, Settings, LogOut, ChevronDown, TrendingUp, Activity, Calendar, Clock } from "lucide-react";
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
+import { motion } from "framer-motion";
 
 export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -223,11 +224,11 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Animated Background Pattern */}
-      <div className="fixed inset-0 opacity-30">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.3 }} transition={{ duration: 1 }} className="fixed inset-0 pointer-events-none">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent_50%)]"></div>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(139,92,246,0.1),transparent_50%)]"></div>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,rgba(34,197,94,0.1),transparent_50%)]"></div>
-      </div>
+      </motion.div>
 
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
@@ -365,25 +366,24 @@ export default function AdminDashboard() {
         {/* Main Content */}
         <main className="flex-1 p-6 space-y-8 overflow-auto relative">
           {/* Welcome Section */}
-          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl p-8 text-white relative overflow-hidden">
+          <motion.div initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.7 }} className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl">
             <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iZ3JpZCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLW9wYWNpdHk9IjAuMSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-20"></div>
             <div className="relative">
               <h1 className="text-3xl font-bold mb-2">Welcome back, Admin! 👋</h1>
               <p className="text-blue-100 text-lg">Here's what's happening with your academy today</p>
             </div>
-          </div>
+          </motion.div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {adminStats.map((stat, index: number) => (
-              <Card key={index} className="relative overflow-hidden border-0 shadow-xl hover:shadow-2xl transition-all duration-500 group bg-white/80 backdrop-blur-sm hover:scale-105">
+          <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.7, delay: 0.2 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {adminStats.map((stat, index) => (
+              <motion.div whileHover={{ scale: 1.07 }} key={index} className="relative overflow-hidden border-0 shadow-xl group bg-white/80 backdrop-blur-sm">
                 <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-500`}></div>
                 <CardContent className="p-6 relative">
                   <div className="flex items-center justify-between mb-4">
                     <div className={`p-4 rounded-2xl bg-gradient-to-br ${stat.gradient} text-white shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-500`}>
                       <stat.icon className="w-6 h-6" />
                     </div>
-                    {/* Remove change/trend if not used visually */}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-600 mb-1">{stat.label}</p>
@@ -391,12 +391,12 @@ export default function AdminDashboard() {
                     <p className="text-xs text-gray-400">{stat.description}</p>
                   </div>
                 </CardContent>
-              </Card>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
 
           {/* Quick Actions Grid */}
-          <div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7, delay: 0.3 }}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-800">Quick Actions</h2>
               <Button className="bg-white/80 backdrop-blur-sm border-gray-200 hover:bg-white">
@@ -404,8 +404,8 @@ export default function AdminDashboard() {
               </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {quickActions.map((action, index: number) => (
-                <Card key={index} className="group hover:shadow-2xl transition-all duration-500 border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden hover:scale-105">
+              {quickActions.map((action, index) => (
+                <motion.div whileHover={{ scale: 1.04 }} key={index} className="group border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden">
                   <div className={`h-1 bg-gradient-to-r ${action.gradient}`}></div>
                   <CardHeader className="pb-4">
                     <div className="flex items-start gap-4">
@@ -422,68 +422,70 @@ export default function AdminDashboard() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <Button className={`w-full bg-gradient-to-r ${action.gradient} hover:shadow-lg transition-all duration-300 border-0 text-white font-semibold rounded-xl`}>
+                    <Button className={`w-full bg-gradient-to-r ${action.gradient} hover:shadow-lg transition-all duration-300 border-0 text-white font-semibold rounded-xl`} onClick={() => router.push(action.href)}>
                       Open {action.title}
                       <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
                     </Button>
                   </CardContent>
-                </Card>
+                </motion.div>
               ))}
             </div>
-          </div>
+          </motion.div>
 
           {/* Recent Activity */}
-          <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg">
-                    <Activity className="w-5 h-5 text-white" />
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.4 }}>
+            <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg">
+                      <Activity className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl font-bold text-gray-800">Recent Activity</CardTitle>
+                      <CardDescription className="text-gray-600">Latest platform activities and updates</CardDescription>
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle className="text-xl font-bold text-gray-800">Recent Activity</CardTitle>
-                    <CardDescription className="text-gray-600">Latest platform activities and updates</CardDescription>
-                  </div>
+                  <Button className="bg-white/80 text-xs px-3 py-1">
+                    View All
+                  </Button>
                 </div>
-                <Button className="bg-white/80 text-xs px-3 py-1">
-                  View All
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentActivities.map((activity, index) => (
-                  <div key={index} className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 group border border-gray-100">
-                    <div className={`p-3 rounded-xl bg-gradient-to-r ${activity.gradient} text-white shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300`}>
-                      <activity.icon className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-800 group-hover:text-gray-900">{activity.title}</p>
-                      <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                        {activity.time}
-                      </span>
-                      <Badge className="mt-2 text-xs">
-                        {activity.type}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {recentActivities.map((activity, index) => (
+                    <motion.div whileHover={{ scale: 1.03 }} key={index} className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 group border border-gray-100">
+                      <div className={`p-3 rounded-xl bg-gradient-to-r ${activity.gradient} text-white shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300`}>
+                        <activity.icon className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-800 group-hover:text-gray-900">{activity.title}</p>
+                        <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                          {activity.time}
+                        </span>
+                        <Badge className="mt-2 text-xs">
+                          {activity.type}
+                        </Badge>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
           {/* Welcome Back Modal */}
           {showWelcomeModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }} className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
               <div className="bg-white/90 border-2 border-blue-400 shadow-2xl rounded-2xl px-8 py-8 flex flex-col items-center animate-fade-in-up pointer-events-auto" style={{minWidth:'320px', maxWidth:'90vw'}}>
                 <h2 className="text-3xl font-bold text-blue-700 mb-2">Welcome back, {userName}!</h2>
                 <p className="text-lg text-blue-500 mb-2">We're glad to see you again. Ready to continue your journey?</p>
                 <button className="mt-4 px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full font-semibold shadow hover:from-blue-700 hover:to-purple-700 transition-all" onClick={() => setShowWelcomeModal(false)}>Close</button>
               </div>
-            </div>
+            </motion.div>
           )}
         </main>
       </div>
