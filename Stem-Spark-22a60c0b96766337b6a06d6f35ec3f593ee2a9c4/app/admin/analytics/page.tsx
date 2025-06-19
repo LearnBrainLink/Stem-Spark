@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { supabase } from "@/lib/supabase"
 import { Users, Video, Briefcase, TrendingUp, Download, Eye, PlayCircle, FileText } from "lucide-react"
+import { AnalyticsLineChart } from '@/components/analytics-line-chart'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 interface AnalyticsData {
   totalUsers: number
@@ -20,13 +22,36 @@ interface AnalyticsData {
   applicationStats: Array<{ status: string; count: number }>
 }
 
+// Sample data for demonstration until real data is fetched
+const sampleLineData = [
+  { time: '2023-01-01', new_students: 4, new_interns: 2 },
+  { time: '2023-01-02', new_students: 3, new_interns: 1 },
+  { time: '2023-01-03', new_students: 2, new_interns: 5 },
+  { time: '2023-01-04', new_students: 7, new_interns: 3 },
+  { time: '2023-01-05', new_students: 5, new_interns: 4 },
+  { time: '2023-01-06', new_students: 8, new_interns: 2 },
+  { time: '2023-01-07', new_students: 10, new_interns: 6 },
+]
+
+const sampleBarData = [
+    { name: 'Jan', users: 400, },
+    { name: 'Feb', users: 300, },
+    { name: 'Mar', users: 200, },
+    { name: 'Apr', users: 278, },
+    { name: 'May', users: 189, },
+    { name: 'Jun', users: 239, },
+    { name: 'Jul', users: 349, },
+]
+
 export default function AnalyticsPage() {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [timeRange, setTimeRange] = useState("30d")
+  const [dailyStats, setDailyStats] = useState(sampleLineData)
 
   useEffect(() => {
     fetchAnalyticsData()
+    fetchDailyStats()
   }, [timeRange])
 
   const fetchAnalyticsData = async () => {
@@ -91,6 +116,21 @@ export default function AnalyticsPage() {
       console.error("Error fetching analytics:", error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const fetchDailyStats = async () => {
+    const { data, error } = await supabase
+      .from('platform_daily_stats')
+      .select('*')
+      .order('day', { ascending: true })
+
+    if (error) {
+      console.error('Error fetching daily stats:', error)
+      setDailyStats(sampleLineData) // Fallback to sample data
+    } else if (data) {
+      const formattedData = data.map(d => ({ ...d, time: new Date(d.day).toLocaleDateString() }))
+      setDailyStats(formattedData)
     }
   }
 
@@ -491,6 +531,38 @@ export default function AnalyticsPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <AnalyticsLineChart
+          title="New Users Over Time"
+          description="Daily count of new students and interns."
+          data={dailyStats}
+          lines={[
+            { dataKey: 'new_students', name: 'New Students', stroke: 'var(--novakinetix-primary)' },
+            { dataKey: 'new_interns', name: 'New Interns', stroke: 'var(--novakinetix-accent)' },
+          ]}
+        />
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Monthly Active Users</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div style={{ width: '100%', height: 300 }}>
+              <ResponsiveContainer>
+                <BarChart data={sampleBarData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="users" fill="var(--novakinetix-secondary)" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

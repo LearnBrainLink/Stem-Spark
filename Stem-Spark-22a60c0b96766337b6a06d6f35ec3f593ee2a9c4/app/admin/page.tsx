@@ -8,6 +8,14 @@ import { Users, GraduationCap, Video, Briefcase, Mail, BarChart3, Shield, ArrowR
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion";
+import { AnalyticsLineChart } from '@/components/analytics-line-chart';
+
+interface DailyStat {
+  time: string;
+  new_students: number;
+  new_interns: number;
+  [key: string]: number | string; // Index signature to match TimeSeriesData
+}
 
 export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -27,9 +35,12 @@ export default function AdminDashboard() {
     internships: 0,
     applications: 0,
     emailTemplates: 0,
-  })
+  });
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const [dailyStats, setDailyStats] = useState<DailyStat[]>([]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -38,26 +49,68 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const fetchStats = async () => {
-      // Use SQL views for consolidated stats
-      const { data: userStats } = await supabase.from("platform_user_stats").select("*").single();
-      const { data: videoStats } = await supabase.from("platform_video_stats").select("*").single();
-      const { data: internshipStats } = await supabase.from("platform_internship_stats").select("*").single();
-      const { data: applicationStats } = await supabase.from("platform_application_stats").select("*").single();
-      const { data: emailTemplateStats } = await supabase.from("platform_email_template_stats").select("*").single();
+      try {
+        setLoading(true);
+        setError(null);
 
-      setStats({
-        totalUsers: userStats?.total_users || 0,
-        students: userStats?.students || 0,
-        interns: userStats?.interns || 0,
-        admins: userStats?.admins || 0,
-        videos: videoStats?.total_videos || 0,
-        internships: internshipStats?.total_internships || 0,
-        applications: applicationStats?.total_applications || 0,
-        emailTemplates: emailTemplateStats?.total_email_templates || 0,
-      });
+        // Fetch all stats in parallel
+        const [
+          { data: userStats },
+          { data: videoStats },
+          { data: internshipStats },
+          { data: applicationStats },
+          { data: emailTemplateStats }
+        ] = await Promise.all([
+          supabase.from("platform_user_stats").select("*").single(),
+          supabase.from("platform_video_stats").select("*").single(),
+          supabase.from("platform_internship_stats").select("*").single(),
+          supabase.from("platform_application_stats").select("*").single(),
+          supabase.from("platform_email_template_stats").select("*").single()
+        ]);
+
+        setStats({
+          totalUsers: userStats?.total_users || 0,
+          students: userStats?.students || 0,
+          interns: userStats?.interns || 0,
+          admins: userStats?.admins || 0,
+          videos: videoStats?.total_videos || 0,
+          internships: internshipStats?.total_internships || 0,
+          applications: applicationStats?.total_applications || 0,
+          emailTemplates: emailTemplateStats?.total_email_templates || 0,
+        });
+      } catch (err) {
+        console.error('Error fetching stats:', err);
+        setError('Failed to load dashboard statistics. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
     };
+
     fetchStats();
-  }, [])
+  }, []);
+
+  useEffect(() => {
+    const fetchDailyStats = async () => {
+      const { data, error } = await supabase
+        .from('platform_daily_stats')
+        .select('day, new_students, new_interns')
+        .order('day', { ascending: true })
+        .limit(7);
+
+      if (error) {
+        console.error('Error fetching daily stats:', error);
+      } else if (data) {
+        const formattedData = data.map(d => ({ 
+            time: new Date(d.day).toLocaleDateString(),
+            new_students: d.new_students,
+            new_interns: d.new_interns
+        }));
+        setDailyStats(formattedData);
+      }
+    };
+
+    fetchDailyStats();
+  }, []);
 
   // Corrected adminStats with all required properties for display
   const adminStats = [
@@ -65,72 +118,56 @@ export default function AdminDashboard() {
       label: "Total Users",
       value: stats.totalUsers.toLocaleString(),
       icon: Users,
-      gradient: "from-blue-500 via-blue-600 to-indigo-600",
-      change: "",
-      trend: "",
+      gradient: "from-[var(--novakinetix-primary)] to-[var(--novakinetix-secondary)]",
       description: "All platform users"
     },
     {
       label: "Students",
       value: stats.students.toLocaleString(),
       icon: GraduationCap,
-      gradient: "from-emerald-500 via-green-600 to-teal-600",
-      change: "",
-      trend: "",
+      gradient: "from-[var(--novakinetix-secondary)] to-[var(--novakinetix-accent)]",
       description: "Registered students"
     },
     {
       label: "Interns",
       value: stats.interns.toLocaleString(),
       icon: Users,
-      gradient: "from-yellow-500 via-orange-400 to-orange-600",
-      change: "",
-      trend: "",
+      gradient: "from-[var(--novakinetix-accent)] to-[var(--novakinetix-dark)]",
       description: "Registered interns"
     },
     {
       label: "Admins",
       value: stats.admins.toLocaleString(),
       icon: Shield,
-      gradient: "from-red-500 via-rose-500 to-pink-500",
-      change: "",
-      trend: "",
+      gradient: "from-[var(--novakinetix-primary)] to-[var(--novakinetix-dark)]",
       description: "Admin accounts"
     },
     {
       label: "Videos",
       value: stats.videos.toLocaleString(),
       icon: Video,
-      gradient: "from-purple-500 via-violet-600 to-purple-700",
-      change: "",
-      trend: "",
+      gradient: "from-[var(--novakinetix-secondary)] to-[var(--novakinetix-primary)]",
       description: "Video lessons"
     },
     {
       label: "Internships",
       value: stats.internships.toLocaleString(),
       icon: Briefcase,
-      gradient: "from-orange-500 via-amber-600 to-yellow-600",
-      change: "",
-      trend: "",
+      gradient: "from-[var(--novakinetix-accent)] to-[var(--novakinetix-secondary)]",
       description: "Internship programs"
     },
     {
       label: "Applications",
       value: stats.applications.toLocaleString(),
       icon: Briefcase,
-      gradient: "from-blue-400 via-blue-600 to-indigo-600",
-      change: "",
-      trend: "",
+      gradient: "from-[var(--novakinetix-primary)] to-[var(--novakinetix-accent)]",
       description: "Internship applications"
     },
     {
       label: "Email Templates",
       value: stats.emailTemplates.toLocaleString(),
       icon: Mail,
-      gradient: "from-emerald-500 via-green-500 to-lime-500",
-      change: "",
-      trend: "",
+      gradient: "from-[var(--novakinetix-secondary)] to-[var(--novakinetix-primary)]",
       description: "Email templates"
     },
   ];
@@ -141,7 +178,6 @@ export default function AdminDashboard() {
       description: "Manage accounts, roles & permissions",
       href: "/admin/users",
       icon: Users,
-      gradient: "from-blue-500 via-cyan-500 to-teal-500",
       count: `${stats.totalUsers.toLocaleString()} users`
     },
     {
@@ -149,7 +185,6 @@ export default function AdminDashboard() {
       description: "Upload, organize & manage content",
       href: "/admin/videos",
       icon: Video,
-      gradient: "from-purple-500 via-pink-500 to-rose-500",
       count: `${stats.videos.toLocaleString()} videos`
     },
     {
@@ -157,7 +192,6 @@ export default function AdminDashboard() {
       description: "Review applications & manage programs",
       href: "/admin/applications",
       icon: Briefcase,
-      gradient: "from-orange-500 via-red-500 to-pink-500",
       count: `${stats.internships.toLocaleString()} internships, ${stats.applications.toLocaleString()} applications`
     },
     {
@@ -165,7 +199,6 @@ export default function AdminDashboard() {
       description: "Configure templates & campaigns",
       href: "/admin/email-config",
       icon: Mail,
-      gradient: "from-emerald-500 via-green-500 to-lime-500",
       count: `${stats.emailTemplates.toLocaleString()} templates`
     },
     {
@@ -173,7 +206,6 @@ export default function AdminDashboard() {
       description: "Manage administrators & security",
       href: "/admin/setup",
       icon: Shield,
-      gradient: "from-red-500 via-rose-500 to-pink-500",
       count: `${stats.admins.toLocaleString()} admins`
     },
     {
@@ -181,7 +213,6 @@ export default function AdminDashboard() {
       description: "Insights, reports & performance data",
       href: "/admin/analytics",
       icon: BarChart3,
-      gradient: "from-indigo-500 via-blue-500 to-cyan-500",
       count: "Live data"
     },
   ];
@@ -220,6 +251,28 @@ export default function AdminDashboard() {
       type: "report"
     }
   ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[var(--novakinetix-primary)]"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <div className="text-red-600 text-lg font-medium">{error}</div>
+        <Button 
+          onClick={() => window.location.reload()}
+          className="bg-[var(--novakinetix-primary)] hover:bg-[var(--novakinetix-accent)]"
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -377,23 +430,45 @@ export default function AdminDashboard() {
           {/* Stats Grid */}
           <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.7, delay: 0.2 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {adminStats.map((stat, index) => (
-              <motion.div whileHover={{ scale: 1.07 }} key={index} className="relative overflow-hidden border-0 shadow-xl group bg-white/80 backdrop-blur-sm">
-                <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-500`}></div>
-                <CardContent className="p-6 relative">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`p-4 rounded-2xl bg-gradient-to-br ${stat.gradient} text-white shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-500`}>
-                      <stat.icon className="w-6 h-6" />
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.1 }}
+              >
+                <Card className="stats-card">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      {stat.label}
+                    </CardTitle>
+                    <div className={`p-2 rounded-full bg-gradient-to-br ${stat.gradient}`}>
+                      <stat.icon className="w-4 h-4 text-white" />
                     </div>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">{stat.label}</p>
-                    <p className="text-3xl font-bold text-gray-800 mb-2">{stat.value}</p>
-                    <p className="text-xs text-gray-400">{stat.description}</p>
-                  </div>
-                </CardContent>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stat.value}</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {stat.description}
+                    </p>
+                  </CardContent>
+                </Card>
               </motion.div>
             ))}
           </motion.div>
+
+          {/* Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <AnalyticsLineChart
+                title="Last 7 Days - New Users"
+                description="A quick look at new user registrations."
+                data={dailyStats}
+                lines={[
+                    { dataKey: 'new_students', name: 'New Students', stroke: 'var(--novakinetix-primary)' },
+                    { dataKey: 'new_interns', name: 'New Interns', stroke: 'var(--novakinetix-accent)' },
+                ]}
+            />
+            {/* You can add another chart here if you like */}
+          </div>
 
           {/* Quick Actions Grid */}
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7, delay: 0.3 }}>
@@ -405,28 +480,30 @@ export default function AdminDashboard() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {quickActions.map((action, index) => (
-                <motion.div whileHover={{ scale: 1.04 }} key={index} className="group border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden">
-                  <div className={`h-1 bg-gradient-to-r ${action.gradient}`}></div>
-                  <CardHeader className="pb-4">
-                    <div className="flex items-start gap-4">
-                      <div className={`p-4 rounded-2xl bg-gradient-to-r ${action.gradient} text-white shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-500`}>
-                        <action.icon className="w-6 h-6" />
-                      </div>
-                      <div className="flex-1">
-                        <CardTitle className="text-lg font-bold text-gray-800 group-hover:text-gray-900">{action.title}</CardTitle>
-                        <CardDescription className="text-gray-600 text-sm mt-1">{action.description}</CardDescription>
-                        <Badge className="mt-3 text-xs bg-gray-100 text-gray-600">
+                <motion.div
+                  key={action.title}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 + 0.4 }}
+                >
+                  <Button
+                    variant="ghost"
+                    className="quick-action-card w-full h-full"
+                    onClick={() => router.push(action.href)}
+                  >
+                    <div className="flex flex-col items-start text-left w-full">
+                      <div className="flex items-center justify-between w-full mb-4">
+                        <div className="p-2 rounded-full bg-[var(--novakinetix-light)]">
+                          <action.icon className="w-5 h-5 text-[var(--novakinetix-primary)]" />
+                        </div>
+                        <Badge variant="secondary" className="bg-[var(--novakinetix-light)] text-[var(--novakinetix-primary)]">
                           {action.count}
                         </Badge>
                       </div>
+                      <h3 className="font-semibold text-lg mb-1">{action.title}</h3>
+                      <p className="text-sm text-muted-foreground">{action.description}</p>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <Button className={`w-full bg-gradient-to-r ${action.gradient} hover:shadow-lg transition-all duration-300 border-0 text-white font-semibold rounded-xl`} onClick={() => router.push(action.href)}>
-                      Open {action.title}
-                      <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
-                    </Button>
-                  </CardContent>
+                  </Button>
                 </motion.div>
               ))}
             </div>

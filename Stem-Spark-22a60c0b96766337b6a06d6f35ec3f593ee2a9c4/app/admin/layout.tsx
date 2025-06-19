@@ -94,7 +94,7 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isSidebarOpen, setSidebarOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [signingOut, setSigningOut] = useState(false);
   const pathname = usePathname()
@@ -129,13 +129,13 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen hero-gradient flex">
       {/* Sidebar */}
-      <aside className={`fixed md:static z-40 w-64 h-full bg-white/90 border-r border-gray-200 shadow-lg transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+      <aside className={`fixed md:static z-40 w-64 h-full bg-white/95 border-r border-gray-200 shadow-lg transition-transform duration-300 backdrop-blur-lg ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between p-4 border-b border-gray-100">
             <Link href="/admin" className="flex items-center gap-2">
               <Image src="/images/novakinetix-logo.png" alt="Novakinetix Academy Logo" width={160} height={60} className="drop-shadow-2xl" priority />
             </Link>
-            <button className="md:hidden p-2" onClick={() => setIsSidebarOpen(false)}>
+            <button className="md:hidden p-2" onClick={() => setSidebarOpen(false)}>
               <X className="w-6 h-6 text-gray-600" />
             </button>
           </div>
@@ -143,9 +143,13 @@ export default function AdminLayout({
             {navigationItems.map((item) => (
               <Link key={item.href} href={item.href} legacyBehavior>
                 <a
-                  className={`flex items-center gap-3 px-6 py-3 rounded-lg mb-1 font-medium transition-colors duration-200 hover:bg-blue-50 hover:text-blue-700 ${pathname === item.href ? 'bg-blue-100 text-blue-700' : 'text-gray-700'}`}
+                  className={`flex items-center gap-3 px-6 py-3 rounded-lg mb-1 font-medium transition-all duration-200 hover:bg-[var(--novakinetix-light)] hover:text-[var(--novakinetix-primary)] ${
+                    pathname === item.href 
+                      ? 'bg-[var(--novakinetix-light)] text-[var(--novakinetix-primary)]' 
+                      : 'text-gray-700'
+                  }`}
                   aria-current={pathname === item.href ? 'page' : undefined}
-                  onClick={() => setIsSidebarOpen(false)}
+                  onClick={() => setSidebarOpen(false)}
                 >
                   <item.icon className="w-5 h-5" />
                   {item.title}
@@ -154,7 +158,11 @@ export default function AdminLayout({
             ))}
           </nav>
           <div className="p-4 border-t border-gray-100">
-            <Button onClick={handleSignOut} className="w-full" disabled={signingOut} variant="destructive">
+            <Button 
+              onClick={handleSignOut} 
+              className="w-full bg-[var(--novakinetix-primary)] hover:bg-[var(--novakinetix-accent)]" 
+              disabled={signingOut}
+            >
               <LogOut className="w-5 h-5 mr-2" />
               {signingOut ? 'Signing out...' : 'Sign Out'}
             </Button>
@@ -162,11 +170,14 @@ export default function AdminLayout({
         </div>
       </aside>
       {/* Main Content */}
-      <div className="flex-1 pt-[90px] min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-        <button className="md:hidden fixed top-4 left-4 z-50 p-2 bg-white/90 rounded-full shadow-lg border border-gray-200" onClick={() => setIsSidebarOpen(true)}>
-          <Menu className="w-6 h-6 text-blue-600" />
+      <div className="flex-1 min-h-screen bg-gradient-to-br from-[var(--novakinetix-light)] via-white to-[var(--novakinetix-light)]">
+        <button 
+          className="md:hidden fixed top-4 left-4 z-50 p-2 bg-white/95 rounded-full shadow-lg border border-gray-200" 
+          onClick={() => setSidebarOpen(true)}
+        >
+          <Menu className="w-6 h-6 text-[var(--novakinetix-primary)]" />
         </button>
-        <main className="p-6 animate-fade-in">{children}</main>
+        <main className="p-6 pt-[90px] animate-fade-in">{children}</main>
       </div>
     </div>
   )
