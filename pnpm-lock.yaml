@@ -11,6 +11,9 @@ importers:
       '@supabase/auth-helpers-nextjs':
         specifier: ^0.10.0
         version: 0.10.0(@supabase/supabase-js@2.50.0)
+      '@supabase/auth-helpers-shared':
+        specifier: ^0.7.0
+        version: 0.7.0(@supabase/supabase-js@2.50.0)
       lucide-react:
         specifier: ^0.515.0
         version: 0.515.0(react@19.1.0)
@@ -23,6 +26,9 @@ importers:
       react-dom:
         specifier: ^19.1.0
         version: 19.1.0(react@19.1.0)
+      set-cookie-parser:
+        specifier: ^2.7.1
+        version: 2.7.1
     devDependencies:
       '@types/react':
         specifier: ^19.1.8
