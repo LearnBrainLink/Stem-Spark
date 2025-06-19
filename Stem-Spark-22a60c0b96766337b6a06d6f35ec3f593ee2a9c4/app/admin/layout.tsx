@@ -128,82 +128,12 @@ export default function AdminLayout({
 
   return (
     <div className="min-h-screen hero-gradient">
-      {/* Top Navigation Bar */}
-      <header className="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-sm border-b border-brand-light/30 z-[9999] shadow-lg">
-        <div className="flex flex-col">
-          {/* Top Bar */}
-          <div className="flex items-center justify-between px-6 py-3">
-            <div className="flex items-center gap-4">
-              <Link href="/admin" className="flex items-center">
-                <Image src="/images/novakinetix-logo.png" alt="Novakinetix Academy Logo" width={220} height={80} className="mx-auto my-6 drop-shadow-2xl" priority />
-              </Link>
-              <Badge className="bg-brand-primary text-white border-0 shadow-brand text-sm px-3 py-1">
-                <GraduationCap className="w-4 h-4 mr-2" />
-                Admin Panel
-              </Badge>
-            </div>
-            <div className="flex items-center gap-4">
-              {user && (
-                <>
-                  <Link href="/profile">
-                    <Button className="border-brand-accent text-brand-accent hover:bg-brand-accent hover:text-white px-4 py-2 rounded-md transition flex items-center">
-                      <Settings className="w-4 h-4 mr-2" />
-                      Profile
-                    </Button>
-                  </Link>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 brand-gradient rounded-full flex items-center justify-center text-white font-bold text-lg shadow-brand">
-                      {user.email?.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="hidden md:block">
-                      <p className="text-sm font-semibold text-brand-primary">
-                        {user.user_metadata?.full_name || user.email}
-                      </p>
-                    </div>
-                  </div>
-                </>
-              )}
-              <Badge className="bg-green-100 text-green-700 border-green-200 font-medium text-sm px-3 py-1">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                System Online
-              </Badge>
-              <Button
-                className="border-brand-light text-brand-primary hover:bg-brand-primary hover:text-white transition-all duration-200 px-4 py-2 rounded-md flex items-center"
-                onClick={handleSignOut}
-                disabled={signingOut}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                {signingOut ? "Signing Out..." : "Sign Out"}
-              </Button>
-            </div>
-          </div>
-
-          {/* Navigation Menu */}
-          <div className="border-t border-brand-light/30 bg-white/50">
-            <div className="flex items-center px-6 py-2 overflow-x-auto scrollbar-hide">
-              {navigationItems.map((item) => {
-                const isActive = pathname === item.href
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`
-                      flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-all duration-200
-                      ${isActive 
-                        ? "bg-gradient-to-r from-brand-primary to-brand-secondary text-white shadow-brand" 
-                        : "text-brand-secondary hover:bg-brand-accent/50"
-                      }
-                    `}
-                  >
-                    <item.icon className="w-4 h-4 flex-shrink-0" />
-                    <span className="text-sm font-medium">{item.title}</span>
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Logo Only - Top Left */}
+      <div className="fixed top-0 left-0 z-[9999] p-4">
+        <Link href="/admin" className="flex items-center">
+          <Image src="/images/novakinetix-logo.png" alt="Novakinetix Academy Logo" width={220} height={80} className="drop-shadow-2xl" priority />
+        </Link>
+      </div>
       {/* Main Content */}
       <div className="pt-[90px] min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         {/* Page Content */}
