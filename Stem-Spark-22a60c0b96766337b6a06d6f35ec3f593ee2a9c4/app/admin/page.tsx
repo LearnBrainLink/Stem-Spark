@@ -37,38 +37,25 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const fetchStats = async () => {
-      // Users
-      const { count: userCount } = await supabase.from("profiles").select("id", { count: "exact", head: true })
-      // Students
-      const { count: studentCount } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student")
-      // Interns
-      const { count: internCount } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "intern")
-      // Admins
-      const { count: adminCount } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "admin")
-      // Videos
-      const { count: videoCount } = await supabase.from("videos").select("id", { count: "exact", head: true })
-      // Internships
-      const { count: internshipCount } = await supabase.from("internships").select("id", { count: "exact", head: true })
-      // Applications
-      const { count: applicationCount } = await supabase.from("internship_applications").select("id", { count: "exact", head: true })
-      // Email templates (if table exists)
-      let emailTemplateCount = 0
-      try {
-        const { count } = await supabase.from("email_templates").select("id", { count: "exact", head: true })
-        emailTemplateCount = count || 0
-      } catch {}
+      // Use SQL views for consolidated stats
+      const { data: userStats } = await supabase.from("platform_user_stats").select("*").single();
+      const { data: videoStats } = await supabase.from("platform_video_stats").select("*").single();
+      const { data: internshipStats } = await supabase.from("platform_internship_stats").select("*").single();
+      const { data: applicationStats } = await supabase.from("platform_application_stats").select("*").single();
+      const { data: emailTemplateStats } = await supabase.from("platform_email_template_stats").select("*").single();
+
       setStats({
-        totalUsers: userCount || 0,
-        students: studentCount || 0,
-        interns: internCount || 0,
-        admins: adminCount || 0,
-        videos: videoCount || 0,
-        internships: internshipCount || 0,
-        applications: applicationCount || 0,
-        emailTemplates: emailTemplateCount,
-      })
-    }
-    fetchStats()
+        totalUsers: userStats?.total_users || 0,
+        students: userStats?.students || 0,
+        interns: userStats?.interns || 0,
+        admins: userStats?.admins || 0,
+        videos: videoStats?.total_videos || 0,
+        internships: internshipStats?.total_internships || 0,
+        applications: applicationStats?.total_applications || 0,
+        emailTemplates: emailTemplateStats?.total_email_templates || 0,
+      });
+    };
+    fetchStats();
   }, [])
 
   // Corrected adminStats with all required properties for display

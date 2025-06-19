@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -138,44 +137,7 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 min-h-screen overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Analytics & Reports</h1>
-          <p className="text-gray-600 text-sm md:text-base">Comprehensive platform analytics and insights</p>
-        </div>
-        <div className="flex gap-2">
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="90d">Last 90 days</SelectItem>
-              <SelectItem value="1y">Last year</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={exportReport} className="px-2 py-1 text-sm">
-            <Download className="w-4 h-4 mr-1" />
-            Export
-          </Button>
-        </div>
-      </div>
-
-      {/* Logo */}
-      <div className="flex justify-center items-center w-full py-8">
-        <Image
-          src="/images/novakinetix-logo.png"
-          alt="Novakinetix Academy Logo"
-          width={320}
-          height={100}
-          className="drop-shadow-2xl"
-          priority
-        />
-      </div>
-
+    <div className="space-y-6">
       {/* Key Metrics - compact grid */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="stat-card">

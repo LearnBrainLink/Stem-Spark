@@ -180,12 +180,7 @@ export default function ContentModerationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 pt-[90px]">
-      {/* Logo */}
-      <div className="flex justify-center items-center w-full py-8">
-        <Image src="/images/novakinetix-logo.png" alt="Novakinetix Academy Logo" width={320} height={100} className="drop-shadow-2xl" priority />
-      </div>
-
+    <div className="space-y-4">
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-2">
         <Card className="stat-card">
@@ -254,7 +249,6 @@ export default function ContentModerationPage() {
           </CardContent>
         </Card>
       </div>
-
       {message && (
         <Alert className={`mt-1 ${message.type === "error" ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"}`}>
           <AlertDescription className={message.type === "error" ? "text-red-700" : "text-green-700"}>
@@ -262,7 +256,6 @@ export default function ContentModerationPage() {
           </AlertDescription>
         </Alert>
       )}
-
       {/* Content Moderation */}
       <Card className="admin-card shadow-md border-0">
         <CardHeader>
