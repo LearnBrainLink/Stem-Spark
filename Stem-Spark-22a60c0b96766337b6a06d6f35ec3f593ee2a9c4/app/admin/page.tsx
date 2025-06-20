@@ -8,7 +8,7 @@ import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tool
 import { Users, Briefcase, Mail, DollarSign, TrendingUp, Shield, AlertCircle, CheckCircle, Clock, Award, Target, Zap } from "lucide-react";
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
-import { getDashboardStats } from './actions';
+import { getDashboardStats, getAnalyticsData } from './actions';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // --- COMPONENTS ---
@@ -150,6 +150,26 @@ export default function AdminDashboard() {
     fetchStats();
   }, []);
 
+  // Fetch real chart data
+  const [chartData, setChartData] = useState<any>(null);
+  const [userDistribution, setUserDistribution] = useState<any>(null);
+
+  useEffect(() => {
+    async function fetchChartData() {
+      try {
+        const result = await getAnalyticsData();
+        if (result.data) {
+          setChartData(result.data.userGrowth);
+          setUserDistribution(result.data.userTypes);
+        }
+      } catch (err) {
+        console.error('Error fetching chart data:', err);
+      }
+    }
+
+    fetchChartData();
+  }, []);
+
   const numberFormatter = new Intl.NumberFormat('en-US');
   const currencyFormatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -200,6 +220,10 @@ export default function AdminDashboard() {
       trendValue: "this month"
     },
   ] : [];
+
+  // Use real data for charts, fallback to sample data if needed
+  const displayChartData = chartData && chartData.length > 0 ? chartData : sampleChartData;
+  const displayUserDistribution = userDistribution && userDistribution.length > 0 ? userDistribution : samplePieData;
 
   return (
     <motion.div 
@@ -352,7 +376,7 @@ export default function AdminDashboard() {
             <CardContent>
               <div className="w-full h-[350px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={sampleChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <LineChart data={displayChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis 
                       dataKey="name" 
@@ -427,7 +451,7 @@ export default function AdminDashboard() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={samplePieData}
+                      data={displayUserDistribution}
                       cx="50%"
                       cy="50%"
                       innerRadius={40}
@@ -435,7 +459,7 @@ export default function AdminDashboard() {
                       paddingAngle={5}
                       dataKey="value"
                     >
-                      {samplePieData.map((entry, index) => (
+                      {displayUserDistribution.map((entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
@@ -452,7 +476,7 @@ export default function AdminDashboard() {
                 </ResponsiveContainer>
               </div>
               <div className="mt-4 space-y-2">
-                {samplePieData.map((item, index) => (
+                {displayUserDistribution.map((item: any, index: number) => (
                   <div key={index} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
                       <div 

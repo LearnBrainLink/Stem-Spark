@@ -125,18 +125,39 @@ export async function getAnalyticsData() {
       totalApplications: 0,
       activeInternships: 0,
       userGrowth: [
-        { month: 'Jan', users: 0 },
-        { month: 'Feb', users: 0 },
-        { month: 'Mar', users: 0 },
-        { month: 'Apr', users: 0 },
-        { month: 'May', users: 0 },
-        { month: 'Jun', users: 0 },
+        { month: 'Jan', users: 0, interns: 0, applications: 0 },
+        { month: 'Feb', users: 0, interns: 0, applications: 0 },
+        { month: 'Mar', users: 0, interns: 0, applications: 0 },
+        { month: 'Apr', users: 0, interns: 0, applications: 0 },
+        { month: 'May', users: 0, interns: 0, applications: 0 },
+        { month: 'Jun', users: 0, interns: 0, applications: 0 },
+        { month: 'Jul', users: 0, interns: 0, applications: 0 },
       ],
       applicationStats: [
-        { status: 'pending', count: 0 },
-        { status: 'approved', count: 0 },
-        { status: 'rejected', count: 0 },
+        { status: 'pending', count: 0, color: '#F59E0B' },
+        { status: 'approved', count: 0, color: '#10B981' },
+        { status: 'rejected', count: 0, color: '#EF4444' },
       ],
+      userTypes: [
+        { type: 'Students', count: 0, percentage: 0 },
+        { type: 'Teachers', count: 0, percentage: 0 },
+        { type: 'Admins', count: 0, percentage: 0 },
+      ],
+      monthlyRevenue: [
+        { month: 'Jan', revenue: 0 },
+        { month: 'Feb', revenue: 0 },
+        { month: 'Mar', revenue: 0 },
+        { month: 'Apr', revenue: 0 },
+        { month: 'May', revenue: 0 },
+        { month: 'Jun', revenue: 0 },
+        { month: 'Jul', revenue: 0 },
+      ],
+      engagementMetrics: [
+        { metric: 'Page Views', value: 0, change: '+0%' },
+        { metric: 'Session Duration', value: '0m 0s', change: '+0%' },
+        { metric: 'Bounce Rate', value: '0%', change: '+0%' },
+        { metric: 'Conversion Rate', value: '0%', change: '+0%' },
+      ]
     }
 
     // Try to fetch users data
@@ -156,8 +177,8 @@ export async function getAnalyticsData() {
           new Date(user.created_at) >= thisMonth
         ).length
 
-        // Generate user growth data (last 6 months)
-        for (let i = 5; i >= 0; i--) {
+        // Generate user growth data (last 7 months)
+        for (let i = 6; i >= 0; i--) {
           const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1)
           const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
           const monthName = monthStart.toLocaleString('default', { month: 'short' })
@@ -167,8 +188,25 @@ export async function getAnalyticsData() {
             return userDate >= monthStart && userDate <= monthEnd
           }).length
           
-          analyticsData.userGrowth[5 - i] = { month: monthName, users: usersInMonth }
+          analyticsData.userGrowth[6 - i] = { 
+            month: monthName, 
+            users: usersInMonth,
+            interns: Math.floor(usersInMonth * 0.6), // Mock data for interns
+            applications: Math.floor(usersInMonth * 0.8) // Mock data for applications
+          }
         }
+
+        // Calculate user types distribution
+        const students = users.filter((user: any) => user.role === 'student').length
+        const teachers = users.filter((user: any) => user.role === 'teacher').length
+        const admins = users.filter((user: any) => user.role === 'admin').length
+        const total = users.length
+
+        analyticsData.userTypes = [
+          { type: 'Students', count: students, percentage: total > 0 ? Math.round((students / total) * 100) : 0 },
+          { type: 'Teachers', count: teachers, percentage: total > 0 ? Math.round((teachers / total) * 100) : 0 },
+          { type: 'Admins', count: admins, percentage: total > 0 ? Math.round((admins / total) * 100) : 0 },
+        ]
         
         console.log('✅ Users data processed')
       } else {
@@ -207,9 +245,9 @@ export async function getAnalyticsData() {
         
         // Application stats by status
         analyticsData.applicationStats = [
-          { status: 'pending', count: (applications as any[]).filter((app: any) => app.status === 'pending').length },
-          { status: 'approved', count: (applications as any[]).filter((app: any) => app.status === 'approved').length },
-          { status: 'rejected', count: (applications as any[]).filter((app: any) => app.status === 'rejected').length },
+          { status: 'pending', count: (applications as any[]).filter((app: any) => app.status === 'pending').length, color: '#F59E0B' },
+          { status: 'approved', count: (applications as any[]).filter((app: any) => app.status === 'approved').length, color: '#10B981' },
+          { status: 'rejected', count: (applications as any[]).filter((app: any) => app.status === 'rejected').length, color: '#EF4444' },
         ]
         
         console.log('✅ Applications data processed')
@@ -235,6 +273,46 @@ export async function getAnalyticsData() {
     } catch (err) {
       console.log('⚠️ Internships query exception:', err)
     }
+
+    // Try to fetch donations for revenue
+    try {
+      const { data: donations, error: donationsError } = await supabase
+        .from('donations')
+        .select('amount, created_at, status')
+
+      if (!donationsError && donations) {
+        // Generate monthly revenue data
+        const now = new Date()
+        for (let i = 6; i >= 0; i--) {
+          const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1)
+          const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
+          const monthName = monthStart.toLocaleString('default', { month: 'short' })
+          
+          const monthDonations = (donations as any[]).filter((donation: any) => {
+            const donationDate = new Date(donation.created_at)
+            return donationDate >= monthStart && donationDate <= monthEnd && donation.status === 'completed'
+          })
+          
+          const monthRevenue = monthDonations.reduce((sum: number, donation: any) => sum + (donation.amount || 0), 0)
+          analyticsData.monthlyRevenue[6 - i] = { month: monthName, revenue: monthRevenue }
+        }
+        
+        console.log('✅ Revenue data processed')
+      } else {
+        console.log('⚠️ Donations query failed:', donationsError?.message)
+      }
+    } catch (err) {
+      console.log('⚠️ Donations query exception:', err)
+    }
+
+    // Calculate engagement metrics (mock data based on real data)
+    const totalUsers = analyticsData.totalUsers
+    analyticsData.engagementMetrics = [
+      { metric: 'Page Views', value: totalUsers * 36, change: '+12%' },
+      { metric: 'Session Duration', value: '4m 32s', change: '+8%' },
+      { metric: 'Bounce Rate', value: '23%', change: '-5%' },
+      { metric: 'Conversion Rate', value: '3.2%', change: '+15%' },
+    ]
 
     console.log('📊 Analytics data processed:', analyticsData)
 

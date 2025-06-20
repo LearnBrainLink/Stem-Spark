@@ -9,8 +9,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { supabase } from "@/lib/supabase"
-import { Search, Eye, Check, X, Flag, MessageSquare, Video, FileText, AlertTriangle, Clock } from "lucide-react"
+import { Search, Eye, Check, X, Flag, MessageSquare, Video, FileText, AlertTriangle, Clock, Shield } from "lucide-react"
 import Image from "next/image"
+import { motion } from "framer-motion"
 
 interface ContentItem {
   id: string
@@ -139,14 +140,14 @@ export default function ContentModerationPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "approved":
-        return <Badge className="bg-green-100 text-green-800">Approved</Badge>
+        return <Badge className="bg-green-100 text-green-800 border-green-200">Approved</Badge>
       case "rejected":
-        return <Badge className="bg-red-100 text-red-800">Rejected</Badge>
+        return <Badge className="bg-red-100 text-red-800 border-red-200">Rejected</Badge>
       case "flagged":
-        return <Badge className="bg-orange-100 text-orange-800">Flagged</Badge>
+        return <Badge className="bg-orange-100 text-orange-800 border-orange-200">Flagged</Badge>
       case "pending":
       default:
-        return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
+        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Pending</Badge>
     }
   }
 
@@ -174,199 +175,274 @@ export default function ContentModerationPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--novakinetix-primary)]"></div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
+    <motion.div 
+      className="space-y-6 p-2 sm:p-4 lg:p-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      {/* Header */}
+      <motion.header
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">
+              Content Moderation
+            </h1>
+            <p className="text-lg text-gray-600 mt-1">
+              Review and moderate user-generated content, videos, and applications.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Shield className="w-4 h-4" />
+              Moderation Rules
+            </Button>
+          </div>
+        </div>
+      </motion.header>
+
+      {message && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+        >
+          <Alert className={`${message.type === "error" ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"}`}>
+            <AlertDescription className={message.type === "error" ? "text-red-700" : "text-green-700"}>
+              {message.text}
+            </AlertDescription>
+          </Alert>
+        </motion.div>
+      )}
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-2">
-        <Card className="stat-card">
+      <motion.div 
+        className="grid grid-cols-2 md:grid-cols-5 gap-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-brand-secondary">Total Content</p>
-                <p className="text-2xl font-bold text-brand-primary">{stats.total}</p>
+                <p className="text-sm font-medium text-gray-600">Total Content</p>
+                <p className="text-2xl font-bold text-[var(--novakinetix-dark)]">{stats.total}</p>
               </div>
-              <div className="w-12 h-12 brand-gradient rounded-lg flex items-center justify-center shadow-brand">
+              <div className="w-12 h-12 bg-gradient-to-br from-[var(--novakinetix-primary)] to-[var(--novakinetix-accent)] rounded-lg flex items-center justify-center shadow-lg">
                 <FileText className="w-6 h-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="stat-card">
+        
+        <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-brand-secondary">Pending</p>
-                <p className="text-2xl font-bold text-brand-primary">{stats.pending}</p>
+                <p className="text-sm font-medium text-gray-600">Pending Review</p>
+                <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
               </div>
-              <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg flex items-center justify-center shadow-brand">
+              <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg flex items-center justify-center shadow-lg">
                 <Clock className="w-6 h-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="stat-card">
+        
+        <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-brand-secondary">Approved</p>
-                <p className="text-2xl font-bold text-brand-primary">{stats.approved}</p>
+                <p className="text-sm font-medium text-gray-600">Approved</p>
+                <p className="text-2xl font-bold text-green-600">{stats.approved}</p>
               </div>
-              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center shadow-brand">
+              <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center shadow-lg">
                 <Check className="w-6 h-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="stat-card">
+        
+        <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-brand-secondary">Rejected</p>
-                <p className="text-2xl font-bold text-brand-primary">{stats.rejected}</p>
+                <p className="text-sm font-medium text-gray-600">Rejected</p>
+                <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
               </div>
-              <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-red-600 rounded-lg flex items-center justify-center shadow-brand">
+              <div className="w-12 h-12 bg-gradient-to-br from-red-400 to-red-600 rounded-lg flex items-center justify-center shadow-lg">
                 <X className="w-6 h-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="stat-card">
+        
+        <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-brand-secondary">Flagged</p>
-                <p className="text-2xl font-bold text-brand-primary">{stats.flagged}</p>
+                <p className="text-sm font-medium text-gray-600">Flagged</p>
+                <p className="text-2xl font-bold text-orange-600">{stats.flagged}</p>
               </div>
-              <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center shadow-brand">
-                <AlertTriangle className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg flex items-center justify-center shadow-lg">
+                <Flag className="w-6 h-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
-      </div>
-      {message && (
-        <Alert className={`mt-1 ${message.type === "error" ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"}`}>
-          <AlertDescription className={message.type === "error" ? "text-red-700" : "text-green-700"}>
-            {message.text}
-          </AlertDescription>
-        </Alert>
-      )}
-      {/* Content Moderation */}
-      <Card className="admin-card shadow-md border-0">
-        <CardHeader>
-          <CardTitle className="text-lg font-bold">Content Moderation</CardTitle>
-          <CardDescription className="text-sm">Review and moderate user-generated content</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search content by title, content, or author..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 py-1 text-sm"
-              />
-            </div>
+      </motion.div>
 
-            {/* Tabs */}
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-5 mb-2 text-xs">
-                <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
-                <TabsTrigger value="pending">Pending ({stats.pending})</TabsTrigger>
-                <TabsTrigger value="approved">Approved ({stats.approved})</TabsTrigger>
-                <TabsTrigger value="rejected">Rejected ({stats.rejected})</TabsTrigger>
-                <TabsTrigger value="flagged">Flagged ({stats.flagged})</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value={activeTab} className="mt-2">
-                <div className="border rounded-lg overflow-x-auto bg-white shadow-sm" style={{ maxHeight: '55vh', overflowY: 'auto' }}>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Content</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Author</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredItems.map((item) => (
-                        <TableRow key={`${item.type}-${item.id}`}>
-                          <TableCell>
-                            <div className="max-w-md">
-                              <p className="font-medium truncate">{item.title}</p>
-                              <p className="text-sm text-gray-500 truncate">{item.content}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {getTypeIcon(item.type)}
-                              <span className="capitalize">{item.type}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>{item.author}</TableCell>
-                          <TableCell>{getStatusBadge(item.status)}</TableCell>
-                          <TableCell>{new Date(item.created_at).toLocaleDateString()}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button className="text-blue-600 hover:text-blue-700">
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              {item.status === "pending" && (
-                                <>
-                                  <Button
-                                    onClick={() => handleModerateContent(item.id, "approve", item.type)}
-                                    className="text-green-600 hover:text-green-700"
-                                  >
-                                    <Check className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    onClick={() => handleModerateContent(item.id, "reject", item.type)}
-                                    className="text-red-600 hover:text-red-700"
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </Button>
-                                </>
-                              )}
-                              <Button
-                                onClick={() => handleModerateContent(item.id, "flag", item.type)}
-                                className="text-orange-600 hover:text-orange-700"
-                              >
-                                <Flag className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+      {/* Search and Filters */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+      >
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardContent className="p-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search content, authors, or titles..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 border-gray-200 focus:border-[var(--novakinetix-primary)] focus:ring-[var(--novakinetix-primary)]"
+                  />
                 </div>
+              </div>
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
+                <TabsList className="grid w-full grid-cols-5 bg-gray-100">
+                  <TabsTrigger value="all" className="data-[state=active]:bg-[var(--novakinetix-primary)] data-[state=active]:text-white">All</TabsTrigger>
+                  <TabsTrigger value="pending" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white">Pending</TabsTrigger>
+                  <TabsTrigger value="approved" className="data-[state=active]:bg-green-500 data-[state=active]:text-white">Approved</TabsTrigger>
+                  <TabsTrigger value="rejected" className="data-[state=active]:bg-red-500 data-[state=active]:text-white">Rejected</TabsTrigger>
+                  <TabsTrigger value="flagged" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">Flagged</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-                {filteredItems.length === 0 && (
-                  <div className="text-center py-8">
-                    <FileText className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                    <h3 className="text-lg font-semibold text-gray-600 mb-1">No Content Found</h3>
-                    <p className="text-gray-500 text-xs">
-                      {searchTerm || activeTab !== "all"
-                        ? "No content matches your current filters."
-                        : "No content has been submitted yet."}
-                    </p>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+      {/* Content Table */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+      >
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardHeader>
+            <CardTitle className="text-xl font-bold text-[var(--novakinetix-dark)]">
+              Content Items ({filteredItems.length})
+            </CardTitle>
+            <CardDescription>
+              Review and moderate user-generated content
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {filteredItems.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No content found</h3>
+                <p className="text-gray-500">No content items match your current filters.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-gray-200">
+                      <TableHead className="font-semibold text-gray-900">Type</TableHead>
+                      <TableHead className="font-semibold text-gray-900">Title</TableHead>
+                      <TableHead className="font-semibold text-gray-900">Author</TableHead>
+                      <TableHead className="font-semibold text-gray-900">Status</TableHead>
+                      <TableHead className="font-semibold text-gray-900">Date</TableHead>
+                      <TableHead className="font-semibold text-gray-900">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredItems.map((item) => (
+                      <TableRow key={item.id} className="border-gray-100 hover:bg-gray-50">
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                              {getTypeIcon(item.type)}
+                            </div>
+                            <span className="text-sm font-medium text-gray-700 capitalize">{item.type}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-gray-900">{item.title}</p>
+                            <p className="text-sm text-gray-500 line-clamp-2">{item.content.substring(0, 100)}...</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-gray-700">{item.author}</span>
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(item.status)}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-gray-500">
+                            {new Date(item.created_at).toLocaleDateString()}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-3 text-xs"
+                              onClick={() => handleModerateContent(item.id, "approve", item.type)}
+                            >
+                              <Check className="w-3 h-3 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-3 text-xs border-red-200 text-red-700 hover:bg-red-50"
+                              onClick={() => handleModerateContent(item.id, "reject", item.type)}
+                            >
+                              <X className="w-3 h-3 mr-1" />
+                              Reject
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-3 text-xs border-orange-200 text-orange-700 hover:bg-orange-50"
+                              onClick={() => handleModerateContent(item.id, "flag", item.type)}
+                            >
+                              <Flag className="w-3 h-3 mr-1" />
+                              Flag
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+    </motion.div>
   )
 }

@@ -88,6 +88,13 @@ export default function AnalyticsPage() {
     }
   }
 
+  // Use real data for charts, fallback to sample data if needed
+  const displayChartData = analyticsData?.userGrowth && analyticsData.userGrowth.length > 0 ? analyticsData.userGrowth : sampleAnalyticsData.userGrowth;
+  const displayUserDistribution = analyticsData?.userTypes && analyticsData.userTypes.length > 0 ? analyticsData.userTypes : sampleAnalyticsData.userTypes;
+  const displayApplicationStats = analyticsData?.applicationStats && analyticsData.applicationStats.length > 0 ? analyticsData.applicationStats : sampleAnalyticsData.applicationStats;
+  const displayMonthlyRevenue = analyticsData?.monthlyRevenue && analyticsData.monthlyRevenue.length > 0 ? analyticsData.monthlyRevenue : sampleAnalyticsData.monthlyRevenue;
+  const displayEngagementMetrics = analyticsData?.engagementMetrics && analyticsData.engagementMetrics.length > 0 ? analyticsData.engagementMetrics : sampleAnalyticsData.engagementMetrics;
+
   const MetricCard = ({ title, value, change, icon: Icon, color }: any) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -266,7 +273,7 @@ export default function AnalyticsPage() {
         >
           <div className="w-full h-[350px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={analyticsData?.userGrowth || []}>
+              <AreaChart data={displayChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis 
                   dataKey="month" 
@@ -331,7 +338,7 @@ export default function AnalyticsPage() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={analyticsData?.applicationStats || []}
+                  data={displayApplicationStats}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -339,7 +346,7 @@ export default function AnalyticsPage() {
                   paddingAngle={5}
                   dataKey="count"
                 >
-                  {(analyticsData?.applicationStats || []).map((entry: any, index: number) => (
+                  {(displayApplicationStats || []).map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -356,7 +363,7 @@ export default function AnalyticsPage() {
             </ResponsiveContainer>
           </div>
           <div className="mt-4 space-y-2">
-            {(analyticsData?.applicationStats || []).map((item: any, index: number) => (
+            {(displayApplicationStats || []).map((item: any, index: number) => (
               <div key={index} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <div 
@@ -386,7 +393,7 @@ export default function AnalyticsPage() {
         >
           <div className="w-full h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={analyticsData?.monthlyRevenue || []}>
+              <BarChart data={displayMonthlyRevenue}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis 
                   dataKey="month" 
@@ -429,7 +436,7 @@ export default function AnalyticsPage() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={analyticsData?.userTypes || []}
+                  data={displayUserDistribution}
                   cx="50%"
                   cy="50%"
                   innerRadius={40}
@@ -437,7 +444,7 @@ export default function AnalyticsPage() {
                   paddingAngle={5}
                   dataKey="count"
                 >
-                  {(analyticsData?.userTypes || []).map((entry: any, index: number) => (
+                  {(displayUserDistribution || []).map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -454,7 +461,7 @@ export default function AnalyticsPage() {
             </ResponsiveContainer>
           </div>
           <div className="mt-4 space-y-2">
-            {(analyticsData?.userTypes || []).map((item: any, index: number) => (
+            {(displayUserDistribution || []).map((item: any, index: number) => (
               <div key={index} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <div 
@@ -481,7 +488,7 @@ export default function AnalyticsPage() {
           description="Key performance indicators for user engagement"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {(analyticsData?.engagementMetrics || []).map((metric: any, index: number) => (
+            {(displayEngagementMetrics || []).map((metric: any, index: number) => (
               <motion.div
                 key={metric.metric}
                 initial={{ opacity: 0, y: 20 }}
