@@ -17,82 +17,53 @@ export async function getDashboardStats() {
   const supabase = createServerClient(cookieStore)
 
   try {
-    console.log('🔍 Starting dashboard stats fetch...')
+    // Fetch total users
+    const { count: userCount, error: userError } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
 
-    // Try to fetch stats with better error handling
-    const userQuery = supabase.from('profiles').select('*', { count: 'exact', head: true })
-    const internshipQuery = supabase.from('internships').select('*', { count: 'exact', head: true })
-    const applicationQuery = supabase.from('internship_applications').select('*', { count: 'exact', head: true })
-    const revenueQuery = supabase.from('donations').select('amount').eq('status' as any, 'completed' as any)
+    // Fetch total internships
+    const { count: internshipCount, error: internshipError } = await supabase
+      .from('internships')
+      .select('*', { count: 'exact', head: true })
 
-    console.log('📊 Executing queries...')
+    // Fetch total applications
+    const { count: applicationCount, error: applicationError } = await supabase
+      .from('internship_applications')
+      .select('*', { count: 'exact', head: true })
 
-    const [
-      userResult,
-      internshipResult,
-      applicationResult,
-      revenueResult
-    ] = await Promise.all([userQuery, internshipQuery, applicationQuery, revenueQuery])
+    // Fetch total revenue from completed donations
+    const { data: revenueData, error: revenueError } = await supabase
+      .from('donations')
+      .select('amount')
+      .eq('status' as any, 'completed' as any)
 
-    console.log('📈 Query results:', {
-      users: { count: userResult.count, error: userResult.error },
-      internships: { count: internshipResult.count, error: internshipResult.error },
-      applications: { count: applicationResult.count, error: applicationResult.error },
-      revenue: { data: revenueResult.data?.length, error: revenueResult.error }
-    })
-
-    const { count: userCount, error: userError } = userResult
-    const { count: internshipCount, error: internshipError } = internshipResult
-    const { count: applicationCount, error: applicationError } = applicationResult
-    const { data: revenueData, error: revenueError } = revenueResult
-
-    // If any query fails, return sample data instead of error
+    // Error handling
     if (userError || internshipError || applicationError || revenueError) {
-      console.warn("⚠️ Some queries failed, using sample data:", { 
-        userError, 
-        internshipError, 
-        applicationError, 
-        revenueError 
-      })
-      
       return {
-        error: null,
-        stats: {
-          users: 12458,
-          internships: 132,
-          applications: 1289,
-          revenue: 28430,
-        }
+        error: [userError, internshipError, applicationError, revenueError]
+          .filter(Boolean)
+          .map(e => (e && typeof e === 'object' && 'message' in e ? (e as any).message : String(e)))
+          .join('; '),
+        stats: null,
       }
     }
 
-    const totalRevenue = (revenueData as {amount: number}[])?.reduce((sum, current) => sum + current.amount, 0) ?? 0
+    const totalRevenue = (revenueData as { amount: number }[] | null)?.reduce((sum, current) => sum + current.amount, 0) ?? 0
 
-    const finalStats = {
-      users: userCount ?? 0,
-      internships: internshipCount ?? 0,
-      applications: applicationCount ?? 0,
-      revenue: totalRevenue,
-    }
-
-    console.log('✅ Final stats:', finalStats)
-
-    return {
-      error: null,
-      stats: finalStats
-    }
-  } catch (error) {
-    console.error("💥 Unexpected error fetching dashboard stats:", error)
-    
-    // Return sample data instead of error
     return {
       error: null,
       stats: {
-        users: 12458,
-        internships: 132,
-        applications: 1289,
-        revenue: 28430,
-      }
+        users: userCount ?? 0,
+        internships: internshipCount ?? 0,
+        applications: applicationCount ?? 0,
+        revenue: totalRevenue,
+      },
+    }
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stats: null,
     }
   }
 } 
