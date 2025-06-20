@@ -11,6 +11,7 @@ import { Search, Users, Calendar, Mail, Phone } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import AdminLayout from '../layout'
+import { motion } from "framer-motion"
 
 interface Application {
   id: string
@@ -134,40 +135,38 @@ export default function ApplicationsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-4">
-        {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search by student name, internship, or company..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 py-1 text-sm"
-            />
+      <motion.div 
+        className="space-y-8 p-2 sm:p-4 lg:p-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <motion.header
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Applications</h1>
+              <p className="text-gray-600">Manage and review internship applications efficiently.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
+                Refresh
+              </Button>
+            </div>
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="text-sm">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Applications</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-              <SelectItem value="withdrawn">Withdrawn</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="flex items-center gap-1 text-xs text-gray-600">
-            <Users className="w-4 h-4" />
-            <span>{filteredApplications.length} applications</span>
-          </div>
-        </div>
+        </motion.header>
 
-        {/* Applications List - compact */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 overflow-y-auto" style={{ maxHeight: '60vh' }}>
+        <motion.div 
+          className="grid grid-cols-1 md:grid-cols-2 gap-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
           {filteredApplications.map((application) => (
-            <Card key={application.id} className="border-0 shadow rounded bg-white p-2">
+            <Card key={application.id} className="border-0 shadow-md rounded-lg bg-white">
               <CardHeader className="pb-2">
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center justify-between">
@@ -197,42 +196,12 @@ export default function ApplicationsPage() {
                       <span>{application.profiles.school_name}</span>
                     </div>
                   )}
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3 text-gray-400" />
-                    <span>Applied {new Date(application.applied_at).toLocaleDateString()}</span>
-                  </div>
-                  {application.parent_info && application.parent_info.length > 0 && (
-                    <div className="mt-1">
-                      <span className="font-medium">Parent:</span> {application.parent_info[0].parent_name} ({application.parent_info[0].relationship})
-                    </div>
-                  )}
-                  <div className="bg-gray-50 p-2 rounded mt-1 min-h-[2em]">
-                    <p className="text-xs text-gray-700 whitespace-pre-wrap line-clamp-3">{application.application_text}</p>
-                  </div>
-                  {application.status === "pending" && (
-                    <div className="flex gap-1 mt-2">
-                      <Button onClick={() => updateApplicationStatus(application.id, "approved")} className="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1">Approve</Button>
-                      <Button onClick={() => updateApplicationStatus(application.id, "rejected")} className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700 text-white">Reject</Button>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
           ))}
-        </div>
-
-        {filteredApplications.length === 0 && (
-          <div className="text-center py-8">
-            <Users className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-            <h3 className="text-lg font-semibold text-gray-600 mb-1">No Applications Found</h3>
-            <p className="text-gray-500 text-xs">
-              {searchTerm || statusFilter !== "all"
-                ? "No applications match your current filters."
-                : "No internship applications have been submitted yet."}
-            </p>
-          </div>
-        )}
-      </div>
+        </motion.div>
+      </motion.div>
     </AdminLayout>
   )
 }

@@ -150,7 +150,7 @@ export default function AdminLayout({
                     href={item.href}
                     className={`flex items-center gap-3 px-6 py-3 rounded-lg mx-2 font-medium transition-all duration-200 hover:bg-[var(--novakinetix-light)] hover:text-[var(--novakinetix-primary)] hover:shadow-sm ${
                       isActive
-                        ? 'bg-gradient-to-r from-[var(--novakinetix-primary)] to-[var(--novakinetix-accent)] text-white shadow-md' 
+                        ? 'bg-[var(--novakinetix-primary)] text-white shadow-md' 
                         : 'text-gray-700 hover:scale-105'
                     }`}
                     aria-current={isActive ? 'page' : undefined}

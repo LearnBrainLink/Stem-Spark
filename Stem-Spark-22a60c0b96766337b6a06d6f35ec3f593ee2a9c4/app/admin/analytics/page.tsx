@@ -8,6 +8,7 @@ import { ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cel
 import { Users, TrendingUp, Briefcase, Mail, DollarSign, Eye, Download, Calendar, Target, Award, Activity, BarChart3, RefreshCw } from "lucide-react"
 import { motion, AnimatePresence } from 'framer-motion'
 import { getAnalyticsData } from '../actions'
+import AdminLayout from '../layout'
 
 const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#06B6D4']
 
@@ -173,343 +174,78 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <motion.div 
-      className="space-y-8 p-2 sm:p-4 lg:p-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
-      {/* Header */}
-      <motion.header
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">
-              Analytics & Reports
-            </h1>
-            <p className="text-lg text-gray-600 mt-1">
-              Comprehensive insights into platform performance and user engagement.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <select
-              value={timeRange}
-              onChange={(e) => setTimeRange(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="7d">Last 7 days</option>
-              <option value="30d">Last 30 days</option>
-              <option value="90d">Last 90 days</option>
-              <option value="1y">Last year</option>
-            </select>
-            <Button 
-              onClick={fetchAnalytics}
-              variant="outline"
-              className="flex items-center gap-2"
-              disabled={isLoading}
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button className="bg-[var(--novakinetix-primary)] hover:bg-[var(--novakinetix-accent)]">
-              <Download className="w-4 h-4 mr-2" />
-              Export Report
-            </Button>
-          </div>
-        </div>
-      </motion.header>
-
-      {/* Key Metrics */}
+    <AdminLayout>
       <motion.div 
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
+        className="space-y-8 p-2 sm:p-4 lg:p-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
       >
-        <MetricCard
-          title="Total Users"
-          value={analyticsData?.totalUsers?.toLocaleString() || '0'}
-          change="+12%"
-          icon={Users}
-          color="bg-blue-500"
-        />
-        <MetricCard
-          title="Active Internships"
-          value={analyticsData?.activeInternships || '0'}
-          change="+8%"
-          icon={Briefcase}
-          color="bg-purple-500"
-        />
-        <MetricCard
-          title="Applications"
-          value={analyticsData?.totalApplications || '0'}
-          change="+15%"
-          icon={Mail}
-          color="bg-amber-500"
-        />
-        <MetricCard
-          title="Total Revenue"
-          value={`$${(analyticsData?.monthlyRevenue?.[analyticsData.monthlyRevenue.length - 1]?.revenue || 0).toLocaleString()}`}
-          change="+23%"
-          icon={DollarSign}
-          color="bg-emerald-500"
-        />
+        <motion.header
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Analytics</h1>
+              <p className="text-gray-600">View detailed analytics and reports.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
+                Refresh
+              </Button>
+            </div>
+          </div>
+        </motion.header>
+
+        <motion.div 
+          className="grid grid-cols-1 md:grid-cols-2 gap-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <Card className="border-0 shadow-md rounded-lg bg-white">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold mb-0">User Growth</CardTitle>
+              <CardDescription className="text-xs text-gray-500">Monthly trends for users, interns, and applications</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={displayChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="users" stroke="#8884d8" activeDot={{ r: 8 }} />
+                  <Line type="monotone" dataKey="interns" stroke="#82ca9d" />
+                  <Line type="monotone" dataKey="applications" stroke="#ffc658" />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-md rounded-lg bg-white">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold mb-0">User Distribution</CardTitle>
+              <CardDescription className="text-xs text-gray-500">Breakdown by user type</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={displayUserDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8" label>
+                    {displayUserDistribution.map((entry: { name: string; value: number; color: string }, index: number) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </motion.div>
       </motion.div>
-
-      {/* Charts Section */}
-      <motion.div 
-        className="grid grid-cols-1 lg:grid-cols-2 gap-8"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-      >
-        {/* User Growth Chart */}
-        <ChartCard
-          title="Platform Growth"
-          description="Monthly trends for users, interns, and applications"
-        >
-          <div className="w-full h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={displayChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis 
-                  dataKey="month" 
-                  stroke="#6b7280" 
-                  fontSize={12}
-                  tickLine={false}
-                />
-                <YAxis 
-                  stroke="#6b7280" 
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '12px',
-                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-                  }}
-                />
-                <Legend />
-                <Area 
-                  type="monotone" 
-                  dataKey="users" 
-                  name="Users" 
-                  stackId="1"
-                  stroke="var(--novakinetix-primary)" 
-                  fill="var(--novakinetix-primary)"
-                  fillOpacity={0.6}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="interns" 
-                  name="Interns" 
-                  stackId="1"
-                  stroke="var(--novakinetix-accent)" 
-                  fill="var(--novakinetix-accent)"
-                  fillOpacity={0.6}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="applications" 
-                  name="Applications" 
-                  stackId="1"
-                  stroke="#10B981" 
-                  fill="#10B981"
-                  fillOpacity={0.6}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </ChartCard>
-
-        {/* Application Status Chart */}
-        <ChartCard
-          title="Application Status"
-          description="Distribution of internship applications by status"
-        >
-          <div className="w-full h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={displayApplicationStats}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="count"
-                >
-                  {(displayApplicationStats || []).map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '12px',
-                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 space-y-2">
-            {(displayApplicationStats || []).map((item: any, index: number) => (
-              <div key={index} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: item.color }}
-                  />
-                  <span className="text-gray-700 capitalize">{item.status}</span>
-                </div>
-                <span className="font-semibold text-gray-900">{item.count}</span>
-              </div>
-            ))}
-          </div>
-        </ChartCard>
-      </motion.div>
-
-      {/* Additional Charts */}
-      <motion.div 
-        className="grid grid-cols-1 lg:grid-cols-2 gap-8"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-      >
-        {/* Revenue Chart */}
-        <ChartCard
-          title="Monthly Revenue"
-          description="Revenue trends over the past 7 months"
-        >
-          <div className="w-full h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={displayMonthlyRevenue}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis 
-                  dataKey="month" 
-                  stroke="#6b7280" 
-                  fontSize={12}
-                  tickLine={false}
-                />
-                <YAxis 
-                  stroke="#6b7280" 
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '12px',
-                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-                  }}
-                  formatter={(value: any) => [`$${value.toLocaleString()}`, 'Revenue']}
-                />
-                <Bar 
-                  dataKey="revenue" 
-                  fill="var(--novakinetix-primary)" 
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </ChartCard>
-
-        {/* User Types Chart */}
-        <ChartCard
-          title="User Distribution"
-          description="Breakdown of users by type"
-        >
-          <div className="w-full h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={displayUserDistribution}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={40}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="count"
-                >
-                  {(displayUserDistribution || []).map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '12px',
-                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 space-y-2">
-            {(displayUserDistribution || []).map((item: any, index: number) => (
-              <div key={index} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                  />
-                  <span className="text-gray-700">{item.type}</span>
-                </div>
-                <span className="font-semibold text-gray-900">{item.percentage}%</span>
-              </div>
-            ))}
-          </div>
-        </ChartCard>
-      </motion.div>
-
-      {/* Engagement Metrics */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.5 }}
-      >
-        <ChartCard
-          title="Engagement Metrics"
-          description="Key performance indicators for user engagement"
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {(displayEngagementMetrics || []).map((metric: any, index: number) => (
-              <motion.div
-                key={metric.metric}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 + index * 0.1 }}
-                whileHover={{ scale: 1.05 }}
-              >
-                <Card className="shadow-md hover:shadow-lg transition-all duration-200 border-0 bg-gradient-to-br from-white to-gray-50">
-                  <CardContent className="p-4 text-center">
-                    <p className="text-sm font-medium text-gray-600 mb-2">{metric.metric}</p>
-                    <p className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</p>
-                    <p className={`text-sm font-medium ${metric.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-                      {metric.change}
-                    </p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </ChartCard>
-      </motion.div>
-    </motion.div>
+    </AdminLayout>
   )
 }

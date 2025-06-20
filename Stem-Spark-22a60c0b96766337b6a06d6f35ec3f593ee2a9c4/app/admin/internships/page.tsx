@@ -21,6 +21,7 @@ import { supabase } from "@/lib/supabase"
 import { Plus, Edit, Trash2, Users, Calendar } from "lucide-react"
 import Link from "next/link"
 import AdminLayout from '../layout'
+import { motion } from "framer-motion"
 
 interface Internship {
   id: string
@@ -84,160 +85,65 @@ export default function InternshipsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4 shrink-0">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">Manage Internships</h1>
-            <p className="text-gray-600 text-base md:text-lg">Create and manage internship opportunities for students</p>
-          </div>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 shadow-md">
-                <Plus className="w-5 h-5 mr-2" />
-                Create Internship
+      <motion.div 
+        className="space-y-8 p-2 sm:p-4 lg:p-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <motion.header
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Internships</h1>
+              <p className="text-gray-600">Create and manage internship opportunities for students.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
+                Refresh
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Create New Internship</DialogTitle>
-                <DialogDescription>Add a new internship opportunity for students to apply to</DialogDescription>
-              </DialogHeader>
+            </div>
+          </div>
+        </motion.header>
 
-              <form action={handleCreateInternship} className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="title">Title *</Label>
-                    <Input id="title" name="title" placeholder="Software Engineering Intern" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="company">Company *</Label>
-                    <Input id="company" name="company" placeholder="Tech Corp" required />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description *</Label>
-                  <Textarea
-                    id="description"
-                    name="description"
-                    placeholder="Describe the internship opportunity..."
-                    rows={4}
-                    required
-                  />
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="location">Location *</Label>
-                    <Input id="location" name="location" placeholder="San Francisco, CA" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="duration">Duration *</Label>
-                    <Input id="duration" name="duration" placeholder="8 weeks" required />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="requirements">Requirements</Label>
-                  <Textarea
-                    id="requirements"
-                    name="requirements"
-                    placeholder="List the requirements for this internship..."
-                    rows={3}
-                  />
-                </div>
-
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="applicationDeadline">Application Deadline *</Label>
-                    <Input id="applicationDeadline" name="applicationDeadline" type="date" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="startDate">Start Date *</Label>
-                    <Input id="startDate" name="startDate" type="date" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="endDate">End Date *</Label>
-                    <Input id="endDate" name="endDate" type="date" required />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="maxParticipants">Max Participants *</Label>
-                  <Input
-                    id="maxParticipants"
-                    name="maxParticipants"
-                    type="number"
-                    min="1"
-                    max="100"
-                    placeholder="10"
-                    required
-                  />
-                </div>
-
-                <div className="flex gap-2 pt-4">
-                  <Button type="submit" disabled={isLoading} className="flex-1">
-                    {isLoading ? "Creating..." : "Create Internship"}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-        {message && (
-          <Alert className={`mb-2 ${message.type === "error" ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"} shrink-0`}>
-            <AlertDescription className={message.type === "error" ? "text-red-700" : "text-green-700"}>
-              {message.text}
-            </AlertDescription>
-          </Alert>
-        )}
-        {/* Internships List - scrollable, compact */}
-        <div className="flex-1 min-h-0 overflow-auto space-y-4 pr-1">
+        <motion.div 
+          className="grid grid-cols-1 md:grid-cols-2 gap-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
           {internships.map((internship) => (
             <Card key={internship.id} className="border-0 shadow-md rounded-lg bg-white">
-              <CardHeader className="py-2 px-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div className="flex-1">
-                    <CardTitle className="text-base mb-1 line-clamp-2">{internship.title}</CardTitle>
-                    <CardDescription className="text-xs text-gray-500">
-                      {internship.company} • {internship.location}
-                    </CardDescription>
+              <CardHeader className="pb-2">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-semibold mb-0 truncate">{internship.title}</CardTitle>
+                    <Badge className={internship.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>{internship.status}</Badge>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge variant={internship.status === "active" ? "default" : "secondary"} className="capitalize text-xs px-2 py-1">
-                      {internship.status}
-                    </Badge>
-                    <Button variant="outline" size="sm" className="p-1 h-7 w-7"><Edit className="w-4 h-4" /></Button>
-                    <Button variant="outline" size="sm" className="p-1 h-7 w-7"><Trash2 className="w-4 h-4" /></Button>
-                  </div>
+                  <CardDescription className="text-xs text-gray-500 truncate">
+                    {internship.company}
+                  </CardDescription>
                 </div>
               </CardHeader>
-              <CardContent className="py-2 px-4">
-                <p className="text-gray-600 mb-2 text-xs min-h-[2em] line-clamp-2">{internship.description}</p>
-                <div className="grid md:grid-cols-4 gap-2 text-xs">
-                  <div className="flex items-center gap-1"><Calendar className="w-4 h-4 text-gray-400" /><span>Deadline: {formatDate(internship.application_deadline)}</span></div>
-                  <div className="flex items-center gap-1"><Calendar className="w-4 h-4 text-gray-400" /><span>Duration: {internship.duration}</span></div>
-                  <div className="flex items-center gap-1"><Users className="w-4 h-4 text-gray-400" /><span>{internship.current_participants}/{internship.max_participants} participants</span></div>
-                  <div className="text-gray-500">Created: {formatDate(internship.created_at)}</div>
+              <CardContent className="pt-0">
+                <div className="space-y-1 text-xs">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-gray-400" />
+                    <span>{formatDate(internship.start_date)} - {formatDate(internship.end_date)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Users className="w-3 h-3 text-gray-400" />
+                    <span>{internship.current_participants}/{internship.max_participants} participants</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
-
-          {internships.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-base mb-3">No internships created yet</p>
-              <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 shadow-md text-sm px-4 py-2">
-                <Plus className="w-5 h-5 mr-2" />
-                Create Your First Internship
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </AdminLayout>
   )
 }

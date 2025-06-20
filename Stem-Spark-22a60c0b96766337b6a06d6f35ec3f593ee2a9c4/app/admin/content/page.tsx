@@ -184,12 +184,11 @@ export default function ContentModerationPage() {
   return (
     <AdminLayout>
       <motion.div 
-        className="space-y-6 p-2 sm:p-4 lg:p-6"
+        className="space-y-8 p-2 sm:p-4 lg:p-6"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
-        {/* Header */}
         <motion.header
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -197,20 +196,12 @@ export default function ContentModerationPage() {
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">
-                Content Moderation
-              </h1>
-              <p className="text-lg text-gray-600 mt-1">
-                Review and moderate user-generated content, videos, and applications.
-              </p>
+              <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Content Moderation</h1>
+              <p className="text-gray-600">Review and manage platform content effectively.</p>
             </div>
-            <div className="flex items-center gap-3">
-              <Button 
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <Shield className="w-4 h-4" />
-                Moderation Rules
+            <div className="flex items-center gap-2">
+              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
+                Refresh
               </Button>
             </div>
           </div>

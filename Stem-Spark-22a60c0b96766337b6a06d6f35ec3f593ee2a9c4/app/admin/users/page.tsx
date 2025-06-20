@@ -364,12 +364,11 @@ export default function UserManagementPage() {
   return (
     <AdminLayout>
       <motion.div 
-        className="space-y-6 p-2 sm:p-4 lg:p-6"
+        className="space-y-8 p-2 sm:p-4 lg:p-6"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
-        {/* Header */}
         <motion.header
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -377,186 +376,50 @@ export default function UserManagementPage() {
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-[var(--novakinetix-dark)]">
-                User Management
-              </h1>
-              <p className="text-gray-600 mt-1">
-                Manage all user accounts, roles, and permissions across the platform.
-              </p>
+              <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">User Management</h1>
+              <p className="text-gray-600">Manage user accounts and permissions.</p>
             </div>
-            <div className="flex items-center gap-3">
-              <Button 
-                onClick={fetchUsers}
-                variant="outline"
-                className="flex items-center gap-2"
-                disabled={isLoading}
-              >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <div className="flex items-center gap-2">
+              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
                 Refresh
-              </Button>
-              <Button className="bg-[var(--novakinetix-primary)] hover:bg-[var(--novakinetix-accent)]">
-                <Plus className="w-4 h-4 mr-2" />
-                Add User
               </Button>
             </div>
           </div>
         </motion.header>
 
-        {/* Stats Cards */}
         <motion.div 
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+          className="grid grid-cols-1 md:grid-cols-2 gap-6"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <Card className="shadow-md border-0 bg-gradient-to-br from-blue-50 to-blue-100">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-blue-600">Total Users</p>
-                  <p className="text-2xl font-bold text-blue-900">{users.length}</p>
+          {users.map((user) => (
+            <Card key={user.id} className="border-0 shadow-md rounded-lg bg-white">
+              <CardHeader className="pb-2">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-semibold mb-0 truncate">{user.full_name}</CardTitle>
+                    <Badge className={user.role === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}>{user.role}</Badge>
+                  </div>
+                  <CardDescription className="text-xs text-gray-500 truncate">
+                    {user.email}
+                  </CardDescription>
                 </div>
-                <Users className="w-8 h-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="shadow-md border-0 bg-gradient-to-br from-green-50 to-green-100">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-green-600">Active Users</p>
-                  <p className="text-2xl font-bold text-green-900">
-                    {users.filter(u => u.status === 'active').length}
-                  </p>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-1 text-xs">
+                  <div className="flex items-center gap-1">
+                    <Mail className="w-3 h-3 text-gray-400" />
+                    <span>{user.email}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-gray-400" />
+                    <span>Joined on {formatDate(user.created_at)}</span>
+                  </div>
                 </div>
-                <UserCheck className="w-8 h-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="shadow-md border-0 bg-gradient-to-br from-purple-50 to-purple-100">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-purple-600">Admins</p>
-                  <p className="text-2xl font-bold text-purple-900">
-                    {users.filter(u => u.role === 'admin').length}
-                  </p>
-                </div>
-                <Shield className="w-8 h-8 text-purple-600" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="shadow-md border-0 bg-gradient-to-br from-amber-50 to-amber-100">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-amber-600">Pending</p>
-                  <p className="text-2xl font-bold text-amber-900">
-                    {users.filter(u => u.status === 'pending').length}
-                  </p>
-                </div>
-                <UserX className="w-8 h-8 text-amber-600" />
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Filters and Search */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-        >
-          <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
-            <CardContent className="p-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Search users by name or email..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                
-                <select
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Roles</option>
-                  <option value="admin">Admin</option>
-                  <option value="teacher">Teacher</option>
-                  <option value="student">Student</option>
-                  <option value="parent">Parent</option>
-                </select>
-                
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Status</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="pending">Pending</option>
-                </select>
-                
-                <Button variant="outline" className="flex items-center gap-2">
-                  <Download className="w-4 h-4" />
-                  Export
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Users List */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-        >
-          {error ? (
-            <Card className="border-red-200 bg-red-50">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <UserX className="w-5 h-5 text-red-600" />
-                  <p className="text-red-600 font-medium">Error Loading Users</p>
-                </div>
-                <p className="text-red-600 text-sm mb-4">{error}</p>
-                <Button onClick={fetchUsers} variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
-                  Retry
-                </Button>
               </CardContent>
             </Card>
-          ) : (
-            <div className="space-y-4">
-              {isLoading ? (
-                Array.from({ length: 6 }).map((_, index) => (
-                  <UserCardSkeleton key={index} index={index} />
-                ))
-              ) : filteredUsers.length === 0 ? (
-                <Card className="border-gray-200 bg-gray-50">
-                  <CardContent className="pt-6 text-center">
-                    <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 font-medium">No users found</p>
-                    <p className="text-gray-500 text-sm">Try adjusting your search or filters</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-4">
-                  {filteredUsers.map((user, index) => (
-                    <UserCard key={user.id} user={user} index={index} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          ))}
         </motion.div>
       </motion.div>
     </AdminLayout>

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Settings, Mail, LinkIcon, CheckCircle, AlertTriangle, Copy, ExternalLink, Globe, Shield } from "lucide-react"
 import AdminLayout from '../layout'
+import { motion } from "framer-motion"
 
 export default function EmailConfigPage() {
   const [siteUrl, setSiteUrl] = useState("")
@@ -78,197 +79,56 @@ export default function EmailConfigPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-4">
-        {message && (
-          <Alert className={`${message.type === "error" ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"} shrink-0`}>
-            <AlertDescription className={message.type === "error" ? "text-red-700" : "text-green-700"}>
-              {message.text}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <Tabs defaultValue="configuration" className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-3 mb-2 shrink-0">
-            <TabsTrigger value="configuration">Configuration</TabsTrigger>
-            <TabsTrigger value="templates">Email Templates</TabsTrigger>
-            <TabsTrigger value="testing">Testing</TabsTrigger>
-          </TabsList>
-
-          <div className="flex-1 min-h-0">
-            <TabsContent value="configuration" className="h-full min-h-0 flex flex-col gap-3">
-              <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-auto">
-                <Card className="shadow-md border-0">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                      <Globe className="w-4 h-4" />
-                      Site Configuration
-                    </CardTitle>
-                    <CardDescription className="text-xs md:text-sm">Configure your site URLs for email redirects and callbacks</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="site-url">Site URL</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="site-url"
-                          value={siteUrl}
-                          onChange={(e) => setSiteUrl(e.target.value)}
-                          placeholder="https://your-domain.com"
-                          className="text-xs px-2 py-1"
-                        />
-                        <Button variant="outline" size="sm" onClick={() => copyToClipboard(siteUrl)}>
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <p className="text-xs text-gray-500">This URL is used for email redirects and callbacks</p>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor="supabase-url">Supabase URL</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="supabase-url"
-                          value={supabaseUrl}
-                          onChange={(e) => setSupabaseUrl(e.target.value)}
-                          placeholder="https://your-project.supabase.co"
-                          className="text-xs px-2 py-1"
-                        />
-                        <Button variant="outline" size="sm" onClick={() => copyToClipboard(supabaseUrl)}>
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <p className="text-xs text-gray-500">Your Supabase project URL for authentication</p>
-                    </div>
-
-                    <Alert className="border-blue-200 bg-blue-50 mt-2">
-                      <Shield className="w-4 h-4" />
-                      <AlertDescription className="text-blue-700 text-xs">
-                        <strong>Important:</strong> Make sure to configure these URLs in your Supabase dashboard under Authentication → URL Configuration.
-                      </AlertDescription>
-                    </Alert>
-                  </CardContent>
-                </Card>
-
-                <Card className="shadow-md border-0">
-                  <CardHeader>
-                    <CardTitle className="text-base md:text-lg">Required Supabase Settings</CardTitle>
-                    <CardDescription className="text-xs md:text-sm">Configure these settings in your Supabase dashboard</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                        <div>
-                          <p className="font-medium text-xs">Site URL</p>
-                          <p className="text-xs text-gray-600">Authentication → URL Configuration</p>
-                        </div>
-                        <code className="text-xs bg-white px-2 py-1 rounded">{siteUrl}</code>
-                      </div>
-
-                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                        <div>
-                          <p className="font-medium text-xs">Redirect URLs</p>
-                          <p className="text-xs text-gray-600">Authentication → URL Configuration</p>
-                        </div>
-                        <div className="text-right">
-                          <code className="text-xs bg-white px-2 py-1 rounded block mb-1">{siteUrl}/auth/callback</code>
-                          <code className="text-xs bg-white px-2 py-1 rounded block">{siteUrl}/auth/reset-password</code>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="templates" className="h-full min-h-0 flex flex-col gap-3">
-              <div className="flex-1 min-h-0 overflow-auto">
-                <Card className="shadow-md border-0">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                      <Mail className="w-4 h-4" />
-                      Email Templates
-                    </CardTitle>
-                    <CardDescription className="text-xs md:text-sm">Current email template configurations and redirect URLs</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {emailTemplates.map((template, index) => (
-                        <div key={index} className="border rounded-lg p-3 bg-gray-50">
-                          <div className="flex items-center justify-between mb-1">
-                            <h3 className="font-semibold text-sm md:text-base">{template.name}</h3>
-                            <Badge variant={template.status === "active" ? "default" : "secondary"} className="capitalize">{template.status}</Badge>
-                          </div>
-                          <p className="text-xs text-gray-600 mb-2">{template.description}</p>
-                          <div className="flex items-center gap-2">
-                            <LinkIcon className="w-4 h-4 text-gray-400" />
-                            <code className="text-xs bg-white px-2 py-1 rounded flex-1">{template.redirectUrl}</code>
-                            <Button variant="outline" size="sm" onClick={() => copyToClipboard(template.redirectUrl)}>
-                              <Copy className="w-4 h-4" />
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => window.open(template.redirectUrl, "_blank")}> 
-                              <ExternalLink className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="testing" className="h-full min-h-0 flex flex-col gap-3">
-              <div className="flex-1 min-h-0 overflow-auto">
-                <Card className="shadow-md border-0">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                      <CheckCircle className="w-4 h-4" />
-                      Email Testing
-                    </CardTitle>
-                    <CardDescription className="text-xs md:text-sm">Test your email configuration and verify everything is working</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="space-y-2">
-                      <Button onClick={testEmailConfiguration} disabled={isLoading} className="w-full bg-gradient-to-r from-blue-500 to-green-500 text-white font-semibold shadow-md text-xs py-2">
-                        {isLoading ? "Testing..." : "Test Email Configuration"}
-                      </Button>
-
-                      <Alert className="border-amber-200 bg-amber-50">
-                        <AlertTriangle className="w-4 h-4" />
-                        <AlertDescription className="text-amber-700 text-xs">
-                          <strong>Note:</strong> Email testing requires proper Supabase configuration. Make sure your authentication settings are configured correctly.
-                        </AlertDescription>
-                      </Alert>
-                    </div>
-
-                    <div className="space-y-1">
-                      <h4 className="font-semibold text-xs">Test Checklist:</h4>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4 text-green-600" />
-                          <span className="text-xs">Site URL configured in Supabase</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4 text-green-600" />
-                          <span className="text-xs">Redirect URLs added to allowed list</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4 text-green-600" />
-                          <span className="text-xs">Email templates enabled</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4 text-green-600" />
-                          <span className="text-xs">SMTP settings configured (if using custom provider)</span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
+      <motion.div 
+        className="space-y-8 p-2 sm:p-4 lg:p-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <motion.header
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Email Configuration</h1>
+              <p className="text-gray-600">Configure and test email settings for the platform.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
+                Refresh
+              </Button>
+            </div>
           </div>
-        </Tabs>
-      </div>
+        </motion.header>
+
+        <motion.div 
+          className="grid grid-cols-1 md:grid-cols-2 gap-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <Card className="border-0 shadow-md rounded-lg bg-white">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold mb-0">Site Configuration</CardTitle>
+              <CardDescription className="text-xs text-gray-500">Configure your site URLs for email redirects and callbacks</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-1 text-xs">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="site-url">Site URL</Label>
+                  <Input id="site-url" value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} placeholder="https://your-domain.com" className="text-xs px-2 py-1" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="supabase-url">Supabase URL</Label>
+                  <Input id="supabase-url" value={supabaseUrl} onChange={(e) => setSupabaseUrl(e.target.value)} placeholder="https://your-project.supabase.co" className="text-xs px-2 py-1" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
     </AdminLayout>
   )
 }

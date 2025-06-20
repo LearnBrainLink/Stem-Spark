@@ -234,69 +234,28 @@ export default function AdminDashboard() {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
-        {/* Header Section */}
+        {/* Header */}
         <motion.header
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="space-y-4"
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)] mb-2">
-                Admin Dashboard
-              </h1>
-              <p className="text-lg text-gray-600 max-w-2xl">
-                Welcome back! Here's a comprehensive overview of your platform's performance and key metrics.
-              </p>
+              <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Admin Dashboard</h1>
+              <p className="text-gray-600">Welcome back, Admin! Here's a quick overview of your platform's performance.</p>
             </div>
-            <div className="flex items-center gap-3">
-              <AnimatePresence>
-                {connectionStatus === 'connected' && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-full"
-                  >
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                    <span className="text-sm font-medium text-green-700">Connected</span>
-                  </motion.div>
-                )}
-                {connectionStatus === 'error' && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-full"
-                  >
-                    <AlertCircle className="w-5 h-5 text-red-600" />
-                    <span className="text-sm font-medium text-red-700">Connection Error</span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
+                Refresh Data
+              </Button>
+              <Button className="bg-[var(--novakinetix-primary)] text-white hover:bg-[var(--novakinetix-dark)]">
+                Generate Report
+              </Button>
             </div>
           </div>
-          
-          {isSampleData && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl"
-            >
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-amber-800 font-medium mb-1">Database Connection Issue</p>
-                  <p className="text-amber-700 text-sm">
-                    The dashboard is showing sample data. Please check your Supabase configuration and ensure all tables exist with proper RLS policies.
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          )}
         </motion.header>
-        
+
         {/* Stats Grid */}
         <motion.div 
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
@@ -319,7 +278,7 @@ export default function AdminDashboard() {
                 animate={{ opacity: 1, scale: 1 }}
               >
                 <Card className="border-red-200 bg-gradient-to-r from-red-50 to-pink-50">
-                  <CardContent className="pt-6">
+                  <CardContent>
                     <div className="flex items-center gap-3 mb-4">
                       <div className="p-2 bg-red-100 rounded-full">
                         <AlertCircle className="w-6 h-6 text-red-600" />
@@ -357,214 +316,69 @@ export default function AdminDashboard() {
 
         {/* Charts Section */}
         <motion.div 
-          className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+          className="grid grid-cols-1 lg:grid-cols-2 gap-6"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-        >
-          {/* User Growth Chart */}
-          <motion.div 
-            className="col-span-1 lg:col-span-2"
-            whileHover={{ scale: 1.01 }}
-            transition={{ duration: 0.2 }}
-          >
-            <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
-              <CardHeader>
-                <CardTitle className="text-xl font-bold text-gray-900">Platform Growth</CardTitle>
-                <CardDescription className="text-gray-600">
-                  Monthly trends for users, interns, and applications
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="w-full h-[350px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={displayChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis 
-                        dataKey="name" 
-                        stroke="#6b7280" 
-                        fontSize={12}
-                        tickLine={false}
-                      />
-                      <YAxis 
-                        stroke="#6b7280" 
-                        fontSize={12}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                          backdropFilter: 'blur(10px)',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '12px',
-                          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-                        }}
-                      />
-                      <Legend />
-                      <Line 
-                        type="monotone" 
-                        dataKey="users" 
-                        name="New Users" 
-                        stroke="var(--novakinetix-primary)" 
-                        strokeWidth={3} 
-                        dot={{ r: 6, fill: 'var(--novakinetix-primary)' }} 
-                        activeDot={{ r: 10, stroke: 'var(--novakinetix-primary)', strokeWidth: 2 }} 
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="interns" 
-                        name="New Interns" 
-                        stroke="var(--novakinetix-accent)" 
-                        strokeWidth={3} 
-                        dot={{ r: 6, fill: 'var(--novakinetix-accent)' }}
-                        activeDot={{ r: 10, stroke: 'var(--novakinetix-accent)', strokeWidth: 2 }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="applications" 
-                        name="Applications" 
-                        stroke="#10B981" 
-                        strokeWidth={3} 
-                        dot={{ r: 6, fill: '#10B981' }}
-                        activeDot={{ r: 10, stroke: '#10B981', strokeWidth: 2 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-          
-          {/* User Distribution Pie Chart */}
-          <motion.div
-            whileHover={{ scale: 1.01 }}
-            transition={{ duration: 0.2 }}
-          >
-            <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
-              <CardHeader>
-                <CardTitle className="text-xl font-bold text-gray-900">User Distribution</CardTitle>
-                <CardDescription className="text-gray-600">
-                  Breakdown by user type
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="w-full h-[250px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={displayUserDistribution}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={40}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {displayUserDistribution.map((entry: any, index: number) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                          backdropFilter: 'blur(10px)',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '12px',
-                          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="mt-4 space-y-2">
-                  {displayUserDistribution.map((item: any, index: number) => (
-                    <div key={index} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-3 h-3 rounded-full" 
-                          style={{ backgroundColor: item.color }}
-                        />
-                        <span className="text-gray-700">{item.name}</span>
-                      </div>
-                      <span className="font-semibold text-gray-900">{item.value}%</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </motion.div>
-
-        {/* Quick Actions Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.6 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
         >
           <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
-            <CardHeader>
-              <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Zap className="w-6 h-6 text-[var(--novakinetix-primary)]" />
-                Quick Actions
-              </CardTitle>
-              <CardDescription className="text-gray-600">
-                Access key management areas and administrative functions
-              </CardDescription>
+            <CardHeader className="flex items-center justify-between pb-2">
+              <CardTitle className="text-sm font-semibold text-gray-700">User Growth</CardTitle>
+              <TrendingUp className="w-5 h-5 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button asChild variant="outline" className="justify-start w-full h-16 text-left p-4 hover:bg-blue-50 hover:border-blue-300">
-                    <Link href="/admin/users">
-                      <Users className="mr-3 h-5 w-5 text-blue-600" />
-                      <div>
-                        <div className="font-semibold">User Management</div>
-                        <div className="text-xs text-gray-500">Manage accounts & permissions</div>
-                      </div>
-                    </Link>
-                  </Button>
-                </motion.div>
-                
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button asChild variant="outline" className="justify-start w-full h-16 text-left p-4 hover:bg-purple-50 hover:border-purple-300">
-                    <Link href="/admin/internships">
-                      <Briefcase className="mr-3 h-5 w-5 text-purple-600" />
-                      <div>
-                        <div className="font-semibold">Internship Hub</div>
-                        <div className="text-xs text-gray-500">Manage programs & opportunities</div>
-                      </div>
-                    </Link>
-                  </Button>
-                </motion.div>
-                
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button asChild variant="outline" className="justify-start w-full h-16 text-left p-4 hover:bg-green-50 hover:border-green-300">
-                    <Link href="/admin/analytics">
-                      <TrendingUp className="mr-3 h-5 w-5 text-green-600" />
-                      <div>
-                        <div className="font-semibold">Analytics</div>
-                        <div className="text-xs text-gray-500">View detailed reports</div>
-                      </div>
-                    </Link>
-                  </Button>
-                </motion.div>
-                
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button asChild variant="outline" className="justify-start w-full h-16 text-left p-4 hover:bg-amber-50 hover:border-amber-300">
-                    <Link href="/admin/settings">
-                      <Shield className="mr-3 h-5 w-5 text-amber-600" />
-                      <div>
-                        <div className="font-semibold">Settings</div>
-                        <div className="text-xs text-gray-500">Configure system & security</div>
-                      </div>
-                    </Link>
-                  </Button>
-                </motion.div>
-              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={displayChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="users" stroke="#8884d8" activeDot={{ r: 8 }} />
+                  <Line type="monotone" dataKey="interns" stroke="#82ca9d" />
+                  <Line type="monotone" dataKey="applications" stroke="#ffc658" />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
+            <CardHeader className="flex items-center justify-between pb-2">
+              <CardTitle className="text-sm font-semibold text-gray-700">User Distribution</CardTitle>
+              <Users className="w-5 h-5 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={displayUserDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8" label>
+                    {displayUserDistribution.map((entry: { name: string; value: number; color: string }, index: number) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
         </motion.div>
+
+        {isSampleData && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl"
+          >
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-amber-800 font-medium mb-1">Database Connection Issue</p>
+                <p className="text-amber-700 text-sm">
+                  The dashboard is showing sample data. Please check your Supabase configuration and ensure all tables exist with proper RLS policies.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </motion.div>
     </AdminLayout>
   );
