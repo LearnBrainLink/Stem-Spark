@@ -24,7 +24,7 @@ interface ContentItem {
   flagged_reason?: string
 }
 
-export function ContentModerationPageContent() {
+export default function ContentModerationPage() {
   const [contentItems, setContentItems] = useState<ContentItem[]>([])
   const [filteredItems, setFilteredItems] = useState<ContentItem[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -181,23 +181,20 @@ export function ContentModerationPageContent() {
   }
 
   return (
-    <motion.div 
-      className="space-y-8 p-2 sm:p-4 lg:p-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
+        className="mb-6"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Content Moderation</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Content Moderation</h1>
             <p className="text-gray-600">Review and manage platform content effectively.</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
               Refresh
             </Button>
@@ -384,12 +381,8 @@ export function ContentModerationPageContent() {
           </CardContent>
         </Card>
       </motion.div>
-    </motion.div>
+    </div>
   )
 }
 
-function ContentModerationPageWrapper() {
-  return <ContentModerationPageContent />;
-}
 
-export default ContentModerationPageWrapper;

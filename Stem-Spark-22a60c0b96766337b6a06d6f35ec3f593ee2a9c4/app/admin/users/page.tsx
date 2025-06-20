@@ -52,7 +52,7 @@ const statusColors = {
   pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
 }
 
-export function UserManagementPageContent() {
+export default function UserManagementPage() {
   const [users, setUsers] = useState<User[]>([])
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -198,11 +198,6 @@ export function UserManagementPageContent() {
       const { error: authError } = await supabase.auth.admin.deleteUser(userId)
       if (authError) throw authError
 
-      // Delete profile
-      const { error: profileError } = await supabase.from("profiles").delete().eq("id", userId)
-
-      if (profileError) throw profileError
-
       setMessage({ type: "success", text: "User deleted successfully!" })
       fetchUsers()
     } catch (error: any) {
@@ -211,52 +206,41 @@ export function UserManagementPageContent() {
   }
 
   const exportUsers = () => {
-    const csv = [
-      ["Name", "Email", "Role", "Grade", "School", "Country", "State", "Verified", "Created"],
-      ...filteredUsers.map((user) => [
-        user.full_name || "",
+    const csvContent = [
+      ['Name', 'Email', 'Role', 'School', 'Country', 'Status', 'Created'],
+      ...filteredUsers.map(user => [
+        user.full_name || '',
         user.email,
         user.role,
-        user.grade?.toString() || "",
-        user.school_name || "",
-        user.country || "",
-        user.state || "",
-        user.email_verified ? "Yes" : "No",
-        new Date(user.created_at).toLocaleDateString(),
-      ]),
-    ]
-      .map((row) => row.join(","))
-      .join("\n")
+        user.school_name || '',
+        user.country || '',
+        user.status,
+        new Date(user.created_at).toLocaleDateString()
+      ])
+    ].map(row => row.join(',')).join('\n')
 
-    const blob = new Blob([csv], { type: "text/csv" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
     a.href = url
-    a.download = `users-${new Date().toISOString().split("T")[0]}.csv`
+    a.download = 'users-export.csv'
     a.click()
+    window.URL.revokeObjectURL(url)
   }
 
   const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case "admin":
-        return "bg-red-100 text-red-800"
-      case "intern":
-        return "bg-blue-100 text-blue-800"
-      case "student":
-        return "bg-green-100 text-green-800"
-      case "parent":
-        return "bg-purple-100 text-purple-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
+    return roleColors[role as keyof typeof roleColors] || 'bg-gray-100 text-gray-800 border-gray-200'
+  }
+
+  const getStatusBadgeColor = (status: string) => {
+    return statusColors[status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800 border-gray-200'
   }
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return "N/A"
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
     })
   }
 
@@ -265,39 +249,32 @@ export function UserManagementPageContent() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.05 }}
-      whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
-      className="bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden"
+      className="bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300"
     >
       <div className="p-5">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between mb-4">
           <div className="flex items-start gap-4">
-            <div className="relative">
-              <Image
-                src={`https://i.pravatar.cc/150?u=${user.id}`}
-                alt={user.full_name}
-                width={48}
-                height={48}
-                className="rounded-full"
-              />
-              <span
-                className={`absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-white ${
-                  user.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
-                }`}
-              />
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+              {user.full_name?.charAt(0)?.toUpperCase() || user.email.charAt(0).toUpperCase()}
             </div>
             <div>
-              <CardTitle className="text-base font-bold text-gray-900">{user.full_name}</CardTitle>
-              <CardDescription className="text-sm text-gray-500">{user.email}</CardDescription>
+              <h3 className="font-semibold text-gray-900 text-lg">{user.full_name || 'No Name'}</h3>
+              <p className="text-gray-600 text-sm">{user.email}</p>
             </div>
           </div>
-          <Badge className={`${roleColors[user.role as keyof typeof roleColors] || statusColors.inactive} capitalize`}>
-            {user.role}
-          </Badge>
+          <div className="flex flex-col gap-2">
+            <Badge className={`text-xs px-2 py-1 ${getRoleBadgeColor(user.role)}`}>
+              {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+            </Badge>
+            <Badge className={`text-xs px-2 py-1 ${getStatusBadgeColor(user.status)}`}>
+              {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+            </Badge>
+          </div>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-gray-600">
+        <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
           <div className="flex items-center gap-2">
             <GraduationCap className="w-4 h-4 text-gray-400" />
-            <span>{user.school_name || 'N/A'}</span>
+            <span className="truncate">{user.school_name || 'N/A'}</span>
           </div>
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-gray-400" />
@@ -342,7 +319,10 @@ export function UserManagementPageContent() {
               <Skeleton className="h-4 w-48" />
             </div>
           </div>
-          <Skeleton className="h-6 w-16 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-16 rounded-full" />
+            <Skeleton className="h-6 w-16 rounded-full" />
+          </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-4">
           <Skeleton className="h-4 w-full" />
@@ -359,28 +339,25 @@ export function UserManagementPageContent() {
   );
 
   return (
-    <motion.div 
-      className="space-y-8 p-2 sm:p-4 lg:p-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
+        className="mb-6"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">User Management</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">User Management</h1>
             <p className="text-gray-600">Manage all users, their roles, and permissions.</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={fetchUsers}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
             </Button>
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-[hsl(var(--novakinetix-primary))] text-white hover:bg-[hsl(var(--novakinetix-dark))]">
               <Plus className="w-4 h-4 mr-2" />
               Add User
             </Button>
@@ -394,19 +371,81 @@ export function UserManagementPageContent() {
 
       {/* Stats Cards */}
       <motion.div 
-        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+        className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
-        {/* Stats cards can go here */}
+        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Users</p>
+                <p className="text-2xl font-bold text-gray-900">{users.length}</p>
+              </div>
+              <Users className="w-8 h-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Active Users</p>
+                <p className="text-2xl font-bold text-gray-900">{users.filter(u => u.status === 'active').length}</p>
+              </div>
+              <UserCheck className="w-8 h-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Students</p>
+                <p className="text-2xl font-bold text-gray-900">{users.filter(u => u.role === 'student').length}</p>
+              </div>
+              <GraduationCap className="w-8 h-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Teachers</p>
+                <p className="text-2xl font-bold text-gray-900">{users.filter(u => u.role === 'teacher').length}</p>
+              </div>
+              <Shield className="w-8 h-8 text-amber-600" />
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
+
+      {/* Message Alert */}
+      <AnimatePresence>
+        {message && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-4"
+          >
+            <Alert className={message.type === 'success' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
+              <AlertDescription className={message.type === 'success' ? 'text-green-800' : 'text-red-800'}>
+                {message.text}
+              </AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Filters and Search */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.3 }}
+        className="mb-6"
       >
         <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
           <CardContent className="p-4 flex flex-col sm:flex-row gap-4">
@@ -425,7 +464,7 @@ export function UserManagementPageContent() {
             </div>
             <div className="flex items-center gap-4">
               <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger>
+                <SelectTrigger className="w-40">
                   <SelectValue placeholder="Filter by role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -437,7 +476,7 @@ export function UserManagementPageContent() {
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
+                <SelectTrigger className="w-40">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -483,12 +522,6 @@ export function UserManagementPageContent() {
           </div>
         )}
       </motion.div>
-    </motion.div>
+    </div>
   )
 }
-
-function UserManagementPageWrapper() {
-  return <UserManagementPageContent />;
-}
-
-export default UserManagementPageWrapper;

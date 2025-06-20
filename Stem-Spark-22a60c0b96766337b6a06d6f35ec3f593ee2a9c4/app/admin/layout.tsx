@@ -97,17 +97,19 @@ export default function AdminLayout({
   const pathname = usePathname()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[var(--novakinetix-light)] via-white to-[var(--novakinetix-light)] flex">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex">
       {/* Sidebar */}
       <motion.aside 
-        className={`fixed md:static z-40 w-64 h-full bg-white/95 border-r border-gray-200 shadow-lg backdrop-blur-lg md:translate-x-0`}
+        className={`fixed md:static z-40 w-64 h-screen bg-white/95 border-r border-gray-200 shadow-lg backdrop-blur-lg md:translate-x-0 ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        } md:translate-x-0`}
         initial={{ x: 0 }}
         animate={{ x: isSidebarOpen ? 0 : -256 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
       >
         <div className="flex flex-col h-full">
           <motion.div 
-            className="flex items-center justify-between p-3 border-b border-gray-100"
+            className="flex items-center justify-between p-4 border-b border-gray-100"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
@@ -116,9 +118,9 @@ export default function AdminLayout({
               <Image 
                 src="/images/novakinetix-logo.png" 
                 alt="Novakinetix Academy Logo" 
-                width={160} 
-                height={60} 
-                className={`drop-shadow-2xl transition-all duration-200 ${
+                width={140} 
+                height={50} 
+                className={`drop-shadow-lg transition-all duration-200 ${
                   pathname === "/admin" ? 'filter brightness-110 saturate-150' : ''
                 }`} 
                 priority 
@@ -128,11 +130,11 @@ export default function AdminLayout({
               className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors" 
               onClick={() => setSidebarOpen(false)}
             >
-              <X className="w-6 h-6 text-gray-600" />
+              <X className="w-5 h-5 text-gray-600" />
             </button>
           </motion.div>
           
-          <nav className="flex-1 overflow-y-auto py-3 space-y-1">
+          <nav className="flex-1 overflow-y-auto py-2 space-y-1">
             {navigationItems.map((item, index) => {
               const isActive =
                 item.href === "/admin"
@@ -148,7 +150,7 @@ export default function AdminLayout({
                 >
                   <Link 
                     href={item.href}
-                    className={`flex items-center gap-3 px-5 py-2 rounded-lg mx-2 font-medium transition-all duration-200 group ${
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg mx-3 font-medium transition-all duration-200 group ${
                       isActive
                         ? 'bg-[hsl(var(--novakinetix-primary))] text-white shadow-md' 
                         : 'text-gray-700 hover:bg-[hsl(var(--novakinetix-primary))] hover:text-white'
@@ -157,7 +159,7 @@ export default function AdminLayout({
                     onClick={() => setSidebarOpen(false)}
                   >
                     <item.icon className={`w-5 h-5 transition-colors duration-200 ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-white'}`} />
-                    {item.title}
+                    <span className="text-sm">{item.title}</span>
                   </Link>
                 </motion.div>
               )
@@ -165,7 +167,7 @@ export default function AdminLayout({
           </nav>
           
           <motion.div 
-            className="p-3 mt-auto border-t border-gray-100"
+            className="p-4 mt-auto border-t border-gray-100"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
@@ -175,7 +177,7 @@ export default function AdminLayout({
                 type="submit"
                 className="w-full bg-red-600 hover:bg-red-700 text-white font-medium shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
               >
-                <LogOut className="w-5 h-5 mr-2" />
+                <LogOut className="w-4 h-4 mr-2" />
                 Sign Out
               </Button>
             </form>
@@ -183,19 +185,27 @@ export default function AdminLayout({
         </div>
       </motion.aside>
       
+      {/* Overlay for mobile */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      
       {/* Main Content */}
-      <div className="flex-1 min-h-screen">
+      <div className="flex-1 min-h-screen md:ml-0">
         <motion.button 
           className="md:hidden fixed top-4 left-4 z-50 p-3 bg-white/95 rounded-full shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-200" 
           onClick={() => setSidebarOpen(!isSidebarOpen)}
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
         >
-          <Menu className="w-6 h-6 text-[var(--novakinetix-primary)]" />
+          <Menu className="w-5 h-5 text-[hsl(var(--novakinetix-primary))]" />
         </motion.button>
         
         <motion.main 
-          className="p-5 pt-[80px] animate-fade-in container mx-auto"
+          className="p-4 md:p-6 pt-16 md:pt-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
         >

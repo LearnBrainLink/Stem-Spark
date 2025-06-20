@@ -5,12 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
-import { Users, Briefcase, Mail, DollarSign, TrendingUp, Shield, AlertCircle, CheckCircle, Clock, Award, Target, Zap } from "lucide-react";
+import { Users, Briefcase, Mail, DollarSign, TrendingUp, Shield, AlertCircle, CheckCircle, Clock, Award, Target, Zap, UserCheck, BarChart3 } from "lucide-react";
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import { getDashboardStats, getAnalyticsData } from './actions';
 import { motion, AnimatePresence } from 'framer-motion';
-import AdminLayout from './layout';
 
 // --- COMPONENTS ---
 
@@ -32,29 +31,29 @@ const StatCard = ({ title, value, icon: Icon, description, color, bgColor, delay
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay }}
-      whileHover={{ y: -5, scale: 1.02 }}
+      whileHover={{ y: -2, scale: 1.02 }}
     >
-      <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 overflow-hidden group">
+      <Card className="shadow-md hover:shadow-lg transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 overflow-hidden group h-full">
         <div className={`absolute top-0 left-0 w-full h-1 ${bgColor.replace('bg-', 'bg-gradient-to-r from-')} opacity-80`}></div>
-        <CardHeader className="flex flex-row items-center justify-between pb-1">
+        <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
           <CardTitle className="text-sm font-semibold text-gray-700">{title}</CardTitle>
           <motion.div 
-            className={`p-2 rounded-xl ${bgColor} group-hover:scale-110 transition-transform duration-200`}
+            className={`p-2 rounded-lg ${bgColor} group-hover:scale-110 transition-transform duration-200`}
             whileHover={{ rotate: 5 }}
           >
-            <Icon className={`w-6 h-6 ${color}`} />
+            <Icon className={`w-5 h-5 ${color}`} />
           </motion.div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <motion.div 
-            className="text-3xl font-bold text-gray-900 mb-1"
+            className="text-2xl font-bold text-gray-900 mb-1"
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
             transition={{ duration: 0.3, delay: delay + 0.2 }}
           >
             {value}
           </motion.div>
-          <p className="text-sm text-gray-600 mb-1">{description}</p>
+          <p className="text-xs text-gray-600 mb-2">{description}</p>
           {trend && (
             <div className={`flex items-center text-xs ${trend.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
               <TrendingUp className="w-3 h-3 mr-1" />
@@ -73,15 +72,15 @@ const StatCardSkeleton = ({ delay = 0 }: { delay?: number }) => (
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.5, delay }}
   >
-    <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <Skeleton className="h-5 w-24" />
-        <Skeleton className="h-12 w-12 rounded-xl" />
+    <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50 h-full">
+      <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-9 w-9 rounded-lg" />
       </CardHeader>
-      <CardContent>
-        <Skeleton className="h-10 w-32 mb-2" />
-        <Skeleton className="h-4 w-40 mb-2" />
-        <Skeleton className="h-3 w-20" />
+      <CardContent className="pt-0">
+        <Skeleton className="h-8 w-24 mb-2" />
+        <Skeleton className="h-3 w-32 mb-2" />
+        <Skeleton className="h-3 w-16" />
       </CardContent>
     </Card>
   </motion.div>
@@ -227,159 +226,234 @@ export default function AdminDashboard() {
   const displayUserDistribution = userDistribution && userDistribution.length > 0 ? userDistribution : samplePieData;
 
   return (
-    <AdminLayout>
-      <motion.div 
-        className="space-y-8 p-2 sm:p-4 lg:p-6"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* Header */}
+      <motion.header
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+        className="mb-6"
       >
-        {/* Header */}
-        <motion.header
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Admin Dashboard</h1>
-              <p className="text-gray-600">Welcome back, Admin! Here's a quick overview of your platform's performance.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
-                Refresh Data
-              </Button>
-              <Button className="bg-[var(--novakinetix-primary)] text-white hover:bg-[var(--novakinetix-dark)]">
-                Generate Report
-              </Button>
-            </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Admin Dashboard</h1>
+            <p className="text-gray-600">Welcome back! Here's your platform overview.</p>
           </div>
-        </motion.header>
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="outline" 
+              className="border-gray-300 text-gray-700 hover:bg-gray-100"
+              onClick={() => window.location.reload()}
+            >
+              Refresh Data
+            </Button>
+            <Button className="bg-[hsl(var(--novakinetix-primary))] text-white hover:bg-[hsl(var(--novakinetix-dark))]">
+              Generate Report
+            </Button>
+          </div>
+        </div>
+      </motion.header>
 
-        {/* Stats Grid */}
-        <motion.div 
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <AnimatePresence>
-            {isLoading ? (
-              <>
-                <StatCardSkeleton delay={0.1} />
-                <StatCardSkeleton delay={0.2} />
-                <StatCardSkeleton delay={0.3} />
-                <StatCardSkeleton delay={0.4} />
-              </>
-            ) : error ? (
-              <motion.div 
-                className="col-span-full"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-              >
-                <Card className="border-red-200 bg-gradient-to-r from-red-50 to-pink-50">
-                  <CardContent>
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-red-100 rounded-full">
-                        <AlertCircle className="w-6 h-6 text-red-600" />
-                      </div>
-                      <div>
-                        <p className="text-red-800 font-semibold text-lg">Connection Error</p>
-                        <p className="text-red-600 text-sm">{error}</p>
-                      </div>
+      {/* Stats Grid */}
+      <motion.div 
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        <AnimatePresence>
+          {isLoading ? (
+            <>
+              <StatCardSkeleton delay={0.1} />
+              <StatCardSkeleton delay={0.2} />
+              <StatCardSkeleton delay={0.3} />
+              <StatCardSkeleton delay={0.4} />
+            </>
+          ) : error ? (
+            <motion.div 
+              className="col-span-full"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+            >
+              <Card className="border-red-200 bg-gradient-to-r from-red-50 to-pink-50 p-4">
+                <CardContent className="p-0">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-red-100 rounded-full">
+                      <AlertCircle className="w-6 h-6 text-red-600" />
                     </div>
-                    <div className="flex gap-3">
-                      <Button 
-                        onClick={() => window.location.reload()} 
-                        variant="outline" 
-                        className="border-red-300 text-red-700 hover:bg-red-100"
-                      >
-                        Retry Connection
-                      </Button>
-                      <Button 
-                        onClick={() => window.open('/admin/setup', '_blank')}
-                        className="bg-red-600 hover:bg-red-700"
-                      >
-                        Check Setup
-                      </Button>
+                    <div>
+                      <p className="text-red-800 font-semibold text-lg">Connection Error</p>
+                      <p className="text-red-600 text-sm">{error}</p>
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ) : (
-              statsData.map((stat, index) => (
-                <StatCard key={stat.title} {...stat} delay={index * 0.1} />
-              ))
-            )}
-          </AnimatePresence>
-        </motion.div>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button 
+                      onClick={() => window.location.reload()} 
+                      variant="outline" 
+                      className="border-red-300 text-red-700 hover:bg-red-100"
+                    >
+                      Retry Connection
+                    </Button>
+                    <Button 
+                      onClick={() => window.open('/admin/setup', '_blank')}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      Check Setup
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ) : (
+            statsData.map((stat, index) => (
+              <StatCard key={stat.title} {...stat} delay={index * 0.1} />
+            ))
+          )}
+        </AnimatePresence>
+      </motion.div>
 
-        {/* Charts Section */}
-        <motion.div 
-          className="grid grid-cols-1 lg:grid-cols-2 gap-6"
-          initial={{ opacity: 0, y: 20 }}
+      {/* Charts Section */}
+      <motion.div 
+        className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+      >
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg font-semibold text-gray-800">User Growth</CardTitle>
+            <TrendingUp className="w-5 h-5 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={displayChartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="name" stroke="#666" />
+                <YAxis stroke="#666" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e2e8f0', 
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }} 
+                />
+                <Legend />
+                <Line type="monotone" dataKey="users" stroke="#3B82F6" strokeWidth={2} />
+                <Line type="monotone" dataKey="interns" stroke="#10B981" strokeWidth={2} />
+                <Line type="monotone" dataKey="applications" stroke="#F59E0B" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg font-semibold text-gray-800">User Distribution</CardTitle>
+            <Users className="w-5 h-5 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie 
+                  data={displayUserDistribution} 
+                  dataKey="value" 
+                  nameKey="name" 
+                  cx="50%" 
+                  cy="50%" 
+                  outerRadius={80} 
+                  fill="#8884d8" 
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                >
+                  {displayUserDistribution.map((entry: { name: string; value: number; color: string }, index: number) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Quick Actions */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+        className="mb-6"
+      >
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <Zap className="w-5 h-5 text-yellow-600" />
+              Quick Actions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Link href="/admin/users">
+                <Button variant="outline" className="w-full h-auto flex flex-col items-center gap-2 p-4 hover:bg-blue-50 border-blue-200">
+                  <Users className="w-6 h-6 text-blue-600" />
+                  <span className="text-sm">Manage Users</span>
+                </Button>
+              </Link>
+              <Link href="/admin/applications">
+                <Button variant="outline" className="w-full h-auto flex flex-col items-center gap-2 p-4 hover:bg-green-50 border-green-200">
+                  <UserCheck className="w-6 h-6 text-green-600" />
+                  <span className="text-sm">Applications</span>
+                </Button>
+              </Link>
+              <Link href="/admin/internships">
+                <Button variant="outline" className="w-full h-auto flex flex-col items-center gap-2 p-4 hover:bg-purple-50 border-purple-200">
+                  <Briefcase className="w-6 h-6 text-purple-600" />
+                  <span className="text-sm">Internships</span>
+                </Button>
+              </Link>
+              <Link href="/admin/analytics">
+                <Button variant="outline" className="w-full h-auto flex flex-col items-center gap-2 p-4 hover:bg-orange-50 border-orange-200">
+                  <BarChart3 className="w-6 h-6 text-orange-600" />
+                  <span className="text-sm">Analytics</span>
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Database Status Warning */}
+      {isSampleData && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
+          className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl"
         >
-          <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
-            <CardHeader className="flex items-center justify-between pb-2">
-              <CardTitle className="text-sm font-semibold text-gray-700">User Growth</CardTitle>
-              <TrendingUp className="w-5 h-5 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={displayChartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="users" stroke="#8884d8" />
-                  <Line type="monotone" dataKey="interns" stroke="#82ca9d" />
-                  <Line type="monotone" dataKey="applications" stroke="#ffc658" />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
-            <CardHeader className="flex items-center justify-between pb-2">
-              <CardTitle className="text-sm font-semibold text-gray-700">User Distribution</CardTitle>
-              <Users className="w-5 h-5 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie data={displayUserDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8" label>
-                    {displayUserDistribution.map((entry: { name: string; value: number; color: string }, index: number) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {isSampleData && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl"
-          >
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-amber-800 font-medium mb-1">Database Connection Issue</p>
-                <p className="text-amber-700 text-sm">
-                  The dashboard is showing sample data. Please check your Supabase configuration and ensure all tables exist with proper RLS policies.
-                </p>
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-amber-800 font-medium mb-1">Database Connection Issue</p>
+              <p className="text-amber-700 text-sm">
+                The dashboard is showing sample data. Please check your Supabase configuration and ensure all tables exist with proper RLS policies.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <Link href="/admin/setup">
+                  <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white">
+                    Check Setup
+                  </Button>
+                </Link>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="border-amber-300 text-amber-700 hover:bg-amber-100"
+                  onClick={() => window.location.reload()}
+                >
+                  Retry Connection
+                </Button>
               </div>
             </div>
-          </motion.div>
-        )}
-      </motion.div>
-    </AdminLayout>
+          </div>
+        </motion.div>
+      )}
+    </div>
   );
 }

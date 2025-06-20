@@ -173,76 +173,218 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <motion.div 
-      className="space-y-8 p-2 sm:p-4 lg:p-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
+        className="mb-6"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Analytics</h1>
-            <p className="text-gray-600">View detailed analytics and reports.</p>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Analytics & Reports</h1>
+            <p className="text-gray-600">View detailed analytics and platform insights.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
+          <div className="flex items-center gap-3">
+            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={fetchAnalytics}>
+              <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
+            </Button>
+            <Button className="bg-[hsl(var(--novakinetix-primary))] text-white hover:bg-[hsl(var(--novakinetix-dark))]">
+              <Download className="w-4 h-4 mr-2" />
+              Export Report
             </Button>
           </div>
         </div>
       </motion.header>
 
+      {/* Key Metrics */}
       <motion.div 
-        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
-        <Card className="border-0 shadow-md rounded-lg bg-white">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold mb-0">User Growth</CardTitle>
-            <CardDescription className="text-xs text-gray-500">Monthly trends for users, interns, and applications</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={displayChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="users" stroke="#8884d8" activeDot={{ r: 8 }} />
-                <Line type="monotone" dataKey="interns" stroke="#82ca9d" />
-                <Line type="monotone" dataKey="applications" stroke="#ffc658" />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Total Users"
+          value={analyticsData?.totalUsers?.toLocaleString() || '0'}
+          change="+12%"
+          icon={Users}
+          color="bg-blue-500"
+        />
+        <MetricCard
+          title="New Users"
+          value={analyticsData?.newUsersThisMonth?.toLocaleString() || '0'}
+          change="+8%"
+          icon={TrendingUp}
+          color="bg-green-500"
+        />
+        <MetricCard
+          title="Active Internships"
+          value={analyticsData?.activeInternships?.toLocaleString() || '0'}
+          change="+15%"
+          icon={Briefcase}
+          color="bg-purple-500"
+        />
+        <MetricCard
+          title="Total Applications"
+          value={analyticsData?.totalApplications?.toLocaleString() || '0'}
+          change="+23%"
+          icon={Mail}
+          color="bg-amber-500"
+        />
+      </motion.div>
 
-        <Card className="border-0 shadow-md rounded-lg bg-white">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold mb-0">User Distribution</CardTitle>
-            <CardDescription className="text-xs text-gray-500">Breakdown by user type</CardDescription>
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* User Growth Chart */}
+        <ChartCard
+          title="User Growth"
+          description="Monthly user registration and activity trends"
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={displayChartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="month" stroke="#666" />
+              <YAxis stroke="#666" />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'white', 
+                  border: '1px solid #e2e8f0', 
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                }} 
+              />
+              <Legend />
+              <Line type="monotone" dataKey="users" stroke="#3B82F6" strokeWidth={2} name="Users" />
+              <Line type="monotone" dataKey="interns" stroke="#10B981" strokeWidth={2} name="Interns" />
+              <Line type="monotone" dataKey="applications" stroke="#F59E0B" strokeWidth={2} name="Applications" />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        {/* User Distribution Chart */}
+        <ChartCard
+          title="User Distribution"
+          description="Breakdown of users by type"
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={displayUserDistribution}
+                dataKey="count"
+                nameKey="type"
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                label={({ type, percentage }) => `${type} (${percentage}%)`}
+              >
+                {displayUserDistribution.map((entry: any, index: number) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        {/* Application Status Chart */}
+        <ChartCard
+          title="Application Status"
+          description="Current status of internship applications"
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={displayApplicationStats}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="status" stroke="#666" />
+              <YAxis stroke="#666" />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'white', 
+                  border: '1px solid #e2e8f0', 
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                }} 
+              />
+              <Bar dataKey="count" fill="#8884d8" />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        {/* Monthly Revenue Chart */}
+        <ChartCard
+          title="Monthly Revenue"
+          description="Revenue trends over the past months"
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={displayMonthlyRevenue}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="month" stroke="#666" />
+              <YAxis stroke="#666" />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'white', 
+                  border: '1px solid #e2e8f0', 
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                }} 
+                formatter={(value: any) => [`$${value.toLocaleString()}`, 'Revenue']}
+              />
+              <Area type="monotone" dataKey="revenue" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.3} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
+      {/* Engagement Metrics */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+      >
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardHeader>
+            <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-blue-600" />
+              Engagement Metrics
+            </CardTitle>
+            <CardDescription>Key performance indicators for user engagement</CardDescription>
           </CardHeader>
-          <CardContent className="pt-0">
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={displayUserDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8" label>
-                  {displayUserDistribution.map((entry: { name: string; value: number; color: string }, index: number) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {displayEngagementMetrics.map((metric: any, index: number) => (
+                <div key={index} className="text-center p-4 bg-white rounded-lg border border-gray-100">
+                  <p className="text-sm font-medium text-gray-600 mb-1">{metric.metric}</p>
+                  <p className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</p>
+                  <p className={`text-sm font-medium ${metric.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
+                    {metric.change}
+                  </p>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </motion.div>
-    </motion.div>
+
+      {/* Data Status Warning */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl"
+        >
+          <div className="flex items-start gap-3">
+            <BarChart3 className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-amber-800 font-medium mb-1">Using Sample Data</p>
+              <p className="text-amber-700 text-sm">
+                Analytics data is currently showing sample information. Check your database connection for real-time data.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </div>
   )
 }
