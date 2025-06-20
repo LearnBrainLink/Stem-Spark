@@ -17,11 +17,13 @@ import {
   X,
   Home,
   LogOut,
+  UserCheck,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import Image from "next/image"
 import { signOut } from "./actions"
+import { motion, AnimatePresence } from "framer-motion"
 
 const navigationItems = [
   {
@@ -57,7 +59,7 @@ const navigationItems = [
   {
     title: "Applications",
     href: "/admin/applications",
-    icon: Briefcase,
+    icon: UserCheck,
     description: "Review internship applications",
   },
   {
@@ -97,9 +99,21 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen hero-gradient flex">
       {/* Sidebar */}
-      <aside className={`fixed md:static z-40 w-64 h-full bg-white/95 border-r border-gray-200 shadow-lg transition-transform duration-300 backdrop-blur-lg ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+      <motion.aside 
+        className={`fixed md:static z-40 w-64 h-full bg-white/95 border-r border-gray-200 shadow-lg backdrop-blur-lg ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        } md:translate-x-0`}
+        initial={{ x: -256 }}
+        animate={{ x: isSidebarOpen ? 0 : -256 }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      >
         <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between p-4 border-b border-gray-100">
+          <motion.div 
+            className="flex items-center justify-between p-4 border-b border-gray-100"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
             <Link href="/admin" className="flex items-center gap-2">
               <Image 
                 src="/images/novakinetix-logo.png" 
@@ -112,57 +126,85 @@ export default function AdminLayout({
                 priority 
               />
             </Link>
-            <button className="md:hidden p-2" onClick={() => setSidebarOpen(false)}>
+            <button 
+              className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors" 
+              onClick={() => setSidebarOpen(false)}
+            >
               <X className="w-6 h-6 text-gray-600" />
             </button>
-          </div>
+          </motion.div>
+          
           <nav className="flex-1 overflow-y-auto py-4 space-y-1">
-            {navigationItems.map((item) => {
+            {navigationItems.map((item, index) => {
               const isActive =
                 item.href === "/admin"
                   ? pathname === item.href
                   : pathname.startsWith(item.href)
 
               return (
-                <Link key={item.href} href={item.href} legacyBehavior>
-                  <a
-                    className={`flex items-center gap-3 px-6 py-3 rounded-lg mx-2 font-medium transition-all duration-200 hover:bg-blue-50 hover:text-blue-700 ${
-                      isActive
-                        ? 'bg-blue-600 text-white shadow-md' 
-                        : 'text-gray-700'
-                    }`}
-                    aria-current={isActive ? 'page' : undefined}
-                    onClick={() => setSidebarOpen(false)}
-                  >
-                    <item.icon className="w-5 h-5" />
-                    {item.title}
-                  </a>
-                </Link>
+                <motion.div
+                  key={item.href}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 + index * 0.05 }}
+                >
+                  <Link href={item.href} legacyBehavior>
+                    <a
+                      className={`flex items-center gap-3 px-6 py-3 rounded-lg mx-2 font-medium transition-all duration-200 hover:bg-blue-50 hover:text-blue-700 hover:shadow-sm ${
+                        isActive
+                          ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md' 
+                          : 'text-gray-700 hover:scale-105'
+                      }`}
+                      aria-current={isActive ? 'page' : undefined}
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                      {item.title}
+                    </a>
+                  </Link>
+                </motion.div>
               )
             })}
           </nav>
-          <div className="p-4 mt-auto border-t border-gray-100">
+          
+          <motion.div 
+            className="p-4 mt-auto border-t border-gray-100"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
             <form action={signOut}>
               <Button 
                 type="submit"
-                className="w-full bg-[var(--novakinetix-primary)] hover:bg-[var(--novakinetix-accent)]"
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-medium shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
               >
                 <LogOut className="w-5 h-5 mr-2" />
                 Sign Out
               </Button>
             </form>
-          </div>
+          </motion.div>
         </div>
-      </aside>
+      </motion.aside>
+      
       {/* Main Content */}
       <div className="flex-1 min-h-screen bg-gradient-to-br from-[var(--novakinetix-light)] via-white to-[var(--novakinetix-light)]">
-        <button 
-          className="md:hidden fixed top-4 left-4 z-50 p-2 bg-white/95 rounded-full shadow-lg border border-gray-200" 
+        <motion.button 
+          className="md:hidden fixed top-4 left-4 z-50 p-3 bg-white/95 rounded-full shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-200" 
           onClick={() => setSidebarOpen(true)}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
         >
           <Menu className="w-6 h-6 text-[var(--novakinetix-primary)]" />
-        </button>
-        <main className="p-6 pt-[90px] animate-fade-in">{children}</main>
+        </motion.button>
+        
+        <motion.main 
+          className="p-6 pt-[90px] animate-fade-in"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          {children}
+        </motion.main>
       </div>
     </div>
   )
