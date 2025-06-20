@@ -97,7 +97,7 @@ export default function AdminLayout({
   const pathname = usePathname()
 
   return (
-    <div className="min-h-screen hero-gradient flex">
+    <div className="min-h-screen bg-gradient-to-br from-[var(--novakinetix-light)] via-white to-[var(--novakinetix-light)] flex">
       {/* Sidebar */}
       <motion.aside 
         className={`fixed md:static z-40 w-64 h-full bg-white/95 border-r border-gray-200 shadow-lg backdrop-blur-lg ${
@@ -148,19 +148,18 @@ export default function AdminLayout({
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.1 + index * 0.05 }}
                 >
-                  <Link href={item.href} legacyBehavior>
-                    <a
-                      className={`flex items-center gap-3 px-6 py-3 rounded-lg mx-2 font-medium transition-all duration-200 hover:bg-blue-50 hover:text-blue-700 hover:shadow-sm ${
-                        isActive
-                          ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md' 
-                          : 'text-gray-700 hover:scale-105'
-                      }`}
-                      aria-current={isActive ? 'page' : undefined}
-                      onClick={() => setSidebarOpen(false)}
-                    >
-                      <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
-                      {item.title}
-                    </a>
+                  <Link 
+                    href={item.href}
+                    className={`flex items-center gap-3 px-6 py-3 rounded-lg mx-2 font-medium transition-all duration-200 hover:bg-[var(--novakinetix-light)] hover:text-[var(--novakinetix-primary)] hover:shadow-sm ${
+                      isActive
+                        ? 'bg-gradient-to-r from-[var(--novakinetix-primary)] to-[var(--novakinetix-accent)] text-white shadow-md' 
+                        : 'text-gray-700 hover:scale-105'
+                    }`}
+                    aria-current={isActive ? 'page' : undefined}
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                    {item.title}
                   </Link>
                 </motion.div>
               )
@@ -187,7 +186,7 @@ export default function AdminLayout({
       </motion.aside>
       
       {/* Main Content */}
-      <div className="flex-1 min-h-screen bg-gradient-to-br from-[var(--novakinetix-light)] via-white to-[var(--novakinetix-light)]">
+      <div className="flex-1 min-h-screen">
         <motion.button 
           className="md:hidden fixed top-4 left-4 z-50 p-3 bg-white/95 rounded-full shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-200" 
           onClick={() => setSidebarOpen(true)}
