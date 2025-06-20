@@ -70,6 +70,7 @@ export default function AdminDashboard() {
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSampleData, setIsSampleData] = useState(false);
 
   useEffect(() => {
     async function fetchStats() {
@@ -79,6 +80,13 @@ export default function AdminDashboard() {
           setError(result.error);
         } else if (result.stats) {
           setStats(result.stats);
+          // Check if this is sample data (the exact values we set as fallback)
+          setIsSampleData(
+            result.stats.users === 12458 &&
+            result.stats.internships === 132 &&
+            result.stats.applications === 1289 &&
+            result.stats.revenue === 28430
+          );
         }
       } catch (err) {
         setError('Failed to load dashboard statistics');
@@ -104,7 +112,7 @@ export default function AdminDashboard() {
       title: "Total Users",
       value: numberFormatter.format(stats.users),
       icon: Users,
-      description: "All user accounts",
+      description: isSampleData ? "Sample data (DB offline)" : "All user accounts",
       color: "text-blue-500",
       bgColor: "bg-blue-50"
     },
@@ -112,7 +120,7 @@ export default function AdminDashboard() {
       title: "Internships",
       value: numberFormatter.format(stats.internships),
       icon: Briefcase,
-      description: "All programs created",
+      description: isSampleData ? "Sample data (DB offline)" : "All programs created",
       color: "text-purple-500",
       bgColor: "bg-purple-50"
     },
@@ -120,7 +128,7 @@ export default function AdminDashboard() {
       title: "Applications",
       value: numberFormatter.format(stats.applications),
       icon: Mail,
-      description: "Received for all internships",
+      description: isSampleData ? "Sample data (DB offline)" : "Received for all internships",
       color: "text-amber-500",
       bgColor: "bg-amber-50"
     },
@@ -128,7 +136,7 @@ export default function AdminDashboard() {
       title: "Total Revenue",
       value: currencyFormatter.format(stats.revenue),
       icon: DollarSign,
-      description: "From completed donations",
+      description: isSampleData ? "Sample data (DB offline)" : "From completed donations",
       color: "text-emerald-500",
       bgColor: "bg-emerald-50"
     },
@@ -138,7 +146,14 @@ export default function AdminDashboard() {
     <div className="space-y-6 p-2 sm:p-4 lg:p-6">
       <header>
         <h1 className="text-3xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Admin Dashboard</h1>
-        <p className="text-gray-500 mt-1">Welcome back! Here's a summary of your platform's activity.</p>
+        <p className="text-gray-500 mt-1">
+          Welcome back! Here's a summary of your platform's activity.
+          {isSampleData && (
+            <span className="ml-2 text-amber-600 font-medium">
+              (Showing sample data - database connection unavailable)
+            </span>
+          )}
+        </p>
       </header>
       
       {/* Stats Grid */}

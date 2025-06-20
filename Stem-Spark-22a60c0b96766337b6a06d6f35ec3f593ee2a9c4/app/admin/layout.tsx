@@ -101,7 +101,16 @@ export default function AdminLayout({
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between p-4 border-b border-gray-100">
             <Link href="/admin" className="flex items-center gap-2">
-              <Image src="/images/novakinetix-logo.png" alt="Novakinetix Academy Logo" width={160} height={60} className="drop-shadow-2xl" priority />
+              <Image 
+                src="/images/novakinetix-logo.png" 
+                alt="Novakinetix Academy Logo" 
+                width={160} 
+                height={60} 
+                className={`drop-shadow-2xl transition-all duration-200 ${
+                  pathname === "/admin" ? 'filter brightness-110 saturate-150' : ''
+                }`} 
+                priority 
+              />
             </Link>
             <button className="md:hidden p-2" onClick={() => setSidebarOpen(false)}>
               <X className="w-6 h-6 text-gray-600" />
@@ -117,9 +126,9 @@ export default function AdminLayout({
               return (
                 <Link key={item.href} href={item.href} legacyBehavior>
                   <a
-                    className={`flex items-center gap-3 px-6 py-3 rounded-lg mx-2 font-medium transition-all duration-200 hover:bg-[var(--novakinetix-light)] hover:text-[var(--novakinetix-primary)] ${
+                    className={`flex items-center gap-3 px-6 py-3 rounded-lg mx-2 font-medium transition-all duration-200 hover:bg-blue-50 hover:text-blue-700 ${
                       isActive
-                        ? 'bg-[var(--novakinetix-light)] text-[var(--novakinetix-primary)] shadow-inner' 
+                        ? 'bg-blue-600 text-white shadow-md' 
                         : 'text-gray-700'
                     }`}
                     aria-current={isActive ? 'page' : undefined}
