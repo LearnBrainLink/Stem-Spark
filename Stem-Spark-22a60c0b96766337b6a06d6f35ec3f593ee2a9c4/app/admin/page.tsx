@@ -1,4 +1,6 @@
-import React, { Suspense } from 'react';
+"use client";
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -6,52 +8,7 @@ import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tool
 import { Users, Briefcase, Mail, DollarSign, TrendingUp, Shield } from "lucide-react";
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
-import { createServerClient } from '@/lib/supabase-server';
-import { cookies } from 'next/headers';
-
-// --- DATA FETCHING ---
-
-async function getStats() {
-  const cookieStore = cookies()
-  const supabase = createServerClient(cookieStore);
-
-  // It's much more efficient to run these simple counts directly
-  // than to rely on views that might not be created.
-  const userQuery = supabase.from('profiles').select('*', { count: 'exact', head: true });
-  const internshipQuery = supabase.from('internships').select('*', { count: 'exact', head: true });
-  const applicationQuery = supabase.from('internship_applications').select('*', { count: 'exact', head: true });
-  // The type for 'status' is missing from database.types.ts, so we have to use 'any' to bypass the type-checker.
-  const revenueQuery = supabase.from('donations').select('amount').eq('status' as any, 'completed' as any);
-
-  const [
-    userResult,
-    internshipResult,
-    applicationResult,
-    revenueResult
-  ] = await Promise.all([userQuery, internshipQuery, applicationQuery, revenueQuery]);
-
-  const { count: userCount, error: userError } = userResult;
-  const { count: internshipCount, error: internshipError } = internshipResult;
-  const { count: applicationCount, error: applicationError } = applicationResult;
-  const { data: revenueData, error: revenueError } = revenueResult;
-  
-  if(userError || internshipError || applicationError || revenueError) {
-    console.error("Error fetching dashboard stats:", { userError, internshipError, applicationError, revenueError });
-    // This will be caught by the nearest error.tsx boundary
-    throw new Error("Could not fetch dashboard statistics. The database might be out of sync or unavailable.");
-  }
-
-  // The type for revenueData is missing from the generated types, so we cast it.
-  const totalRevenue = (revenueData as {amount: number}[])?.reduce((sum, current) => sum + current.amount, 0) ?? 0;
-
-  return {
-    users: userCount ?? 0,
-    internships: internshipCount ?? 0,
-    applications: applicationCount ?? 0,
-    revenue: totalRevenue,
-  };
-}
-
+import { getDashboardStats } from './actions';
 
 // --- COMPONENTS ---
 
@@ -94,8 +51,45 @@ const StatCardSkeleton = () => (
   </Card>
 );
 
-async function StatsGrid() {
-  const stats = await getStats();
+const sampleChartData = [
+  { name: 'Jan', users: 4000, interns: 2400 },
+  { name: 'Feb', users: 3000, interns: 1398 },
+  { name: 'Mar', users: 2000, interns: 9800 },
+  { name: 'Apr', users: 2780, interns: 3908 },
+  { name: 'May', users: 1890, interns: 4800 },
+  { name: 'Jun', users: 2390, interns: 3800 },
+  { name: 'Jul', users: 3490, interns: 4300 },
+];
+
+export default function AdminDashboard() {
+  const [stats, setStats] = useState<{
+    users: number;
+    internships: number;
+    applications: number;
+    revenue: number;
+  } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const result = await getDashboardStats();
+        if (result.error) {
+          setError(result.error);
+        } else if (result.stats) {
+          setStats(result.stats);
+        }
+      } catch (err) {
+        setError('Failed to load dashboard statistics');
+        console.error('Error fetching stats:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchStats();
+  }, []);
 
   const numberFormatter = new Intl.NumberFormat('en-US');
   const currencyFormatter = new Intl.NumberFormat('en-US', {
@@ -105,7 +99,7 @@ async function StatsGrid() {
     maximumFractionDigits: 0,
   });
 
-  const statsData = [
+  const statsData = stats ? [
     {
       title: "Total Users",
       value: numberFormatter.format(stats.users),
@@ -138,28 +132,8 @@ async function StatsGrid() {
       color: "text-emerald-500",
       bgColor: "bg-emerald-50"
     },
-  ];
+  ] : [];
 
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      {statsData.map((stat) => (
-        <StatCard key={stat.title} {...stat} />
-      ))}
-    </div>
-  );
-}
-
-const sampleChartData = [
-  { name: 'Jan', users: 4000, interns: 2400 },
-  { name: 'Feb', users: 3000, interns: 1398 },
-  { name: 'Mar', users: 2000, interns: 9800 },
-  { name: 'Apr', users: 2780, interns: 3908 },
-  { name: 'May', users: 1890, interns: 4800 },
-  { name: 'Jun', users: 2390, interns: 3800 },
-  { name: 'Jul', users: 3490, interns: 4300 },
-];
-
-export default function AdminDashboard() {
   return (
     <div className="space-y-6 p-2 sm:p-4 lg:p-6">
       <header>
@@ -167,16 +141,36 @@ export default function AdminDashboard() {
         <p className="text-gray-500 mt-1">Welcome back! Here's a summary of your platform's activity.</p>
       </header>
       
-      <Suspense fallback={
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCardSkeleton />
-          <StatCardSkeleton />
-          <StatCardSkeleton />
-          <StatCardSkeleton />
-        </div>
-      }>
-        <StatsGrid />
-      </Suspense>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {isLoading ? (
+          <>
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </>
+        ) : error ? (
+          <div className="col-span-full">
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="pt-6">
+                <p className="text-red-600 text-center">Error: {error}</p>
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  variant="outline" 
+                  className="mt-2 mx-auto block"
+                >
+                  Retry
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          statsData.map((stat) => (
+            <StatCard key={stat.title} {...stat} />
+          ))
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="col-span-1 lg:col-span-2 shadow-sm hover:shadow-lg transition-shadow duration-300">
