@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { Users, Key, Mail } from "lucide-react"
 import Link from "next/link"
 import { AdminSetupClient } from "./admin-setup-client"
+import AdminLayout from '../layout'
 
 // Define admin accounts directly in the component
 const ADMIN_ACCOUNTS = [
@@ -36,104 +37,106 @@ const ADMIN_ACCOUNTS = [
 	},
 ]
 
-export default function AdminSetupPage() {
+export default function SetupPage() {
 	return (
-		<div className="space-y-4">
-			<div className="text-center mb-4 shrink-0">
-				<h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-1">
-					Admin Account Setup
-				</h1>
-				<p className="text-gray-600 text-sm md:text-base">
-					Create and manage administrator accounts for STEM Spark Academy
-				</p>
-			</div>
+		<AdminLayout>
+			<div className="space-y-4">
+				<div className="text-center mb-4 shrink-0">
+					<h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-1">
+						Admin Account Setup
+					</h1>
+					<p className="text-gray-600 text-sm md:text-base">
+						Create and manage administrator accounts for STEM Spark Academy
+					</p>
+				</div>
 
-			{/* Admin Accounts Overview - scrollable if needed */}
-			<div className="flex-1 min-h-0 overflow-auto">
-				<Card className="shadow-md border-0 mb-4">
-					<CardHeader>
-						<CardTitle className="flex items-center gap-2 text-base md:text-lg">
-							<Users className="w-5 h-5" />
-							Pre-configured Admin Accounts
-						</CardTitle>
-						<CardDescription>
-							The following admin accounts will be created with full
-							administrative privileges
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<div className="grid md:grid-cols-2 gap-4">
-							{ADMIN_ACCOUNTS.map((admin) => (
-								<div
-									key={admin.email}
-									className="p-3 border rounded-lg bg-gray-50 shadow-sm"
-								>
-									<div className="flex items-start justify-between mb-2">
-										<div>
-											<h4 className="font-semibold text-gray-800 text-base">
-												{admin.fullName}
-											</h4>
-											<p className="text-xs text-gray-600">
-												{admin.role}
-											</p>
+				{/* Admin Accounts Overview - scrollable if needed */}
+				<div className="flex-1 min-h-0 overflow-auto">
+					<Card className="shadow-md border-0 mb-4">
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2 text-base md:text-lg">
+								<Users className="w-5 h-5" />
+								Pre-configured Admin Accounts
+							</CardTitle>
+							<CardDescription>
+								The following admin accounts will be created with full
+								administrative privileges
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<div className="grid md:grid-cols-2 gap-4">
+								{ADMIN_ACCOUNTS.map((admin) => (
+									<div
+										key={admin.email}
+										className="p-3 border rounded-lg bg-gray-50 shadow-sm"
+									>
+										<div className="flex items-start justify-between mb-2">
+											<div>
+												<h4 className="font-semibold text-gray-800 text-base">
+													{admin.fullName}
+												</h4>
+												<p className="text-xs text-gray-600">
+													{admin.role}
+												</p>
+											</div>
+											<Badge
+												variant="outline"
+												className="text-xs"
+											>
+												{admin.state}
+											</Badge>
 										</div>
-										<Badge
-											variant="outline"
-											className="text-xs"
-										>
-											{admin.state}
-										</Badge>
+										<div className="space-y-1 text-xs">
+											<div className="flex items-center gap-2">
+												<Mail className="w-4 h-4 text-gray-400" />
+												<code className="bg-white px-2 py-1 rounded">
+													{admin.email}
+												</code>
+											</div>
+											<div className="flex items-center gap-2">
+												<Key className="w-4 h-4 text-gray-400" />
+												<code className="bg-white px-2 py-1 rounded">
+													{admin.password}
+												</code>
+											</div>
+										</div>
 									</div>
-									<div className="space-y-1 text-xs">
-										<div className="flex items-center gap-2">
-											<Mail className="w-4 h-4 text-gray-400" />
-											<code className="bg-white px-2 py-1 rounded">
-												{admin.email}
-											</code>
-										</div>
-										<div className="flex items-center gap-2">
-											<Key className="w-4 h-4 text-gray-400" />
-											<code className="bg-white px-2 py-1 rounded">
-												{admin.password}
-											</code>
-										</div>
-									</div>
-								</div>
-							))}
-						</div>
-					</CardContent>
-				</Card>
+								))}
+							</div>
+						</CardContent>
+					</Card>
 
-				{/* Client Component for Interactive Features */}
-				<AdminSetupClient adminAccounts={ADMIN_ACCOUNTS} />
+					{/* Client Component for Interactive Features */}
+					<AdminSetupClient adminAccounts={ADMIN_ACCOUNTS} />
 
-				{/* Important Notes */}
-				<Card className="border-yellow-200 bg-yellow-50 shadow-none mt-4">
-					<CardHeader>
-						<CardTitle className="text-yellow-800 text-base">
-							Important Security Notes
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="text-yellow-700">
-						<ul className="space-y-1 text-xs">
-							<li>
-								• Save these credentials securely - they provide full
-								administrative access
-							</li>
-							<li>
-								• Change passwords after first login for enhanced
-								security
-							</li>
-							<li>• Each admin account has access to all platform features</li>
-							<li>
-								• Admin accounts can manage users, internships, videos, and
-								applications
-							</li>
-							<li>• Use different accounts for different team members</li>
-						</ul>
-					</CardContent>
-				</Card>
+					{/* Important Notes */}
+					<Card className="border-yellow-200 bg-yellow-50 shadow-none mt-4">
+						<CardHeader>
+							<CardTitle className="text-yellow-800 text-base">
+								Important Security Notes
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="text-yellow-700">
+							<ul className="space-y-1 text-xs">
+								<li>
+									• Save these credentials securely - they provide full
+									administrative access
+								</li>
+								<li>
+									• Change passwords after first login for enhanced
+									security
+								</li>
+								<li>• Each admin account has access to all platform features</li>
+								<li>
+									• Admin accounts can manage users, internships, videos, and
+									applications
+								</li>
+								<li>• Use different accounts for different team members</li>
+							</ul>
+						</CardContent>
+					</Card>
+				</div>
 			</div>
-		</div>
+		</AdminLayout>
 	)
 }
