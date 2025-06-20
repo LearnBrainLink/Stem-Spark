@@ -1,14 +1,13 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid, XAxis, YAxis, Tooltip, Legend, AreaChart, Area } from 'recharts'
 import { Users, TrendingUp, Briefcase, Mail, DollarSign, Eye, Download, Calendar, Target, Award, Activity, BarChart3, RefreshCw } from "lucide-react"
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from "framer-motion"
 import { getAnalyticsData } from '../actions'
-import AdminLayout from '../layout'
 
 const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#06B6D4']
 
@@ -174,78 +173,76 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <AdminLayout>
-      <motion.div 
-        className="space-y-8 p-2 sm:p-4 lg:p-6"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
+    <motion.div 
+      className="space-y-8 p-2 sm:p-4 lg:p-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <motion.header
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <motion.header
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Analytics</h1>
-              <p className="text-gray-600">View detailed analytics and reports.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
-                Refresh
-              </Button>
-            </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Analytics</h1>
+            <p className="text-gray-600">View detailed analytics and reports.</p>
           </div>
-        </motion.header>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
+              Refresh
+            </Button>
+          </div>
+        </div>
+      </motion.header>
 
-        <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 gap-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <Card className="border-0 shadow-md rounded-lg bg-white">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold mb-0">User Growth</CardTitle>
-              <CardDescription className="text-xs text-gray-500">Monthly trends for users, interns, and applications</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={displayChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="users" stroke="#8884d8" activeDot={{ r: 8 }} />
-                  <Line type="monotone" dataKey="interns" stroke="#82ca9d" />
-                  <Line type="monotone" dataKey="applications" stroke="#ffc658" />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+      <motion.div 
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        <Card className="border-0 shadow-md rounded-lg bg-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold mb-0">User Growth</CardTitle>
+            <CardDescription className="text-xs text-gray-500">Monthly trends for users, interns, and applications</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={displayChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="users" stroke="#8884d8" activeDot={{ r: 8 }} />
+                <Line type="monotone" dataKey="interns" stroke="#82ca9d" />
+                <Line type="monotone" dataKey="applications" stroke="#ffc658" />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-          <Card className="border-0 shadow-md rounded-lg bg-white">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold mb-0">User Distribution</CardTitle>
-              <CardDescription className="text-xs text-gray-500">Breakdown by user type</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie data={displayUserDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8" label>
-                    {displayUserDistribution.map((entry: { name: string; value: number; color: string }, index: number) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </motion.div>
+        <Card className="border-0 shadow-md rounded-lg bg-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold mb-0">User Distribution</CardTitle>
+            <CardDescription className="text-xs text-gray-500">Breakdown by user type</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie data={displayUserDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8" label>
+                  {displayUserDistribution.map((entry: { name: string; value: number; color: string }, index: number) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       </motion.div>
-    </AdminLayout>
+    </motion.div>
   )
 }

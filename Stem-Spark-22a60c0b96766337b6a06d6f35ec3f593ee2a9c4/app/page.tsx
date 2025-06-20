@@ -74,7 +74,7 @@ export default function HomePage() {
               </button>
               <button
                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg hover:shadow-xl"
-                onClick={() => window.location.href = isLoggedIn ? "/dashboard" : "/sign%20up"}
+                onClick={() => window.location.href = isLoggedIn ? "/dashboard" : "/sign up"}
               >
                 Get Started
               </button>
@@ -124,7 +124,7 @@ export default function HomePage() {
                 <button className="flex-1 border border-blue-600 text-blue-600 py-3 rounded-full hover:bg-blue-50 transition-colors" onClick={() => window.location.href = '/login'}>
                   Sign In
                 </button>
-                <button className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium" onClick={() => window.location.href = isLoggedIn ? "/dashboard" : "/sign%20up"}>
+                <button className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium" onClick={() => window.location.href = isLoggedIn ? "/dashboard" : "/sign up"}>
                   Get Started
                 </button>
               </div>

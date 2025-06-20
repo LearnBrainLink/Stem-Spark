@@ -36,7 +36,7 @@ export const CTASection: React.FC = () => {
           Join thousands of students who are already building tomorrow's innovations today.
         </p>
         <div className="flex flex-col sm:flex-row gap-6 justify-center">
-          <button className="group relative bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold px-12 py-6 rounded-full text-xl shadow-2xl hover:shadow-yellow-500/25 transition-all duration-300 hover:scale-105 transform">
+          <button className="group relative bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold px-12 py-6 rounded-full text-xl shadow-2xl hover:shadow-yellow-500/25 transition-all duration-300 hover:scale-105 transform" onClick={() => window.location.href = '/sign up'}>
             <div className="absolute inset-0 bg-gradient-to-r from-yellow-300 to-orange-400 rounded-full blur opacity-70 group-hover:opacity-100 transition-opacity duration-300"></div>
             <div className="relative flex items-center justify-center">
               <GraduationCap className="mr-3 w-6 h-6" />

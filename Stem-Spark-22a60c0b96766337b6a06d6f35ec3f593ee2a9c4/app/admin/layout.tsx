@@ -107,7 +107,7 @@ export default function AdminLayout({
       >
         <div className="flex flex-col h-full">
           <motion.div 
-            className="flex items-center justify-between p-4 border-b border-gray-100"
+            className="flex items-center justify-between p-3 border-b border-gray-100"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
@@ -132,7 +132,7 @@ export default function AdminLayout({
             </button>
           </motion.div>
           
-          <nav className="flex-1 overflow-y-auto py-4 space-y-1">
+          <nav className="flex-1 overflow-y-auto py-3 space-y-1">
             {navigationItems.map((item, index) => {
               const isActive =
                 item.href === "/admin"
@@ -148,15 +148,15 @@ export default function AdminLayout({
                 >
                   <Link 
                     href={item.href}
-                    className={`flex items-center gap-3 px-6 py-3 rounded-lg mx-2 font-medium transition-all duration-200 hover:bg-[var(--novakinetix-light)] hover:text-[var(--novakinetix-primary)] hover:shadow-sm ${
+                    className={`flex items-center gap-3 px-5 py-2 rounded-lg mx-2 font-medium transition-all duration-200 group ${
                       isActive
-                        ? 'bg-[var(--novakinetix-primary)] text-white shadow-md' 
-                        : 'text-gray-700 hover:scale-105'
+                        ? 'bg-[hsl(var(--novakinetix-primary))] text-white shadow-md' 
+                        : 'text-gray-700 hover:bg-[hsl(var(--novakinetix-primary))] hover:text-white'
                     }`}
                     aria-current={isActive ? 'page' : undefined}
                     onClick={() => setSidebarOpen(false)}
                   >
-                    <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                    <item.icon className={`w-5 h-5 transition-colors duration-200 ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-white'}`} />
                     {item.title}
                   </Link>
                 </motion.div>
@@ -165,7 +165,7 @@ export default function AdminLayout({
           </nav>
           
           <motion.div 
-            className="p-4 mt-auto border-t border-gray-100"
+            className="p-3 mt-auto border-t border-gray-100"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
@@ -195,10 +195,9 @@ export default function AdminLayout({
         </motion.button>
         
         <motion.main 
-          className="p-6 pt-[90px] animate-fade-in"
+          className="p-5 pt-[80px] animate-fade-in container mx-auto"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
         >
           {children}
         </motion.main>

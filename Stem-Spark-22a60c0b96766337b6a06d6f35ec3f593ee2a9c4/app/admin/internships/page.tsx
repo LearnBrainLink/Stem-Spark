@@ -20,7 +20,6 @@ import { createInternship } from "@/lib/internship-actions"
 import { supabase } from "@/lib/supabase"
 import { Plus, Edit, Trash2, Users, Calendar } from "lucide-react"
 import Link from "next/link"
-import AdminLayout from '../layout'
 import { motion } from "framer-motion"
 
 interface Internship {
@@ -40,7 +39,7 @@ interface Internship {
   created_at: string
 }
 
-export default function InternshipsPage() {
+export function InternshipsPageContent() {
   const [internships, setInternships] = useState<Internship[]>([])
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -84,66 +83,70 @@ export default function InternshipsPage() {
   }
 
   return (
-    <AdminLayout>
-      <motion.div 
-        className="space-y-8 p-2 sm:p-4 lg:p-6"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
+    <motion.div 
+      className="space-y-8 p-2 sm:p-4 lg:p-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <motion.header
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <motion.header
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Internships</h1>
-              <p className="text-gray-600">Create and manage internship opportunities for students.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
-                Refresh
-              </Button>
-            </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Internships</h1>
+            <p className="text-gray-600">Create and manage internship opportunities for students.</p>
           </div>
-        </motion.header>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
+              Refresh
+            </Button>
+          </div>
+        </div>
+      </motion.header>
 
-        <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 gap-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          {internships.map((internship) => (
-            <Card key={internship.id} className="border-0 shadow-md rounded-lg bg-white">
-              <CardHeader className="pb-2">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-semibold mb-0 truncate">{internship.title}</CardTitle>
-                    <Badge className={internship.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>{internship.status}</Badge>
-                  </div>
-                  <CardDescription className="text-xs text-gray-500 truncate">
-                    {internship.company}
-                  </CardDescription>
+      <motion.div 
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        {internships.map((internship) => (
+          <Card key={internship.id} className="border-0 shadow-md rounded-lg bg-white">
+            <CardHeader className="pb-2">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-semibold mb-0 truncate">{internship.title}</CardTitle>
+                  <Badge className={internship.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>{internship.status}</Badge>
                 </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-1 text-xs">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3 text-gray-400" />
-                    <span>{formatDate(internship.start_date)} - {formatDate(internship.end_date)}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Users className="w-3 h-3 text-gray-400" />
-                    <span>{internship.current_participants}/{internship.max_participants} participants</span>
-                  </div>
+                <CardDescription className="text-xs text-gray-500 truncate">
+                  {internship.company}
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-1 text-xs">
+                <div className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-gray-400" />
+                  <span>{formatDate(internship.start_date)} - {formatDate(internship.end_date)}</span>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </motion.div>
+                <div className="flex items-center gap-1">
+                  <Users className="w-3 h-3 text-gray-400" />
+                  <span>{internship.current_participants}/{internship.max_participants} participants</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </motion.div>
-    </AdminLayout>
+    </motion.div>
   )
 }
+
+function InternshipsPageWrapper() {
+  return <InternshipsPageContent />;
+}
+
+export default InternshipsPageWrapper;

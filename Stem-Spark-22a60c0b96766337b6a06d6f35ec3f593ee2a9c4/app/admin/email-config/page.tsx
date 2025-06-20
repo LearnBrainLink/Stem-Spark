@@ -9,10 +9,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Settings, Mail, LinkIcon, CheckCircle, AlertTriangle, Copy, ExternalLink, Globe, Shield } from "lucide-react"
-import AdminLayout from '../layout'
 import { motion } from "framer-motion"
 
-export default function EmailConfigPage() {
+export function EmailConfigPageContent() {
   const [siteUrl, setSiteUrl] = useState("")
   const [supabaseUrl, setSupabaseUrl] = useState("")
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
@@ -78,57 +77,61 @@ export default function EmailConfigPage() {
   ]
 
   return (
-    <AdminLayout>
-      <motion.div 
-        className="space-y-8 p-2 sm:p-4 lg:p-6"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
+    <motion.div 
+      className="space-y-8 p-2 sm:p-4 lg:p-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <motion.header
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <motion.header
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Email Configuration</h1>
-              <p className="text-gray-600">Configure and test email settings for the platform.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
-                Refresh
-              </Button>
-            </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Email Configuration</h1>
+            <p className="text-gray-600">Configure and test email settings for the platform.</p>
           </div>
-        </motion.header>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
+              Refresh
+            </Button>
+          </div>
+        </div>
+      </motion.header>
 
-        <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 gap-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <Card className="border-0 shadow-md rounded-lg bg-white">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold mb-0">Site Configuration</CardTitle>
-              <CardDescription className="text-xs text-gray-500">Configure your site URLs for email redirects and callbacks</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-1 text-xs">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="site-url">Site URL</Label>
-                  <Input id="site-url" value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} placeholder="https://your-domain.com" className="text-xs px-2 py-1" />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="supabase-url">Supabase URL</Label>
-                  <Input id="supabase-url" value={supabaseUrl} onChange={(e) => setSupabaseUrl(e.target.value)} placeholder="https://your-project.supabase.co" className="text-xs px-2 py-1" />
-                </div>
+      <motion.div 
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        <Card className="border-0 shadow-md rounded-lg bg-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold mb-0">Site Configuration</CardTitle>
+            <CardDescription className="text-xs text-gray-500">Configure your site URLs for email redirects and callbacks</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="space-y-1 text-xs">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="site-url">Site URL</Label>
+                <Input id="site-url" value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} placeholder="https://your-domain.com" className="text-xs px-2 py-1" />
               </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="supabase-url">Supabase URL</Label>
+                <Input id="supabase-url" value={supabaseUrl} onChange={(e) => setSupabaseUrl(e.target.value)} placeholder="https://your-project.supabase.co" className="text-xs px-2 py-1" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
-    </AdminLayout>
+    </motion.div>
   )
 }
+
+function EmailConfigPageWrapper() {
+  return <EmailConfigPageContent />;
+}
+
+export default EmailConfigPageWrapper;

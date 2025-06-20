@@ -19,11 +19,10 @@ import {
 } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { supabase } from "@/lib/supabase"
-import { Search, Plus, Edit, Trash2, Users, Download, UserCheck, UserX, GraduationCap, Mail, Calendar, Eye, MoreHorizontal, RefreshCw, Shield } from "lucide-react"
+import { Search, Plus, Edit, Trash2, Users, Download, UserCheck, UserX, GraduationCap, Mail, Calendar, Eye, MoreHorizontal, RefreshCw, Shield, AlertTriangle } from "lucide-react"
 import { motion, AnimatePresence } from 'framer-motion'
 import { Skeleton } from "@/components/ui/skeleton"
 import { getUsersData } from '../actions'
-import AdminLayout from '../layout'
 
 interface User {
   id: string
@@ -53,7 +52,7 @@ const statusColors = {
   pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
 }
 
-export default function UserManagementPage() {
+export function UserManagementPageContent() {
   const [users, setUsers] = useState<User[]>([])
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -253,10 +252,11 @@ export default function UserManagementPage() {
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+    if (!dateString) return "N/A"
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     })
   }
 
@@ -265,163 +265,230 @@ export default function UserManagementPage() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.05 }}
-      whileHover={{ y: -2, scale: 1.01 }}
+      whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+      className="bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden"
     >
-      <Card className="shadow-md hover:shadow-lg transition-all duration-200 border-0 bg-gradient-to-br from-white to-gray-50">
-        <CardContent className="p-6">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-semibold text-lg">
-                  {user.full_name.charAt(0).toUpperCase()}
-                </span>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 text-lg">{user.full_name}</h3>
-                <p className="text-gray-600 text-sm flex items-center gap-1">
-                  <Mail className="w-3 h-3" />
-                  {user.email}
-                </p>
-                <p className="text-gray-500 text-xs flex items-center gap-1 mt-1">
-                  <Calendar className="w-3 h-3" />
-                  Joined {formatDate(user.created_at)}
-                </p>
-              </div>
+      <div className="p-5">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-4">
+            <div className="relative">
+              <Image
+                src={`https://i.pravatar.cc/150?u=${user.id}`}
+                alt={user.full_name}
+                width={48}
+                height={48}
+                className="rounded-full"
+              />
+              <span
+                className={`absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-white ${
+                  user.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
+                }`}
+              />
             </div>
-            <div className="flex items-center gap-2">
-              <Badge className={roleColors[user.role as keyof typeof roleColors] || 'bg-gray-100 text-gray-800'}>
-                {user.role}
-              </Badge>
-              <Badge className={statusColors[user.status]}>
-                {user.status}
-              </Badge>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
+            <div>
+              <CardTitle className="text-base font-bold text-gray-900">{user.full_name}</CardTitle>
+              <CardDescription className="text-sm text-gray-500">{user.email}</CardDescription>
             </div>
           </div>
-          
-          <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">
-            <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">
-              <Eye className="w-3 h-3 mr-1" />
-              View
-            </Button>
-            <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50">
-              <Edit className="w-3 h-3 mr-1" />
-              Edit
-            </Button>
-            <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50">
-              <Trash2 className="w-3 h-3 mr-1" />
-              Delete
-            </Button>
+          <Badge className={`${roleColors[user.role as keyof typeof roleColors] || statusColors.inactive} capitalize`}>
+            {user.role}
+          </Badge>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-gray-600">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="w-4 h-4 text-gray-400" />
+            <span>{user.school_name || 'N/A'}</span>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-gray-400" />
+            <span>{user.email_verified ? 'Verified' : 'Not Verified'}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-gray-400" />
+            <span>Joined: {formatDate(user.created_at)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Eye className="w-4 h-4 text-gray-400" />
+            <span>Last seen: {user.last_sign_in_at ? formatDate(user.last_sign_in_at) : 'N/A'}</span>
+          </div>
+        </div>
+      </div>
+      <div className="bg-gray-50 px-5 py-3 flex justify-end gap-2">
+        <Button variant="ghost" size="sm" onClick={() => setEditingUser(user)}>
+          <Edit className="w-4 h-4 mr-2" />
+          Edit
+        </Button>
+        <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDeleteUser(user.id)}>
+          <Trash2 className="w-4 h-4 mr-2" />
+          Delete
+        </Button>
+      </div>
     </motion.div>
-  )
+  );
 
   const UserCardSkeleton = ({ index }: { index: number }) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.05 }}
+      className="bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden"
     >
-      <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
-        <CardContent className="p-6">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-4">
-              <Skeleton className="w-12 h-12 rounded-full" />
-              <div>
-                <Skeleton className="h-6 w-32 mb-2" />
-                <Skeleton className="h-4 w-48 mb-1" />
-                <Skeleton className="h-3 w-24" />
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-6 w-16" />
-              <Skeleton className="h-6 w-16" />
-              <Skeleton className="h-8 w-8 rounded" />
+      <div className="p-5">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-4">
+            <Skeleton className="w-12 h-12 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-48" />
             </div>
           </div>
-          <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-8 w-16" />
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
-  )
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+          <Skeleton className="h-6 w-16 rounded-full" />
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-4">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-full" />
+        </div>
       </div>
-    )
-  }
+      <div className="bg-gray-50 px-5 py-3 flex justify-end gap-2">
+        <Skeleton className="h-8 w-20" />
+        <Skeleton className="h-8 w-24" />
+      </div>
+    </motion.div>
+  );
 
   return (
-    <AdminLayout>
-      <motion.div 
-        className="space-y-8 p-2 sm:p-4 lg:p-6"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
+    <motion.div 
+      className="space-y-8 p-2 sm:p-4 lg:p-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <motion.header
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <motion.header
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">User Management</h1>
-              <p className="text-gray-600">Manage user accounts and permissions.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
-                Refresh
-              </Button>
-            </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">User Management</h1>
+            <p className="text-gray-600">Manage all users, their roles, and permissions.</p>
           </div>
-        </motion.header>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={fetchUsers}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add User
+            </Button>
+            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={exportUsers}>
+              <Download className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+          </div>
+        </div>
+      </motion.header>
 
-        <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 gap-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          {users.map((user) => (
-            <Card key={user.id} className="border-0 shadow-md rounded-lg bg-white">
-              <CardHeader className="pb-2">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-semibold mb-0 truncate">{user.full_name}</CardTitle>
-                    <Badge className={user.role === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}>{user.role}</Badge>
-                  </div>
-                  <CardDescription className="text-xs text-gray-500 truncate">
-                    {user.email}
-                  </CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-1 text-xs">
-                  <div className="flex items-center gap-1">
-                    <Mail className="w-3 h-3 text-gray-400" />
-                    <span>{user.email}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3 text-gray-400" />
-                    <span>Joined on {formatDate(user.created_at)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </motion.div>
+      {/* Stats Cards */}
+      <motion.div 
+        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        {/* Stats cards can go here */}
       </motion.div>
-    </AdminLayout>
+
+      {/* Filters and Search */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+      >
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardContent className="p-4 flex flex-col sm:flex-row gap-4">
+            <div className="flex-grow">
+              <Label htmlFor="search" className="sr-only">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  id="search"
+                  placeholder="Search by name, email, or school"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="teacher">Teacher</SelectItem>
+                  <SelectItem value="student">Student</SelectItem>
+                  <SelectItem value="parent">Parent</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* User Grid */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+      >
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <UserCardSkeleton key={i} index={i} />
+            ))}
+          </div>
+        ) : error ? (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : filteredUsers.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredUsers.map((user, i) => (
+              <UserCard key={user.id} user={user} index={i} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No users found</h3>
+            <p className="text-gray-500">No users match your current filters.</p>
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
   )
 }
+
+function UserManagementPageWrapper() {
+  return <UserManagementPageContent />;
+}
+
+export default UserManagementPageWrapper;

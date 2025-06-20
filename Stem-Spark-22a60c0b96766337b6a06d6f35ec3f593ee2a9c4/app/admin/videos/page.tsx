@@ -21,10 +21,9 @@ import { Plus, Edit, Trash2, Play, Clock, Video as VideoIcon } from "lucide-reac
 import Link from "next/link"
 import Image from "next/image"
 import { Video, createVideo, updateVideo, deleteVideo, getVideos } from "@/app/actions"
-import AdminLayout from '../layout'
 import { motion } from "framer-motion"
 
-export default function VideosPage() {
+export function VideosPageContent() {
   const [videos, setVideos] = useState<Video[]>([])
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -44,7 +43,7 @@ export default function VideosPage() {
       // Map and filter to ensure only valid Video objects are set
       const validVideos = (Array.isArray(result.videos)
         ? result.videos.filter((v: any) => v && typeof v.id === "string" && typeof v.title === "string" && typeof v.video_url === "string")
-        : []) as Video[];
+        : []) as unknown as Video[];
       setVideos(validVideos)
     }
   }
@@ -105,62 +104,66 @@ export default function VideosPage() {
   }
 
   return (
-    <AdminLayout>
-      <motion.div 
-        className="space-y-8 p-2 sm:p-4 lg:p-6"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
+    <motion.div 
+      className="space-y-8 p-2 sm:p-4 lg:p-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <motion.header
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <motion.header
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Videos</h1>
-              <p className="text-gray-600">Manage and upload video content for the platform.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
-                Refresh
-              </Button>
-            </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight text-[var(--novakinetix-dark)]">Videos</h1>
+            <p className="text-gray-600">Manage and upload video content for the platform.</p>
           </div>
-        </motion.header>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
+              Refresh
+            </Button>
+          </div>
+        </div>
+      </motion.header>
 
-        <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 gap-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          {videos.map((video) => (
-            <Card key={video.id} className="border-0 shadow-md rounded-lg bg-white">
-              <CardHeader className="pb-2">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-semibold mb-0 truncate">{video.title}</CardTitle>
-                    <Badge className={video.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>{video.status}</Badge>
-                  </div>
-                  <CardDescription className="text-xs text-gray-500 truncate">
-                    {video.created_at}
-                  </CardDescription>
+      <motion.div 
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        {videos.map((video) => (
+          <Card key={video.id} className="border-0 shadow-md rounded-lg bg-white">
+            <CardHeader className="pb-1">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-semibold mb-0 truncate">{video.title}</CardTitle>
+                  <Badge className={video.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>{video.status}</Badge>
                 </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-1 text-xs">
-                  <div className="flex items-center gap-1">
-                    <VideoIcon className="w-3 h-3 text-gray-400" />
-                    <span>{video.description}</span>
-                  </div>
+                <CardDescription className="text-xs text-gray-500 truncate">
+                  {video.created_at}
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-1 text-xs">
+                <div className="flex items-center gap-1">
+                  <VideoIcon className="w-3 h-3 text-gray-400" />
+                  <span>{video.description}</span>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </motion.div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </motion.div>
-    </AdminLayout>
+    </motion.div>
   )
 }
+
+function VideosPageWrapper() {
+  return <VideosPageContent />;
+}
+
+export default VideosPageWrapper;

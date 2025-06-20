@@ -24,7 +24,7 @@ interface ContentItem {
   flagged_reason?: string
 }
 
-export function ContentModerationPageContent() {
+export default function ContentModerationPageContent() {
   const [contentItems, setContentItems] = useState<ContentItem[]>([])
   const [filteredItems, setFilteredItems] = useState<ContentItem[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -386,10 +386,4 @@ export function ContentModerationPageContent() {
       </motion.div>
     </motion.div>
   )
-}
-
-function ContentModerationPageWrapper() {
-  return <ContentModerationPageContent />;
-}
-
-export default ContentModerationPageWrapper;
+} 

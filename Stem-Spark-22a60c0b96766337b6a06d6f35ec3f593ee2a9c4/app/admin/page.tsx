@@ -36,10 +36,10 @@ const StatCard = ({ title, value, icon: Icon, description, color, bgColor, delay
     >
       <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 overflow-hidden group">
         <div className={`absolute top-0 left-0 w-full h-1 ${bgColor.replace('bg-', 'bg-gradient-to-r from-')} opacity-80`}></div>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardHeader className="flex flex-row items-center justify-between pb-1">
           <CardTitle className="text-sm font-semibold text-gray-700">{title}</CardTitle>
           <motion.div 
-            className={`p-3 rounded-xl ${bgColor} group-hover:scale-110 transition-transform duration-200`}
+            className={`p-2 rounded-xl ${bgColor} group-hover:scale-110 transition-transform duration-200`}
             whileHover={{ rotate: 5 }}
           >
             <Icon className={`w-6 h-6 ${color}`} />
@@ -54,7 +54,7 @@ const StatCard = ({ title, value, icon: Icon, description, color, bgColor, delay
           >
             {value}
           </motion.div>
-          <p className="text-sm text-gray-600 mb-2">{description}</p>
+          <p className="text-sm text-gray-600 mb-1">{description}</p>
           {trend && (
             <div className={`flex items-center text-xs ${trend.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
               <TrendingUp className="w-3 h-3 mr-1" />
@@ -327,14 +327,14 @@ export default function AdminDashboard() {
               <TrendingUp className="w-5 h-5 text-green-600" />
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={displayChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={displayChartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="users" stroke="#8884d8" activeDot={{ r: 8 }} />
+                  <Line type="monotone" dataKey="users" stroke="#8884d8" />
                   <Line type="monotone" dataKey="interns" stroke="#82ca9d" />
                   <Line type="monotone" dataKey="applications" stroke="#ffc658" />
                 </LineChart>
