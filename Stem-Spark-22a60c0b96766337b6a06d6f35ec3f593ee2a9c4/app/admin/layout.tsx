@@ -2,9 +2,8 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import {
   Users,
   Video,
@@ -18,13 +17,11 @@ import {
   X,
   Home,
   LogOut,
-  GraduationCap,
 } from "lucide-react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import Image from "next/image"
-import { supabase } from "@/lib/supabase"
-import { signOut } from "@/lib/enhanced-auth-actions"
+import { signOut } from "./actions"
 
 const navigationItems = [
   {
@@ -95,36 +92,7 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const [isSidebarOpen, setSidebarOpen] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const [signingOut, setSigningOut] = useState(false);
   const pathname = usePathname()
-  const router = useRouter();
-
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
-    }
-    getUser()
-  }, [])
-
-  const handleSignOut = async () => {
-    setSigningOut(true);
-    try {
-      const result = await signOut();
-      if (result?.redirectPath) {
-        router.push(result.redirectPath);
-      }
-    } catch (error) {
-      console.error("Sign out error:", error);
-    } finally {
-      setSigningOut(false);
-    }
-  }
-
-  const currentPage = navigationItems.find((item) => item.href === pathname)
 
   return (
     <div className="min-h-screen hero-gradient flex">
@@ -139,33 +107,41 @@ export default function AdminLayout({
               <X className="w-6 h-6 text-gray-600" />
             </button>
           </div>
-          <nav className="flex-1 overflow-y-auto py-4">
-            {navigationItems.map((item) => (
-              <Link key={item.href} href={item.href} legacyBehavior>
-                <a
-                  className={`flex items-center gap-3 px-6 py-3 rounded-lg mb-1 font-medium transition-all duration-200 hover:bg-[var(--novakinetix-light)] hover:text-[var(--novakinetix-primary)] ${
-                    pathname === item.href 
-                      ? 'bg-[var(--novakinetix-light)] text-[var(--novakinetix-primary)]' 
-                      : 'text-gray-700'
-                  }`}
-                  aria-current={pathname === item.href ? 'page' : undefined}
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <item.icon className="w-5 h-5" />
-                  {item.title}
-                </a>
-              </Link>
-            ))}
+          <nav className="flex-1 overflow-y-auto py-4 space-y-1">
+            {navigationItems.map((item) => {
+              const isActive =
+                item.href === "/admin"
+                  ? pathname === item.href
+                  : pathname.startsWith(item.href)
+
+              return (
+                <Link key={item.href} href={item.href} legacyBehavior>
+                  <a
+                    className={`flex items-center gap-3 px-6 py-3 rounded-lg mx-2 font-medium transition-all duration-200 hover:bg-[var(--novakinetix-light)] hover:text-[var(--novakinetix-primary)] ${
+                      isActive
+                        ? 'bg-[var(--novakinetix-light)] text-[var(--novakinetix-primary)] shadow-inner' 
+                        : 'text-gray-700'
+                    }`}
+                    aria-current={isActive ? 'page' : undefined}
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    {item.title}
+                  </a>
+                </Link>
+              )
+            })}
           </nav>
-          <div className="p-4 border-t border-gray-100">
-            <Button 
-              onClick={handleSignOut} 
-              className="w-full bg-[var(--novakinetix-primary)] hover:bg-[var(--novakinetix-accent)]" 
-              disabled={signingOut}
-            >
-              <LogOut className="w-5 h-5 mr-2" />
-              {signingOut ? 'Signing out...' : 'Sign Out'}
-            </Button>
+          <div className="p-4 mt-auto border-t border-gray-100">
+            <form action={signOut}>
+              <Button 
+                type="submit"
+                className="w-full bg-[var(--novakinetix-primary)] hover:bg-[var(--novakinetix-accent)]"
+              >
+                <LogOut className="w-5 h-5 mr-2" />
+                Sign Out
+              </Button>
+            </form>
           </div>
         </div>
       </aside>
