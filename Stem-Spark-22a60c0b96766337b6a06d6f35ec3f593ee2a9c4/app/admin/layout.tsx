@@ -93,17 +93,15 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const [isSidebarOpen, setSidebarOpen] = useState(false)
+  const [isSidebarOpen, setSidebarOpen] = useState(true)
   const pathname = usePathname()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[var(--novakinetix-light)] via-white to-[var(--novakinetix-light)] flex">
       {/* Sidebar */}
       <motion.aside 
-        className={`fixed md:static z-40 w-64 h-full bg-white/95 border-r border-gray-200 shadow-lg backdrop-blur-lg ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } md:translate-x-0`}
-        initial={{ x: -256 }}
+        className={`fixed md:static z-40 w-64 h-full bg-white/95 border-r border-gray-200 shadow-lg backdrop-blur-lg md:translate-x-0`}
+        initial={{ x: 0 }}
         animate={{ x: isSidebarOpen ? 0 : -256 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
       >
@@ -189,7 +187,7 @@ export default function AdminLayout({
       <div className="flex-1 min-h-screen">
         <motion.button 
           className="md:hidden fixed top-4 left-4 z-50 p-3 bg-white/95 rounded-full shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-200" 
-          onClick={() => setSidebarOpen(true)}
+          onClick={() => setSidebarOpen(!isSidebarOpen)}
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
         >
@@ -198,8 +196,8 @@ export default function AdminLayout({
         
         <motion.main 
           className="p-6 pt-[90px] animate-fade-in"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
         >
           {children}
