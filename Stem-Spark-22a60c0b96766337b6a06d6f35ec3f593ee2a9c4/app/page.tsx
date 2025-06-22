@@ -11,6 +11,7 @@ import { CTASection } from "../components/CTASection"
 import { VideoModal } from "../components/VideoModal"
 import { Menu, X } from "lucide-react"
 import { createClient } from "@supabase/supabase-js"
+import Link from "next/link"
 
 export default function HomePage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -66,18 +67,16 @@ export default function HomePage() {
               >
                 Contact
               </a>
-              <button
-                className="border border-blue-600 text-blue-600 px-6 py-2 rounded-full hover:bg-blue-50 transition-colors font-medium"
-                onClick={() => window.location.href = '/login'}
-              >
-                Sign In
-              </button>
-              <button
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg hover:shadow-xl"
-                onClick={() => window.location.href = isLoggedIn ? "/dashboard" : "/sign up"}
-              >
-                Get Started
-              </button>
+              <Link href="/login">
+                <button className="border border-blue-600 text-blue-600 px-6 py-2 rounded-full hover:bg-blue-50 transition-colors font-medium">
+                  Sign In
+                </button>
+              </Link>
+              <Link href={isLoggedIn ? "/dashboard" : "/sign%20up"}>
+                <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg hover:shadow-xl">
+                  Get Started
+                </button>
+              </Link>
             </div>
             {/* Mobile menu button */}
             <button
@@ -121,12 +120,16 @@ export default function HomePage() {
                 Contact
               </a>
               <div className="flex gap-3 pt-4">
-                <button className="flex-1 border border-blue-600 text-blue-600 py-3 rounded-full hover:bg-blue-50 transition-colors" onClick={() => window.location.href = '/login'}>
-                  Sign In
-                </button>
-                <button className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium" onClick={() => window.location.href = isLoggedIn ? "/dashboard" : "/sign up"}>
-                  Get Started
-                </button>
+                <Link href="/login">
+                  <button className="flex-1 border border-blue-600 text-blue-600 py-3 rounded-full hover:bg-blue-50 transition-colors">
+                    Sign In
+                  </button>
+                </Link>
+                <Link href={isLoggedIn ? "/dashboard" : "/sign%20up"}>
+                  <button className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium">
+                    Get Started
+                  </button>
+                </Link>
               </div>
             </div>
           </div>
@@ -207,32 +210,35 @@ export default function HomePage() {
                   href="#"
                   className="block text-gray-300 hover:text-white transition-colors"
                 >
-                  Accessibility
+                  Contact Us
                 </a>
                 <a
                   href="#"
                   className="block text-gray-300 hover:text-white transition-colors"
                 >
-                  Parent Portal
+                  Privacy Policy
                 </a>
                 <a
                   href="#"
                   className="block text-gray-300 hover:text-white transition-colors"
                 >
-                  Analytics
+                  Terms of Service
                 </a>
               </div>
             </div>
           </div>
-          <div className="border-t border-gray-800 mt-12 pt-8 text-center">
-            <p className="text-gray-400 text-lg">
-              © 2025 Novakinetix Academy. All rights reserved. Empowering future
-              innovators.
+          <div className="mt-12 pt-8 border-t border-gray-800 text-center">
+            <p className="text-gray-400">
+              © 2024 Novakinetix Academy. All rights reserved.
             </p>
           </div>
         </div>
       </footer>
-      <VideoModal isOpen={isVideoModalOpen} onClose={() => setIsVideoModalOpen(false)} />
+      {/* Video Modal */}
+      <VideoModal
+        isOpen={isVideoModalOpen}
+        onClose={() => setIsVideoModalOpen(false)}
+      />
     </div>
   )
 }

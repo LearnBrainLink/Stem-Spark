@@ -93,16 +93,16 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const [isSidebarOpen, setSidebarOpen] = useState(true)
+  const [isSidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex">
-      {/* Sidebar */}
+      {/* Sidebar - Always visible on desktop */}
       <motion.aside 
-        className={`fixed md:static z-40 w-64 h-screen bg-white/95 border-r border-gray-200 shadow-lg backdrop-blur-lg md:translate-x-0 ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } md:translate-x-0`}
+        className={`fixed md:static z-40 w-64 h-screen bg-white/95 border-r border-gray-200 shadow-lg backdrop-blur-lg ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
         initial={{ x: 0 }}
         animate={{ x: isSidebarOpen ? 0 : -256 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
@@ -194,7 +194,7 @@ export default function AdminLayout({
       )}
       
       {/* Main Content */}
-      <div className="flex-1 min-h-screen md:ml-0">
+      <div className="flex-1 min-h-screen md:ml-64">
         <motion.button 
           className="md:hidden fixed top-4 left-4 z-50 p-3 bg-white/95 rounded-full shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-200" 
           onClick={() => setSidebarOpen(!isSidebarOpen)}

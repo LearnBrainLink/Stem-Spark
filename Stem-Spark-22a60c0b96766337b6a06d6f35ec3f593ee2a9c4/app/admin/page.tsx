@@ -5,11 +5,26 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
-import { Users, Briefcase, Mail, DollarSign, TrendingUp, Shield, AlertCircle, CheckCircle, Clock, Award, Target, Zap, UserCheck, BarChart3 } from "lucide-react";
+import { Users, Briefcase, Mail, DollarSign, TrendingUp, Shield, AlertCircle, CheckCircle, Clock, Award, Target, Zap, UserCheck, BarChart3, Download, FileText } from "lucide-react";
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
-import { getDashboardStats, getAnalyticsData } from './actions';
+import { getDashboardStats, getAnalyticsData, generateReport } from './actions';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // --- COMPONENTS ---
 
@@ -113,6 +128,10 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [isSampleData, setIsSampleData] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'loading' | 'connected' | 'error'>('loading');
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [selectedReportType, setSelectedReportType] = useState('comprehensive');
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [reportData, setReportData] = useState<any>(null);
 
   useEffect(() => {
     async function fetchStats() {
@@ -169,6 +188,32 @@ export default function AdminDashboard() {
 
     fetchChartData();
   }, []);
+
+  const handleGenerateReport = async () => {
+    try {
+      setIsGeneratingReport(true);
+      const result = await generateReport(selectedReportType);
+      
+      if (result.error) {
+        setError(result.error);
+      } else if (result.report) {
+        setReportData(result.report);
+        // Download the report as JSON
+        const dataStr = JSON.stringify(result.report, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${selectedReportType}_report_${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      setError('Failed to generate report');
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
 
   const numberFormatter = new Intl.NumberFormat('en-US');
   const currencyFormatter = new Intl.NumberFormat('en-US', {
@@ -247,14 +292,60 @@ export default function AdminDashboard() {
             >
               Refresh Data
             </Button>
-            <Button className="bg-[hsl(var(--novakinetix-primary))] text-white hover:bg-[hsl(var(--novakinetix-dark))]">
-              Generate Report
-            </Button>
+            <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-[hsl(var(--novakinetix-primary))] text-white hover:bg-[hsl(var(--novakinetix-dark))]">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Generate Report
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Generate Report</DialogTitle>
+                  <DialogDescription>
+                    Select a report type to generate and download.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium">Report Type</label>
+                    <Select value={selectedReportType} onValueChange={setSelectedReportType}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="comprehensive">Comprehensive Report</SelectItem>
+                        <SelectItem value="user_analytics">User Analytics</SelectItem>
+                        <SelectItem value="internship_analytics">Internship Analytics</SelectItem>
+                        <SelectItem value="revenue_analytics">Revenue Analytics</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button 
+                    onClick={handleGenerateReport}
+                    disabled={isGeneratingReport}
+                    className="w-full"
+                  >
+                    {isGeneratingReport ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4 mr-2" />
+                        Generate & Download
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </motion.header>
 
-          {/* Stats Grid */}
+      {/* Stats Grid */}
       <motion.div 
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
         initial={{ opacity: 0, y: 20 }}
@@ -310,7 +401,7 @@ export default function AdminDashboard() {
             ))
           )}
         </AnimatePresence>
-          </motion.div>
+      </motion.div>
 
       {/* Charts Section */}
       <motion.div 
@@ -323,55 +414,73 @@ export default function AdminDashboard() {
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg font-semibold text-gray-800">User Growth</CardTitle>
             <TrendingUp className="w-5 h-5 text-green-600" />
-                  </CardHeader>
-                  <CardContent>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={displayChartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="name" stroke="#666" />
-                <YAxis stroke="#666" />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'white', 
-                    border: '1px solid #e2e8f0', 
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                  }} 
-                />
-                <Legend />
-                <Line type="monotone" dataKey="users" stroke="#3B82F6" strokeWidth={2} />
-                <Line type="monotone" dataKey="interns" stroke="#10B981" strokeWidth={2} />
-                <Line type="monotone" dataKey="applications" stroke="#F59E0B" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-                  </CardContent>
+          </CardHeader>
+          <CardContent>
+            {displayChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={displayChartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="name" stroke="#666" />
+                  <YAxis stroke="#666" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #e2e8f0', 
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }} 
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="users" stroke="#3B82F6" strokeWidth={2} />
+                  <Line type="monotone" dataKey="interns" stroke="#10B981" strokeWidth={2} />
+                  <Line type="monotone" dataKey="applications" stroke="#F59E0B" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <BarChart3 className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p>No chart data available</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
         </Card>
 
         <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg font-semibold text-gray-800">User Distribution</CardTitle>
             <Users className="w-5 h-5 text-blue-600" />
-              </CardHeader>
-              <CardContent>
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie 
-                  data={displayUserDistribution} 
-                  dataKey="value" 
-                  nameKey="name" 
-                  cx="50%" 
-                  cy="50%" 
-                  outerRadius={80} 
-                  fill="#8884d8" 
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                >
-                  {displayUserDistribution.map((entry: { name: string; value: number; color: string }, index: number) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+          </CardHeader>
+          <CardContent>
+            {displayUserDistribution.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie 
+                    data={displayUserDistribution} 
+                    dataKey="value" 
+                    nameKey="name" 
+                    cx="50%" 
+                    cy="50%" 
+                    outerRadius={80} 
+                    fill="#8884d8" 
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {displayUserDistribution.map((entry: { name: string; value: number; color: string }, index: number) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p>No user data available</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>
@@ -416,10 +525,10 @@ export default function AdminDashboard() {
                   <span className="text-sm">Analytics</span>
                 </Button>
               </Link>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Database Status Warning */}
       {isSampleData && (
@@ -451,9 +560,9 @@ export default function AdminDashboard() {
                 </Button>
               </div>
             </div>
-              </div>
-            </motion.div>
-          )}
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }

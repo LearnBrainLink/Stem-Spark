@@ -509,4 +509,199 @@ export async function getConfigurationData() {
       }
     }
   }
+}
+
+export async function generateReport(reportType: string) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    console.log('📊 Generating report:', reportType)
+
+    let reportData: any = {
+      generated_at: new Date().toISOString(),
+      report_type: reportType,
+      data: {}
+    }
+
+    switch (reportType) {
+      case 'user_analytics':
+        // Get user statistics
+        const { data: userData, error: usersError } = await supabase
+          .from('profiles')
+          .select('role, created_at, email_verified')
+          .order('created_at', { ascending: false })
+
+        if (!usersError && userData) {
+          const totalUsers = userData.length
+          const verifiedUsers = userData.filter((u: any) => u.email_verified).length
+          const students = userData.filter((u: any) => u.role === 'student').length
+          const teachers = userData.filter((u: any) => u.role === 'teacher').length
+          const admins = userData.filter((u: any) => u.role === 'admin').length
+
+          // Monthly growth
+          const now = new Date()
+          const months = []
+          for (let i = 11; i >= 0; i--) {
+            const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1)
+            const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
+            const monthName = monthStart.toLocaleString('default', { month: 'short', year: 'numeric' })
+            
+            const usersInMonth = userData.filter((user: any) => {
+              const userDate = new Date(user.created_at)
+              return userDate >= monthStart && userDate <= monthEnd
+            }).length
+            
+            months.push({ month: monthName, users: usersInMonth })
+          }
+
+          reportData.data = {
+            total_users: totalUsers,
+            verified_users: verifiedUsers,
+            verification_rate: totalUsers > 0 ? Math.round((verifiedUsers / totalUsers) * 100) : 0,
+            role_distribution: {
+              students,
+              teachers,
+              admins,
+              others: totalUsers - students - teachers - admins
+            },
+            monthly_growth: months
+          }
+        }
+        break
+
+      case 'internship_analytics':
+        // Get internship statistics
+        const { data: internshipData, error: internshipsError } = await supabase
+          .from('internships')
+          .select('*')
+          .order('created_at', { ascending: false })
+
+        const { data: applicationData, error: applicationsError } = await supabase
+          .from('internship_applications')
+          .select('*')
+          .order('applied_at', { ascending: false })
+
+        if (!internshipsError && !applicationsError) {
+          const totalInternships = internshipData?.length || 0
+          const activeInternships = internshipData?.filter((i: any) => i.status === 'active').length || 0
+          const totalApplications = applicationData?.length || 0
+          const pendingApplications = applicationData?.filter((a: any) => a.status === 'pending').length || 0
+          const approvedApplications = applicationData?.filter((a: any) => a.status === 'approved').length || 0
+
+          reportData.data = {
+            total_internships: totalInternships,
+            active_internships: activeInternships,
+            total_applications: totalApplications,
+            application_stats: {
+              pending: pendingApplications,
+              approved: approvedApplications,
+              rejected: totalApplications - pendingApplications - approvedApplications
+            },
+            average_applications_per_internship: totalInternships > 0 ? Math.round(totalApplications / totalInternships) : 0
+          }
+        }
+        break
+
+      case 'revenue_analytics':
+        // Get donation statistics
+        const { data: donationData, error: donationsError } = await supabase
+          .from('donations')
+          .select('*')
+          .order('created_at', { ascending: false })
+
+        if (!donationsError && donationData) {
+          const totalDonations = donationData.length
+          const completedDonations = donationData.filter((d: any) => d.status === 'completed')
+          const totalRevenue = completedDonations.reduce((sum: number, d: any) => sum + (d.amount || 0), 0)
+          const averageDonation = completedDonations.length > 0 ? totalRevenue / completedDonations.length : 0
+
+          // Monthly revenue
+          const now = new Date()
+          const months = []
+          for (let i = 11; i >= 0; i--) {
+            const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1)
+            const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
+            const monthName = monthStart.toLocaleString('default', { month: 'short', year: 'numeric' })
+            
+            const monthDonations = completedDonations.filter((donation: any) => {
+              const donationDate = new Date(donation.created_at)
+              return donationDate >= monthStart && donationDate <= monthEnd
+            })
+            
+            const monthRevenue = monthDonations.reduce((sum: number, d: any) => sum + (d.amount || 0), 0)
+            months.push({ month: monthName, revenue: monthRevenue, donations: monthDonations.length })
+          }
+
+          reportData.data = {
+            total_donations: totalDonations,
+            completed_donations: completedDonations.length,
+            total_revenue: totalRevenue,
+            average_donation: averageDonation,
+            monthly_revenue: months
+          }
+        }
+        break
+
+      case 'comprehensive':
+        // Generate comprehensive report with all data
+        const [usersResult, internshipsResult, applicationsResult, donationsResult] = await Promise.all([
+          supabase.from('profiles').select('*'),
+          supabase.from('internships').select('*'),
+          supabase.from('internship_applications').select('*'),
+          supabase.from('donations').select('*')
+        ])
+
+        const allUsers = usersResult.data || []
+        const allInternships = internshipsResult.data || []
+        const allApplications = applicationsResult.data || []
+        const allDonations = donationsResult.data || []
+
+        const totalRevenue = allDonations
+          .filter((d: any) => d.status === 'completed')
+          .reduce((sum: number, d: any) => sum + (d.amount || 0), 0)
+
+        reportData.data = {
+          summary: {
+            total_users: allUsers.length,
+            total_internships: allInternships.length,
+            total_applications: allApplications.length,
+            total_revenue: totalRevenue
+          },
+          user_breakdown: {
+            students: allUsers.filter((u: any) => u.role === 'student').length,
+            teachers: allUsers.filter((u: any) => u.role === 'teacher').length,
+            admins: allUsers.filter((u: any) => u.role === 'admin').length,
+            verified: allUsers.filter((u: any) => u.email_verified).length
+          },
+          internship_breakdown: {
+            active: allInternships.filter((i: any) => i.status === 'active').length,
+            inactive: allInternships.filter((i: any) => i.status === 'inactive').length,
+            draft: allInternships.filter((i: any) => i.status === 'draft').length
+          },
+          application_breakdown: {
+            pending: allApplications.filter((a: any) => a.status === 'pending').length,
+            approved: allApplications.filter((a: any) => a.status === 'approved').length,
+            rejected: allApplications.filter((a: any) => a.status === 'rejected').length
+          }
+        }
+        break
+
+      default:
+        throw new Error('Invalid report type')
+    }
+
+    console.log('✅ Report generated successfully')
+
+    return {
+      error: null,
+      report: reportData
+    }
+  } catch (error) {
+    console.error('💥 Error generating report:', error)
+    return {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      report: null
+    }
+  }
 } 

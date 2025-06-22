@@ -1,427 +1,147 @@
--- Complete Admin Database Setup for Novakinetix Academy
--- This script creates all necessary tables and policies for the admin functionality
--- while maintaining compatibility with existing sign-up functionality
+-- Complete Admin Dashboard Setup Script
+-- This script creates all necessary tables, policies, and sample data for the admin dashboard
 
--- ============================================================================
--- CORE TABLES (Maintained from original setup-database.sql)
--- ============================================================================
+-- Enable necessary extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Create profiles table (enhanced with additional fields)
-CREATE TABLE IF NOT EXISTS profiles (
-  id UUID REFERENCES auth.users ON DELETE CASCADE,
-  email TEXT,
-  full_name TEXT,
-  role TEXT DEFAULT 'student' CHECK (role IN ('student', 'teacher', 'parent', 'admin')),
-  grade INTEGER,
-  school_name TEXT,
-  country TEXT,
-  state TEXT,
-  email_verified BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  PRIMARY KEY (id)
+-- Drop existing tables if they exist (in correct order due to foreign keys)
+DROP TABLE IF EXISTS site_configuration CASCADE;
+DROP TABLE IF EXISTS user_activities CASCADE;
+DROP TABLE IF EXISTS internship_applications CASCADE;
+DROP TABLE IF EXISTS donations CASCADE;
+DROP TABLE IF EXISTS user_progress CASCADE;
+DROP TABLE IF EXISTS videos CASCADE;
+DROP TABLE IF EXISTS internships CASCADE;
+DROP TABLE IF EXISTS applications CASCADE;
+DROP TABLE IF EXISTS profiles CASCADE;
+
+-- Create profiles table
+CREATE TABLE profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email TEXT UNIQUE NOT NULL,
+    full_name TEXT,
+    avatar_url TEXT,
+    role TEXT DEFAULT 'student' CHECK (role IN ('student', 'teacher', 'admin')),
+    email_verified BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create donations table
-CREATE TABLE IF NOT EXISTS donations (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id),
-  amount DECIMAL(10,2) NOT NULL,
-  currency TEXT DEFAULT 'USD',
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed', 'refunded')),
-  stripe_payment_intent_id TEXT,
-  donor_name TEXT,
-  donor_email TEXT,
-  message TEXT,
-  is_anonymous BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- Create applications table
+CREATE TABLE applications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- Create email_templates table
-CREATE TABLE IF NOT EXISTS email_templates (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  name TEXT UNIQUE NOT NULL,
-  subject TEXT NOT NULL,
-  html_content TEXT NOT NULL,
-  text_content TEXT,
-  variables JSONB DEFAULT '{}',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Create user_progress table
-CREATE TABLE IF NOT EXISTS user_progress (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id),
-  course_id TEXT NOT NULL,
-  lesson_id TEXT NOT NULL,
-  completed BOOLEAN DEFAULT FALSE,
-  score INTEGER,
-  completed_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(user_id, course_id, lesson_id)
-);
-
--- ============================================================================
--- ADMIN-SPECIFIC TABLES
--- ============================================================================
 
 -- Create internships table
-CREATE TABLE IF NOT EXISTS internships (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  company TEXT NOT NULL,
-  location TEXT,
-  duration TEXT,
-  requirements TEXT,
-  application_deadline TIMESTAMP WITH TIME ZONE,
-  start_date TIMESTAMP WITH TIME ZONE,
-  end_date TIMESTAMP WITH TIME ZONE,
-  max_participants INTEGER DEFAULT 1,
-  current_participants INTEGER DEFAULT 0,
-  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'draft', 'completed')),
-  created_by UUID REFERENCES auth.users(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Create internship_applications table
-CREATE TABLE IF NOT EXISTS internship_applications (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  internship_id UUID REFERENCES internships(id) ON DELETE CASCADE,
-  student_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  application_text TEXT,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'withdrawn')),
-  applied_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(internship_id, student_id)
+CREATE TABLE internships (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title TEXT NOT NULL,
+    description TEXT,
+    requirements TEXT,
+    duration TEXT,
+    location TEXT,
+    salary_range TEXT,
+    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'draft')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Create videos table
-CREATE TABLE IF NOT EXISTS videos (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  video_url TEXT NOT NULL,
-  thumbnail_url TEXT,
-  duration INTEGER DEFAULT 0,
-  category TEXT NOT NULL,
-  grade_level INTEGER NOT NULL,
-  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'draft')),
-  created_by UUID REFERENCES auth.users(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE videos (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title TEXT NOT NULL,
+    description TEXT,
+    url TEXT NOT NULL,
+    thumbnail_url TEXT,
+    duration INTEGER,
+    category TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create user_activities table for logging
-CREATE TABLE IF NOT EXISTS user_activities (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  activity_type TEXT NOT NULL,
-  activity_description TEXT,
-  metadata JSONB DEFAULT '{}',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- Create user_progress table
+CREATE TABLE user_progress (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    video_id UUID REFERENCES videos(id) ON DELETE CASCADE,
+    progress_percentage INTEGER DEFAULT 0,
+    completed BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create applications table (alternative to internship_applications for compatibility)
-CREATE TABLE IF NOT EXISTS applications (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  student_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  internship_id UUID REFERENCES internships(id) ON DELETE CASCADE,
-  student_statement TEXT,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'withdrawn')),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(internship_id, student_id)
+-- Create donations table
+CREATE TABLE donations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    amount DECIMAL(10,2) NOT NULL,
+    currency TEXT DEFAULT 'USD',
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
+    payment_method TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create configuration table for site settings
-CREATE TABLE IF NOT EXISTS site_configuration (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  key TEXT UNIQUE NOT NULL,
-  value TEXT,
-  description TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- Create internship_applications table
+CREATE TABLE internship_applications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    internship_id UUID REFERENCES internships(id) ON DELETE CASCADE,
+    cover_letter TEXT,
+    resume_url TEXT,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    applied_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================================================
--- DEFAULT DATA
--- ============================================================================
+-- Create user_activities table
+CREATE TABLE user_activities (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    activity_type TEXT NOT NULL,
+    description TEXT,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
--- Insert default configuration values
-INSERT INTO site_configuration (key, value, description) VALUES
-  ('site_url', 'http://localhost:3000', 'Main site URL for email redirects'),
-  ('supabase_url', '', 'Supabase project URL'),
-  ('email_enabled', 'true', 'Whether email functionality is enabled'),
-  ('maintenance_mode', 'false', 'Whether the site is in maintenance mode')
-ON CONFLICT (key) DO NOTHING;
-
--- ============================================================================
--- ROW LEVEL SECURITY
--- ============================================================================
-
--- Enable Row Level Security on all tables
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE donations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_progress ENABLE ROW LEVEL SECURITY;
-ALTER TABLE internships ENABLE ROW LEVEL SECURITY;
-ALTER TABLE internship_applications ENABLE ROW LEVEL SECURITY;
-ALTER TABLE videos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_activities ENABLE ROW LEVEL SECURITY;
-ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
-ALTER TABLE site_configuration ENABLE ROW LEVEL SECURITY;
-
--- ============================================================================
--- SECURITY POLICIES
--- ============================================================================
-
--- Profiles policies
-CREATE POLICY "Users can view own profile" ON profiles
-  FOR SELECT USING (auth.uid() = id);
-
-CREATE POLICY "Users can update own profile" ON profiles
-  FOR UPDATE USING (auth.uid() = id);
-
-CREATE POLICY "Users can insert own profile" ON profiles
-  FOR INSERT WITH CHECK (auth.uid() = id);
-
-CREATE POLICY "Admins can view all profiles" ON profiles
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
-CREATE POLICY "Admins can update all profiles" ON profiles
-  FOR UPDATE USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
--- Donations policies
-CREATE POLICY "Users can view own donations" ON donations
-  FOR SELECT USING (auth.uid() = user_id OR user_id IS NULL);
-
-CREATE POLICY "Users can insert own donations" ON donations
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Admins can view all donations" ON donations
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
--- User progress policies
-CREATE POLICY "Users can view own progress" ON user_progress
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own progress" ON user_progress
-  FOR ALL USING (auth.uid() = user_id);
-
-CREATE POLICY "Admins can view all progress" ON user_progress
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
--- Internships policies
-CREATE POLICY "Anyone can view active internships" ON internships
-  FOR SELECT USING (status = 'active');
-
-CREATE POLICY "Admins can view all internships" ON internships
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
-CREATE POLICY "Admins can insert internships" ON internships
-  FOR INSERT WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
-CREATE POLICY "Admins can update internships" ON internships
-  FOR UPDATE USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
-CREATE POLICY "Admins can delete internships" ON internships
-  FOR DELETE USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
--- Internship applications policies
-CREATE POLICY "Users can view own applications" ON internship_applications
-  FOR SELECT USING (auth.uid() = student_id);
-
-CREATE POLICY "Users can insert own applications" ON internship_applications
-  FOR INSERT WITH CHECK (auth.uid() = student_id);
-
-CREATE POLICY "Users can update own applications" ON internship_applications
-  FOR UPDATE USING (auth.uid() = student_id);
-
-CREATE POLICY "Admins can view all applications" ON internship_applications
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
-CREATE POLICY "Admins can update all applications" ON internship_applications
-  FOR UPDATE USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
--- Videos policies
-CREATE POLICY "Anyone can view active videos" ON videos
-  FOR SELECT USING (status = 'active');
-
-CREATE POLICY "Admins can view all videos" ON videos
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
-CREATE POLICY "Admins can insert videos" ON videos
-  FOR INSERT WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
-CREATE POLICY "Admins can update videos" ON videos
-  FOR UPDATE USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
-CREATE POLICY "Admins can delete videos" ON videos
-  FOR DELETE USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
--- User activities policies
-CREATE POLICY "Users can view own activities" ON user_activities
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own activities" ON user_activities
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Admins can view all activities" ON user_activities
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
--- Applications (alternative) policies
-CREATE POLICY "Users can view own applications alt" ON applications
-  FOR SELECT USING (auth.uid() = student_id);
-
-CREATE POLICY "Users can insert own applications alt" ON applications
-  FOR INSERT WITH CHECK (auth.uid() = student_id);
-
-CREATE POLICY "Users can update own applications alt" ON applications
-  FOR UPDATE USING (auth.uid() = student_id);
-
-CREATE POLICY "Admins can view all applications alt" ON applications
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
-CREATE POLICY "Admins can update all applications alt" ON applications
-  FOR UPDATE USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
--- Site configuration policies
-CREATE POLICY "Admins can view configuration" ON site_configuration
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
-CREATE POLICY "Admins can update configuration" ON site_configuration
-  FOR UPDATE USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
-CREATE POLICY "Admins can insert configuration" ON site_configuration
-  FOR INSERT WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
--- ============================================================================
--- PERFORMANCE INDEXES
--- ============================================================================
+-- Create site_configuration table
+CREATE TABLE site_configuration (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    key TEXT UNIQUE NOT NULL,
+    value TEXT,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
 -- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
-CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email);
-CREATE INDEX IF NOT EXISTS idx_donations_status ON donations(status);
-CREATE INDEX IF NOT EXISTS idx_donations_created_at ON donations(created_at);
-CREATE INDEX IF NOT EXISTS idx_internships_status ON internships(status);
-CREATE INDEX IF NOT EXISTS idx_internships_company ON internships(company);
-CREATE INDEX IF NOT EXISTS idx_internship_applications_status ON internship_applications(status);
-CREATE INDEX IF NOT EXISTS idx_internship_applications_student ON internship_applications(student_id);
-CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status);
-CREATE INDEX IF NOT EXISTS idx_videos_category ON videos(category);
-CREATE INDEX IF NOT EXISTS idx_user_activities_user ON user_activities(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_activities_type ON user_activities(activity_type);
-CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status);
-CREATE INDEX IF NOT EXISTS idx_applications_student ON applications(student_id);
+CREATE INDEX idx_profiles_email ON profiles(email);
+CREATE INDEX idx_profiles_role ON profiles(role);
+CREATE INDEX idx_profiles_created_at ON profiles(created_at);
+CREATE INDEX idx_applications_user_id ON applications(user_id);
+CREATE INDEX idx_applications_status ON applications(status);
+CREATE INDEX idx_internships_status ON internships(status);
+CREATE INDEX idx_internships_created_at ON internships(created_at);
+CREATE INDEX idx_videos_category ON videos(category);
+CREATE INDEX idx_user_progress_user_id ON user_progress(user_id);
+CREATE INDEX idx_donations_user_id ON donations(user_id);
+CREATE INDEX idx_donations_status ON donations(status);
+CREATE INDEX idx_donations_created_at ON donations(created_at);
+CREATE INDEX idx_internship_applications_user_id ON internship_applications(user_id);
+CREATE INDEX idx_internship_applications_internship_id ON internship_applications(internship_id);
+CREATE INDEX idx_internship_applications_status ON internship_applications(status);
+CREATE INDEX idx_user_activities_user_id ON user_activities(user_id);
+CREATE INDEX idx_user_activities_created_at ON user_activities(created_at);
+CREATE INDEX idx_site_configuration_key ON site_configuration(key);
 
--- ============================================================================
--- TRIGGERS AND FUNCTIONS
--- ============================================================================
-
--- Create function to update updated_at timestamp
+-- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -431,67 +151,301 @@ END;
 $$ language 'plpgsql';
 
 -- Create triggers for updated_at
-CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_applications_updated_at BEFORE UPDATE ON applications FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_internships_updated_at BEFORE UPDATE ON internships FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_videos_updated_at BEFORE UPDATE ON videos FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_user_progress_updated_at BEFORE UPDATE ON user_progress FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_donations_updated_at BEFORE UPDATE ON donations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_internship_applications_updated_at BEFORE UPDATE ON internship_applications FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_site_configuration_updated_at BEFORE UPDATE ON site_configuration FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_internships_updated_at BEFORE UPDATE ON internships
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- Enable Row Level Security (RLS)
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE internships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE videos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE donations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE internship_applications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_activities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE site_configuration ENABLE ROW LEVEL SECURITY;
 
-CREATE TRIGGER update_internship_applications_updated_at BEFORE UPDATE ON internship_applications
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- Create RLS policies for profiles
+CREATE POLICY "Users can view their own profile" ON profiles
+    FOR SELECT USING (auth.uid() = id);
 
-CREATE TRIGGER update_videos_updated_at BEFORE UPDATE ON videos
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE POLICY "Users can update their own profile" ON profiles
+    FOR UPDATE USING (auth.uid() = id);
 
-CREATE TRIGGER update_applications_updated_at BEFORE UPDATE ON applications
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE POLICY "Admins can view all profiles" ON profiles
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
 
-CREATE TRIGGER update_site_configuration_updated_at BEFORE UPDATE ON site_configuration
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- Create RLS policies for applications
+CREATE POLICY "Users can view their own applications" ON applications
+    FOR SELECT USING (auth.uid() = user_id);
 
--- Create function to create applications table if not exists (for compatibility)
-CREATE OR REPLACE FUNCTION create_applications_table_if_not_exists()
-RETURNS void AS $$
-BEGIN
-    -- This function is called from the application code for compatibility
-    -- The table is already created above, so this is just a placeholder
-    RETURN;
-END;
-$$ LANGUAGE plpgsql;
+CREATE POLICY "Users can create applications" ON applications
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- ============================================================================
--- VERIFICATION QUERIES
--- ============================================================================
+CREATE POLICY "Admins can view all applications" ON applications
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
 
--- Uncomment these queries to verify the setup
--- SELECT 'profiles' as table_name, COUNT(*) as row_count FROM profiles
--- UNION ALL
--- SELECT 'internships', COUNT(*) FROM internships
--- UNION ALL
--- SELECT 'videos', COUNT(*) FROM videos
--- UNION ALL
--- SELECT 'site_configuration', COUNT(*) FROM site_configuration;
+-- Create RLS policies for internships
+CREATE POLICY "Anyone can view active internships" ON internships
+    FOR SELECT USING (status = 'active');
 
--- SELECT 'RLS enabled tables:' as info;
--- SELECT schemaname, tablename FROM pg_tables 
--- WHERE schemaname = 'public' AND tablename IN (
---   'profiles', 'donations', 'user_progress', 'internships', 
---   'internship_applications', 'videos', 'user_activities', 
---   'applications', 'site_configuration'
--- );
+CREATE POLICY "Admins can manage all internships" ON internships
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
 
--- ============================================================================
--- SUCCESS MESSAGE
--- ============================================================================
+-- Create RLS policies for videos
+CREATE POLICY "Anyone can view videos" ON videos
+    FOR SELECT USING (true);
 
--- Note: This is a comment since SQL doesn't have PRINT statements like T-SQL
--- ✅ Complete admin database setup finished successfully!
--- 📋 Tables created: profiles, donations, user_progress, internships, internship_applications, videos, user_activities, applications, site_configuration
--- 🔒 RLS policies configured for all tables
--- 📊 Performance indexes created
--- ⚡ Triggers and functions configured
--- 
--- 🚀 Your admin dashboard should now work with full functionality!
--- 📧 Email configuration page will display actual site and Supabase URLs
--- 👥 User management, internships, applications, and videos are ready
--- 📈 Analytics and dashboard stats will show real data 
+CREATE POLICY "Admins can manage videos" ON videos
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+-- Create RLS policies for user_progress
+CREATE POLICY "Users can view their own progress" ON user_progress
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own progress" ON user_progress
+    FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own progress" ON user_progress
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Admins can view all progress" ON user_progress
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+-- Create RLS policies for donations
+CREATE POLICY "Users can view their own donations" ON donations
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create donations" ON donations
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Admins can view all donations" ON donations
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+-- Create RLS policies for internship_applications
+CREATE POLICY "Users can view their own applications" ON internship_applications
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create applications" ON internship_applications
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Admins can view all applications" ON internship_applications
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+-- Create RLS policies for user_activities
+CREATE POLICY "Users can view their own activities" ON user_activities
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "System can insert activities" ON user_activities
+    FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Admins can view all activities" ON user_activities
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+-- Create RLS policies for site_configuration
+CREATE POLICY "Admins can manage site configuration" ON site_configuration
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+-- Insert sample data for testing
+
+-- Insert sample profiles
+INSERT INTO profiles (id, email, full_name, role, email_verified) VALUES
+('11111111-1111-1111-1111-111111111111', 'admin@novakinetix.com', 'Admin User', 'admin', true),
+('22222222-2222-2222-2222-222222222222', 'teacher@novakinetix.com', 'Teacher User', 'teacher', true),
+('33333333-3333-3333-3333-333333333333', 'student@novakinetix.com', 'Student User', 'student', true),
+('44444444-4444-4444-4444-444444444444', 'student2@novakinetix.com', 'Another Student', 'student', false),
+('55555555-5555-5555-5555-555555555555', 'teacher2@novakinetix.com', 'Another Teacher', 'teacher', true);
+
+-- Insert sample internships
+INSERT INTO internships (title, description, requirements, duration, location, status) VALUES
+('Software Development Intern', 'Learn modern web development with React and Node.js', 'Basic JavaScript knowledge', '3 months', 'Remote', 'active'),
+('Data Science Intern', 'Work with real datasets and machine learning models', 'Python programming skills', '6 months', 'Hybrid', 'active'),
+('UI/UX Design Intern', 'Create beautiful user interfaces and user experiences', 'Design portfolio required', '4 months', 'On-site', 'active'),
+('Marketing Intern', 'Help promote our educational programs', 'Strong communication skills', '3 months', 'Remote', 'draft'),
+('Research Intern', 'Conduct research in emerging technologies', 'Academic background preferred', '6 months', 'On-site', 'inactive');
+
+-- Insert sample videos
+INSERT INTO videos (title, description, url, category, duration) VALUES
+('Introduction to React', 'Learn the basics of React development', 'https://example.com/react-intro', 'Programming', 1800),
+('Machine Learning Fundamentals', 'Understanding ML concepts and algorithms', 'https://example.com/ml-basics', 'Data Science', 2400),
+('UI Design Principles', 'Creating effective user interfaces', 'https://example.com/ui-design', 'Design', 1200),
+('Web Development Best Practices', 'Modern web development techniques', 'https://example.com/web-dev', 'Programming', 2100),
+('Data Visualization', 'Creating compelling data visualizations', 'https://example.com/data-viz', 'Data Science', 1800);
+
+-- Insert sample donations
+INSERT INTO donations (user_id, amount, status, payment_method) VALUES
+('33333333-3333-3333-3333-333333333333', 50.00, 'completed', 'credit_card'),
+('44444444-4444-4444-4444-444444444444', 25.00, 'completed', 'paypal'),
+('33333333-3333-3333-3333-333333333333', 100.00, 'completed', 'credit_card'),
+('55555555-5555-5555-5555-555555555555', 75.00, 'pending', 'bank_transfer'),
+('22222222-2222-2222-2222-222222222222', 200.00, 'completed', 'credit_card');
+
+-- Insert sample internship applications
+INSERT INTO internship_applications (user_id, internship_id, cover_letter, status) VALUES
+('33333333-3333-3333-3333-333333333333', (SELECT id FROM internships WHERE title = 'Software Development Intern' LIMIT 1), 'I am excited to apply for this position...', 'pending'),
+('44444444-4444-4444-4444-444444444444', (SELECT id FROM internships WHERE title = 'Data Science Intern' LIMIT 1), 'I have a strong background in Python...', 'approved'),
+('33333333-3333-3333-3333-333333333333', (SELECT id FROM internships WHERE title = 'UI/UX Design Intern' LIMIT 1), 'I am passionate about design...', 'rejected'),
+('55555555-5555-5555-5555-555555555555', (SELECT id FROM internships WHERE title = 'Marketing Intern' LIMIT 1), 'I have experience in digital marketing...', 'pending');
+
+-- Insert sample applications
+INSERT INTO applications (user_id, title, description, status) VALUES
+('33333333-3333-3333-3333-333333333333', 'General Application', 'I would like to join the academy', 'pending'),
+('44444444-4444-4444-4444-444444444444', 'Program Inquiry', 'Interested in advanced courses', 'approved'),
+('55555555-5555-5555-5555-555555555555', 'Partnership Request', 'Looking to collaborate on projects', 'pending');
+
+-- Insert sample user progress
+INSERT INTO user_progress (user_id, video_id, progress_percentage, completed) VALUES
+('33333333-3333-3333-3333-333333333333', (SELECT id FROM videos WHERE title = 'Introduction to React' LIMIT 1), 75, false),
+('33333333-3333-3333-3333-333333333333', (SELECT id FROM videos WHERE title = 'Machine Learning Fundamentals' LIMIT 1), 100, true),
+('44444444-4444-4444-4444-444444444444', (SELECT id FROM videos WHERE title = 'UI Design Principles' LIMIT 1), 50, false),
+('55555555-5555-5555-5555-555555555555', (SELECT id FROM videos WHERE title = 'Web Development Best Practices' LIMIT 1), 90, false);
+
+-- Insert sample user activities
+INSERT INTO user_activities (user_id, activity_type, description) VALUES
+('33333333-3333-3333-3333-333333333333', 'login', 'User logged in'),
+('33333333-3333-3333-3333-333333333333', 'video_watch', 'Watched Introduction to React'),
+('44444444-4444-4444-4444-444444444444', 'application_submit', 'Submitted internship application'),
+('55555555-5555-5555-5555-555555555555', 'donation', 'Made a donation of $75'),
+('22222222-2222-2222-2222-222222222222', 'login', 'Teacher logged in');
+
+-- Insert site configuration
+INSERT INTO site_configuration (key, value, description) VALUES
+('site_name', 'Novakinetix Academy', 'The name of the website'),
+('site_url', 'https://novakinetix-academy.vercel.app', 'The main website URL'),
+('supabase_url', 'https://your-project.supabase.co', 'Supabase project URL'),
+('contact_email', 'contact@novakinetix.com', 'Primary contact email'),
+('support_email', 'support@novakinetix.com', 'Support email address'),
+('max_file_size', '10485760', 'Maximum file upload size in bytes'),
+('allowed_file_types', 'jpg,jpeg,png,pdf,doc,docx', 'Allowed file types for uploads'),
+('maintenance_mode', 'false', 'Whether the site is in maintenance mode'),
+('registration_enabled', 'true', 'Whether new user registration is enabled'),
+('email_verification_required', 'true', 'Whether email verification is required for new users');
+
+-- Create views for admin dashboard analytics
+CREATE OR REPLACE VIEW admin_dashboard_stats AS
+SELECT 
+    (SELECT COUNT(*) FROM profiles) as total_users,
+    (SELECT COUNT(*) FROM profiles WHERE role = 'student') as total_students,
+    (SELECT COUNT(*) FROM profiles WHERE role = 'teacher') as total_teachers,
+    (SELECT COUNT(*) FROM profiles WHERE role = 'admin') as total_admins,
+    (SELECT COUNT(*) FROM profiles WHERE email_verified = true) as verified_users,
+    (SELECT COUNT(*) FROM internships WHERE status = 'active') as active_internships,
+    (SELECT COUNT(*) FROM internship_applications WHERE status = 'pending') as pending_applications,
+    (SELECT COUNT(*) FROM internship_applications WHERE status = 'approved') as approved_applications,
+    (SELECT COUNT(*) FROM donations WHERE status = 'completed') as completed_donations,
+    (SELECT COALESCE(SUM(amount), 0) FROM donations WHERE status = 'completed') as total_revenue,
+    (SELECT COUNT(*) FROM videos) as total_videos,
+    (SELECT COUNT(*) FROM user_progress WHERE completed = true) as completed_videos;
+
+-- Create view for user growth analytics
+CREATE OR REPLACE VIEW user_growth_analytics AS
+SELECT 
+    DATE_TRUNC('month', created_at) as month,
+    COUNT(*) as new_users,
+    COUNT(CASE WHEN role = 'student' THEN 1 END) as new_students,
+    COUNT(CASE WHEN role = 'teacher' THEN 1 END) as new_teachers,
+    COUNT(CASE WHEN role = 'admin' THEN 1 END) as new_admins
+FROM profiles 
+WHERE created_at >= NOW() - INTERVAL '12 months'
+GROUP BY DATE_TRUNC('month', created_at)
+ORDER BY month;
+
+-- Create view for revenue analytics
+CREATE OR REPLACE VIEW revenue_analytics AS
+SELECT 
+    DATE_TRUNC('month', created_at) as month,
+    COUNT(*) as total_donations,
+    COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_donations,
+    COALESCE(SUM(CASE WHEN status = 'completed' THEN amount ELSE 0 END), 0) as monthly_revenue,
+    COALESCE(AVG(CASE WHEN status = 'completed' THEN amount END), 0) as average_donation
+FROM donations 
+WHERE created_at >= NOW() - INTERVAL '12 months'
+GROUP BY DATE_TRUNC('month', created_at)
+ORDER BY month;
+
+-- Grant necessary permissions
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
+
+-- Grant permissions for views
+GRANT SELECT ON admin_dashboard_stats TO authenticated;
+GRANT SELECT ON user_growth_analytics TO authenticated;
+GRANT SELECT ON revenue_analytics TO authenticated;
+
+-- Verify setup
+SELECT 'Setup completed successfully!' as status;
+
+-- Show table counts for verification
+SELECT 
+    'profiles' as table_name, COUNT(*) as record_count FROM profiles
+UNION ALL
+SELECT 'internships', COUNT(*) FROM internships
+UNION ALL
+SELECT 'videos', COUNT(*) FROM videos
+UNION ALL
+SELECT 'donations', COUNT(*) FROM donations
+UNION ALL
+SELECT 'internship_applications', COUNT(*) FROM internship_applications
+UNION ALL
+SELECT 'applications', COUNT(*) FROM applications
+UNION ALL
+SELECT 'user_progress', COUNT(*) FROM user_progress
+UNION ALL
+SELECT 'user_activities', COUNT(*) FROM user_activities
+UNION ALL
+SELECT 'site_configuration', COUNT(*) FROM site_configuration;
+
+-- Show admin dashboard stats
+SELECT * FROM admin_dashboard_stats; 
