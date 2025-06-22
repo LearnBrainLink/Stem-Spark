@@ -254,7 +254,7 @@ export default function AdminDashboard() {
         </div>
       </motion.header>
 
-      {/* Stats Grid */}
+          {/* Stats Grid */}
       <motion.div 
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
         initial={{ opacity: 0, y: 20 }}
@@ -303,14 +303,14 @@ export default function AdminDashboard() {
                   </div>
                 </CardContent>
               </Card>
-            </motion.div>
+              </motion.div>
           ) : (
             statsData.map((stat, index) => (
               <StatCard key={stat.title} {...stat} delay={index * 0.1} />
             ))
           )}
         </AnimatePresence>
-      </motion.div>
+          </motion.div>
 
       {/* Charts Section */}
       <motion.div 
@@ -323,8 +323,8 @@ export default function AdminDashboard() {
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg font-semibold text-gray-800">User Growth</CardTitle>
             <TrendingUp className="w-5 h-5 text-green-600" />
-          </CardHeader>
-          <CardContent>
+                  </CardHeader>
+                  <CardContent>
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={displayChartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -344,15 +344,15 @@ export default function AdminDashboard() {
                 <Line type="monotone" dataKey="applications" stroke="#F59E0B" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
-          </CardContent>
+                  </CardContent>
         </Card>
 
         <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg font-semibold text-gray-800">User Distribution</CardTitle>
             <Users className="w-5 h-5 text-blue-600" />
-          </CardHeader>
-          <CardContent>
+              </CardHeader>
+              <CardContent>
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
                 <Pie 
@@ -416,10 +416,10 @@ export default function AdminDashboard() {
                   <span className="text-sm">Analytics</span>
                 </Button>
               </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
       {/* Database Status Warning */}
       {isSampleData && (
@@ -451,9 +451,9 @@ export default function AdminDashboard() {
                 </Button>
               </div>
             </div>
-          </div>
-        </motion.div>
-      )}
+              </div>
+            </motion.div>
+          )}
     </div>
   );
 }

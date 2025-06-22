@@ -52,7 +52,7 @@ export default function SettingsPage() {
     accentColor: '#8B5CF6',
     
     // System Settings
-    maintenanceMode: false,
+        maintenanceMode: false,
     debugMode: false,
     autoBackup: true,
     backupFrequency: 'daily'
@@ -178,8 +178,8 @@ export default function SettingsPage() {
             label="Site Name" 
             description="The name of your platform"
           >
-            <Input 
-              value={settings.siteName}
+                    <Input
+                      value={settings.siteName}
               onChange={(e) => handleSettingChange('siteName', e.target.value)}
               className="w-48"
             />
@@ -198,9 +198,9 @@ export default function SettingsPage() {
             label="Contact Email" 
             description="Primary contact email address"
           >
-            <Input 
-              type="email"
-              value={settings.contactEmail}
+                    <Input
+                      type="email"
+                      value={settings.contactEmail}
               onChange={(e) => handleSettingChange('contactEmail', e.target.value)}
               className="w-48"
             />
@@ -211,15 +211,15 @@ export default function SettingsPage() {
           >
             <Select value={settings.timezone} onValueChange={(value) => handleSettingChange('timezone', value)}>
               <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
                 <SelectItem value="UTC">UTC</SelectItem>
                 <SelectItem value="EST">Eastern Time</SelectItem>
                 <SelectItem value="PST">Pacific Time</SelectItem>
                 <SelectItem value="GMT">Greenwich Mean Time</SelectItem>
-              </SelectContent>
-            </Select>
+                        </SelectContent>
+                      </Select>
           </SettingItem>
         </SettingSection>
 
@@ -251,9 +251,9 @@ export default function SettingsPage() {
             label="Session Timeout (minutes)" 
             description="Automatic logout after inactivity"
           >
-            <Input 
-              type="number"
-              value={settings.sessionTimeout}
+                      <Input
+                        type="number"
+                        value={settings.sessionTimeout}
               onChange={(e) => handleSettingChange('sessionTimeout', parseInt(e.target.value))}
               className="w-24"
             />
@@ -290,7 +290,7 @@ export default function SettingsPage() {
             label="Push Notifications" 
             description="Send push notifications to mobile apps"
           >
-            <Switch 
+                  <Switch
               checked={settings.pushNotifications}
               onCheckedChange={(checked) => handleSettingChange('pushNotifications', checked)}
             />
@@ -336,7 +336,7 @@ export default function SettingsPage() {
                   Active
                 </Badge>
               )}
-            </div>
+                </div>
           </SettingItem>
           <SettingItem 
             label="Debug Mode" 
@@ -373,7 +373,7 @@ export default function SettingsPage() {
             </Select>
           </SettingItem>
         </SettingSection>
-      </div>
+                  </div>
 
       {/* Status Messages */}
       <AnimatePresence>
@@ -386,13 +386,13 @@ export default function SettingsPage() {
           >
             <div className="flex items-start gap-3">
               <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-              <div>
+                  <div>
                 <p className="text-green-800 font-medium mb-1">Settings Saved Successfully</p>
                 <p className="text-green-700 text-sm">
                   All configuration changes have been applied and saved.
                 </p>
-              </div>
-            </div>
+                  </div>
+                </div>
           </motion.div>
         )}
         
@@ -410,8 +410,8 @@ export default function SettingsPage() {
                 <p className="text-red-700 text-sm">
                   There was an error saving your settings. Please try again.
                 </p>
-              </div>
-            </div>
+                  </div>
+                </div>
           </motion.div>
         )}
       </AnimatePresence>

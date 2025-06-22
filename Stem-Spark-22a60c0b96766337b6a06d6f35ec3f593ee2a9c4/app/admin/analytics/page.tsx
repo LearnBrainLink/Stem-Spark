@@ -103,8 +103,8 @@ export default function AnalyticsPage() {
     >
       <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
         <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
+            <div className="flex items-center justify-between">
+              <div>
               <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
               <p className="text-2xl font-bold text-gray-900">{value}</p>
               {change && (
@@ -115,10 +115,10 @@ export default function AnalyticsPage() {
             </div>
             <div className={`p-3 rounded-xl ${color} bg-opacity-10`}>
               <Icon className={`w-6 h-6 ${color.replace('bg-', 'text-')}`} />
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
     </motion.div>
   )
 
@@ -130,14 +130,14 @@ export default function AnalyticsPage() {
       className={className}
     >
       <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
-        <CardHeader>
+              <CardHeader>
           <CardTitle className="text-xl font-bold text-gray-900">{title}</CardTitle>
           <CardDescription className="text-gray-600">{description}</CardDescription>
-        </CardHeader>
-        <CardContent>
+              </CardHeader>
+              <CardContent>
           {children}
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
     </motion.div>
   )
 
@@ -154,7 +154,7 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
           ))}
-        </div>
+          </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {Array.from({ length: 2 }).map((_, i) => (
             <Card key={i} className="shadow-lg border-0">
@@ -167,8 +167,8 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
           ))}
-        </div>
-      </div>
+                  </div>
+                </div>
     )
   }
 
@@ -195,8 +195,8 @@ export default function AnalyticsPage() {
               <Download className="w-4 h-4 mr-2" />
               Export Report
             </Button>
-          </div>
-        </div>
+                  </div>
+                </div>
       </motion.header>
 
       {/* Key Metrics */}
@@ -344,14 +344,14 @@ export default function AnalyticsPage() {
         transition={{ duration: 0.5, delay: 0.4 }}
       >
         <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardHeader>
+              <CardHeader>
             <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <Activity className="w-5 h-5 text-blue-600" />
               Engagement Metrics
             </CardTitle>
             <CardDescription>Key performance indicators for user engagement</CardDescription>
-          </CardHeader>
-          <CardContent>
+              </CardHeader>
+              <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {displayEngagementMetrics.map((metric: any, index: number) => (
                 <div key={index} className="text-center p-4 bg-white rounded-lg border border-gray-100">
@@ -360,11 +360,11 @@ export default function AnalyticsPage() {
                   <p className={`text-sm font-medium ${metric.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
                     {metric.change}
                   </p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
       </motion.div>
 
       {/* Data Status Warning */}
@@ -381,7 +381,7 @@ export default function AnalyticsPage() {
               <p className="text-amber-700 text-sm">
                 Analytics data is currently showing sample information. Check your database connection for real-time data.
               </p>
-            </div>
+                </div>
           </div>
         </motion.div>
       )}

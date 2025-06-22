@@ -458,4 +458,55 @@ export async function getVideosData() {
       videos: [],
     }
   }
+}
+
+export async function getConfigurationData() {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    console.log('🔍 Fetching configuration data...')
+
+    const { data: config, error } = await supabase
+      .from('site_configuration')
+      .select('*')
+      .order('key')
+
+    if (error) {
+      console.log('⚠️ Configuration fetch failed:', error.message)
+      return {
+        error: error.message,
+        config: {
+          site_url: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+          supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+          email_enabled: 'true',
+          maintenance_mode: 'false'
+        }
+      }
+    }
+
+    // Convert array to object for easier access
+    const configObject = (config || []).reduce((acc: any, item: any) => {
+      acc[item.key] = item.value
+      return acc
+    }, {})
+
+    console.log('✅ Configuration data loaded:', configObject)
+
+    return {
+      error: null,
+      config: configObject
+    }
+  } catch (error) {
+    console.error('💥 Unexpected error in getConfigurationData:', error)
+    return {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      config: {
+        site_url: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+        supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+        email_enabled: 'true',
+        maintenance_mode: 'false'
+      }
+    }
+  }
 } 
