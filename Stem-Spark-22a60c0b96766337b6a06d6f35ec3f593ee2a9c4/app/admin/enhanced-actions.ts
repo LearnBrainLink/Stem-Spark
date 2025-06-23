@@ -297,19 +297,95 @@ export async function getEnhancedApplicationsData() {
   const supabase = createServerClient(cookieStore);
 
   try {
-    const { data: applications, error } = await supabase
+    console.log('Fetching applications data...');
+
+    // First try the modern approach with named relationships
+    let { data: applications, error } = await supabase
       .from('internship_applications')
       .select(`
         *,
-        profiles!internship_applications_student_id_fkey(full_name, email, role),
-        internships!internship_applications_internship_id_fkey(title, company)
+        profiles!student_id(full_name, email, role, grade, school_name),
+        internships!internship_id(title, company, description, location)
       `)
       .order('applied_at', { ascending: false })
+
+    // If that fails, try the fallback approach with explicit foreign key names
+    if (error && error.message?.includes('relationship')) {
+      console.log('First query failed, trying fallback approach:', error.message);
+      
+      const fallbackResult = await supabase
+        .from('internship_applications')
+        .select(`
+          *,
+          profiles!internship_applications_student_id_fkey(full_name, email, role, grade, school_name),
+          internships!internship_applications_internship_id_fkey(title, company, description, location)
+        `)
+        .order('applied_at', { ascending: false })
+      
+      applications = fallbackResult.data;
+      error = fallbackResult.error;
+    }
+
+    // If both approaches fail, try manual joins
+    if (error && error.message?.includes('relationship')) {
+      console.log('Both relationship queries failed, trying manual approach:', error.message);
+      
+      const manualResult = await supabase
+        .from('internship_applications')
+        .select(`
+          id,
+          internship_id,
+          student_id,
+          application_text,
+          status,
+          applied_at,
+          reviewed_at,
+          reviewed_by,
+          created_at,
+          updated_at
+        `)
+        .order('applied_at', { ascending: false })
+
+      if (manualResult.error) {
+        console.error('Manual query also failed:', manualResult.error)
+        return { error: manualResult.error.message, applications: [] }
+      }
+
+      // Manually fetch related data
+      const applicationsWithRelations = []
+      
+      for (const app of manualResult.data || []) {
+        // Fetch student profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, email, role, grade, school_name')
+          .eq('id', app.student_id)
+          .single()
+
+        // Fetch internship
+        const { data: internship } = await supabase
+          .from('internships')
+          .select('title, company, description, location')
+          .eq('id', app.internship_id)
+          .single()
+
+        applicationsWithRelations.push({
+          ...app,
+          profiles: profile,
+          internships: internship
+        })
+      }
+
+      applications = applicationsWithRelations
+      error = null
+    }
 
     if (error) {
       console.error('Error fetching applications:', error)
       return { error: error.message, applications: [] }
     }
+
+    console.log(`Successfully fetched ${applications?.length || 0} applications`);
 
     // Transform the data
     const transformedApplications = applications?.map(app => ({
@@ -317,8 +393,12 @@ export async function getEnhancedApplicationsData() {
       studentName: app.profiles?.full_name || 'Unknown',
       studentEmail: app.profiles?.email || 'Unknown',
       studentRole: app.profiles?.role || 'Unknown',
+      studentGrade: app.profiles?.grade || null,
+      studentSchool: app.profiles?.school_name || 'Unknown',
       internshipTitle: app.internships?.title || 'Unknown',
       company: app.internships?.company || 'Unknown',
+      internshipDescription: app.internships?.description || '',
+      internshipLocation: app.internships?.location || 'Unknown',
       statusColor: app.status === 'pending' ? 'yellow' : 
                    app.status === 'approved' ? 'green' : 
                    app.status === 'rejected' ? 'red' : 'gray',
