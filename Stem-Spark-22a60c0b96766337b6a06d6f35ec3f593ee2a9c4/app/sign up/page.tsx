@@ -98,6 +98,13 @@ export default function SignUpPage() {
       if (!formData.phone) {
         return "Parents must provide their phone number";
       }
+      // Parents should provide information about their child(ren)
+      if (!formData.parentName) {
+        return "Parents must provide their child's name";
+      }
+      if (!formData.grade) {
+        return "Parents must provide their child's grade level";
+      }
     }
 
     if (formData.role === "teacher") {
@@ -175,6 +182,7 @@ export default function SignUpPage() {
           profileUpdateData.phone = formData.phone;
         } else if (formData.role === "parent") {
           profileUpdateData.phone = formData.phone;
+          profileUpdateData.school = formData.schoolName; // Children's school
         }
 
         // Update profile with additional information
@@ -199,6 +207,36 @@ export default function SignUpPage() {
             parent_email: formData.parentEmail,
             parent_phone: formData.parentPhone,
             relationship: formData.relationship,
+          });
+
+          if (parentError) {
+            console.error("Parent relationship creation error:", parentError);
+            // Don't fail the signup for this, just log it
+          }
+        }
+
+        // If parent, create parent relationship record with child information
+        if (formData.role === "parent" && formData.parentName) {
+          // Store child information in the parent_children table
+          const { error: childError } = await supabase.from("parent_children").insert({
+            parent_id: data.user.id,
+            child_name: formData.parentName, // Child's name
+            child_grade: parseInt(formData.grade),
+            child_school: formData.schoolName,
+          });
+
+          if (childError) {
+            console.error("Child information creation error:", childError);
+            // Don't fail the signup for this, just log it
+          }
+
+          // Create parent relationship record
+          const { error: parentError } = await supabase.from("parent_student_relationships").insert({
+            student_id: null, // Will be updated when child creates account
+            parent_name: formData.fullName, // Parent's own name
+            parent_email: formData.email, // Parent's email
+            parent_phone: formData.phone, // Parent's phone
+            relationship: 'parent',
           });
 
           if (parentError) {
@@ -660,6 +698,54 @@ export default function SignUpPage() {
                             onChange={handleInputChange}
                             className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 rounded-xl py-3"
                           />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Child Information for Parents */}
+                    <div className="border-t border-white/20 pt-6 space-y-6">
+                      <h3 className="text-2xl font-bold text-blue-100 flex items-center">
+                        <School className="w-6 h-6 mr-2" />
+                        Child Information
+                      </h3>
+                      <p className="text-blue-200 text-sm">
+                        Please provide information about your child who will be using this platform.
+                      </p>
+                      <div className="grid md:grid-cols-2 gap-6">
+                        <div className="space-y-3">
+                          <Label htmlFor="parentName" className="text-white font-semibold">
+                            Child's Name *
+                          </Label>
+                          <Input
+                            id="parentName"
+                            name="parentName"
+                            type="text"
+                            placeholder="Your child's full name"
+                            value={formData.parentName}
+                            onChange={handleInputChange}
+                            className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 rounded-xl py-3"
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <Label htmlFor="grade" className="text-white font-semibold">
+                            Child's Grade Level *
+                          </Label>
+                          <select
+                            id="grade"
+                            name="grade"
+                            value={formData.grade}
+                            onChange={handleInputChange}
+                            className="w-full py-3 px-4 rounded-xl border border-white/30 text-white bg-white/10 backdrop-blur-md placeholder:text-blue-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all duration-300"
+                            required
+                          >
+                            <option value="" className="text-blue-900 bg-white">Select your child's grade</option>
+                            <option value="5" className="text-blue-900 bg-white">5th Grade</option>
+                            <option value="6" className="text-blue-900 bg-white">6th Grade</option>
+                            <option value="7" className="text-blue-900 bg-white">7th Grade</option>
+                            <option value="8" className="text-blue-900 bg-white">8th Grade</option>
+                          </select>
                         </div>
                       </div>
                     </div>
