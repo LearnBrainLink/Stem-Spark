@@ -21,11 +21,15 @@ import {
   AlertTriangle,
   CheckCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getEnhancedSettingsData, updateEnhancedSettingsData } from '../enhanced-actions';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
@@ -53,14 +57,19 @@ export default function SettingsPage() {
     accentColor: '#8B5CF6',
     
     // System Settings
-        maintenanceMode: false,
+    maintenanceMode: false,
     debugMode: false,
     autoBackup: true,
-    backupFrequency: 'daily'
+    backupFrequency: 'daily',
+    passwordPolicy: true,
+    logLevel: 'info',
+    apiRateLimit: 100
   });
 
   const [isLoading, setIsLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [activeTab, setActiveTab] = useState('general');
+  const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -69,8 +78,32 @@ export default function SettingsPage() {
   const fetchSettings = async () => {
     setIsLoading(true);
     const result = await getEnhancedSettingsData();
-    if (result.settings) {
-      setSettings(result.settings);
+    
+    if (result.error) {
+      setMessage({ type: 'error', text: result.error });
+    } else if (result.settings && typeof result.settings === 'object') {
+      const settingsData = result.settings as any;
+      setSettings({
+        siteName: settingsData.siteName || "Novakinetix Academy",
+        siteDescription: settingsData.siteDescription || "",
+        contactEmail: settingsData.contactEmail || "",
+        timezone: settingsData.timezone || "UTC",
+        twoFactorAuth: settingsData.twoFactorAuth || false,
+        sessionTimeout: settingsData.sessionTimeout || 30,
+        passwordMinLength: settingsData.passwordMinLength || 8,
+        requireEmailVerification: settingsData.requireEmailVerification || true,
+        emailNotifications: settingsData.emailNotifications || true,
+        pushNotifications: settingsData.pushNotifications || false,
+        weeklyReports: settingsData.weeklyReports || false,
+        applicationAlerts: settingsData.applicationAlerts || true,
+        maintenanceMode: settingsData.maintenanceMode || false,
+        debugMode: settingsData.debugMode || false,
+        autoBackup: settingsData.autoBackup || true,
+        backupFrequency: settingsData.backupFrequency || 'daily',
+        passwordPolicy: settingsData.passwordPolicy || true,
+        logLevel: settingsData.logLevel || 'info',
+        apiRateLimit: settingsData.apiRateLimit || 100
+      });
     }
     setIsLoading(false);
   };
@@ -88,8 +121,10 @@ export default function SettingsPage() {
     const result = await updateEnhancedSettingsData(settings);
     if (!result.error) {
       setSaveStatus('success');
+      setMessage({ type: 'success', text: 'Settings saved successfully' });
     } else {
       setSaveStatus('error');
+      setMessage({ type: 'error', text: 'Error saving settings. Please try again.' });
     }
     setIsLoading(false);
     setTimeout(() => setSaveStatus('idle'), 3000);
@@ -135,7 +170,7 @@ export default function SettingsPage() {
   );
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
@@ -145,33 +180,28 @@ export default function SettingsPage() {
       >
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">System Settings</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Settings</h1>
             <p className="text-gray-600">Configure system settings and preferences.</p>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
+            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={fetchSettings}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
             </Button>
             <Button 
-              onClick={handleSave} 
-              disabled={isLoading}
               className="bg-[hsl(var(--novakinetix-primary))] text-white hover:bg-[hsl(var(--novakinetix-dark))]"
+              onClick={handleSave}
+              disabled={isLoading}
             >
-              {saveStatus === 'saving' ? (
+              {isLoading ? (
                 <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Saving...
-                </>
-              ) : saveStatus === 'success' ? (
-                <>
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Saved!
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4 mr-2" />
-                  Save Changes
+                  Save Settings
                 </>
               )}
             </Button>
@@ -179,255 +209,181 @@ export default function SettingsPage() {
         </div>
       </motion.header>
 
-      {/* Settings Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* General Settings */}
-        <SettingSection
-          title="General Settings"
-          description="Basic site configuration and information"
-          icon={Settings}
+      {/* Message Alert */}
+      {message && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4"
         >
-          <SettingItem 
-            label="Site Name" 
-            description="The name of your platform"
-          >
+          <Alert className={message.type === "success" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
+            <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
+              {message.text}
+            </AlertDescription>
+          </Alert>
+        </motion.div>
+      )}
+
+      {/* Settings Tabs */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardContent className="p-0">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="general">General</TabsTrigger>
+                <TabsTrigger value="security">Security</TabsTrigger>
+                <TabsTrigger value="notifications">Notifications</TabsTrigger>
+                <TabsTrigger value="advanced">Advanced</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="general" className="p-6">
+                <div className="space-y-6">
+                  <div>
+                    <Label htmlFor="siteName">Site Name</Label>
                     <Input
+                      id="siteName"
                       value={settings.siteName}
-              onChange={(e) => handleSettingChange('siteName', e.target.value)}
-              className="w-48"
-            />
-          </SettingItem>
-          <SettingItem 
-            label="Site Description" 
-            description="Brief description of your platform"
-          >
-            <Input 
-              value={settings.siteDescription}
-              onChange={(e) => handleSettingChange('siteDescription', e.target.value)}
-              className="w-48"
-            />
-          </SettingItem>
-          <SettingItem 
-            label="Contact Email" 
-            description="Primary contact email address"
-          >
+                      onChange={(e) => handleSettingChange('siteName', e.target.value)}
+                      placeholder="Novakinetix Academy"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="siteDescription">Site Description</Label>
+                    <Textarea
+                      id="siteDescription"
+                      value={settings.siteDescription}
+                      onChange={(e) => handleSettingChange('siteDescription', e.target.value)}
+                      placeholder="Empowering students through STEM education"
+                      rows={3}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="contactEmail">Contact Email</Label>
                     <Input
+                      id="contactEmail"
                       type="email"
                       value={settings.contactEmail}
-              onChange={(e) => handleSettingChange('contactEmail', e.target.value)}
-              className="w-48"
-            />
-          </SettingItem>
-          <SettingItem 
-            label="Timezone" 
-            description="Default timezone for the platform"
-          >
-            <Select value={settings.timezone} onValueChange={(value) => handleSettingChange('timezone', value)}>
-              <SelectTrigger className="w-48">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                <SelectItem value="UTC">UTC</SelectItem>
-                <SelectItem value="EST">Eastern Time</SelectItem>
-                <SelectItem value="PST">Pacific Time</SelectItem>
-                <SelectItem value="GMT">Greenwich Mean Time</SelectItem>
-                        </SelectContent>
-                      </Select>
-          </SettingItem>
-        </SettingSection>
-
-        {/* Security Settings */}
-        <SettingSection
-          title="Security Settings"
-          description="Authentication and security configuration"
-          icon={Shield}
-        >
-          <SettingItem 
-            label="Two-Factor Authentication" 
-            description="Require 2FA for admin accounts"
-          >
-            <Switch 
-              checked={settings.twoFactorAuth}
-              onCheckedChange={(checked) => handleSettingChange('twoFactorAuth', checked)}
-            />
-          </SettingItem>
-          <SettingItem 
-            label="Email Verification Required" 
-            description="Require email verification for new accounts"
-          >
-            <Switch 
-              checked={settings.requireEmailVerification}
-              onCheckedChange={(checked) => handleSettingChange('requireEmailVerification', checked)}
-            />
-          </SettingItem>
-          <SettingItem 
-            label="Session Timeout (minutes)" 
-            description="Automatic logout after inactivity"
-          >
-                      <Input
-                        type="number"
-                        value={settings.sessionTimeout}
-              onChange={(e) => handleSettingChange('sessionTimeout', parseInt(e.target.value))}
-              className="w-24"
-            />
-          </SettingItem>
-          <SettingItem 
-            label="Minimum Password Length" 
-            description="Required minimum password length"
-          >
-            <Input 
-              type="number"
-              value={settings.passwordMinLength}
-              onChange={(e) => handleSettingChange('passwordMinLength', parseInt(e.target.value))}
-              className="w-24"
-            />
-          </SettingItem>
-        </SettingSection>
-
-        {/* Notification Settings */}
-        <SettingSection
-          title="Notification Settings"
-          description="Configure notification preferences"
-          icon={Bell}
-        >
-          <SettingItem 
-            label="Email Notifications" 
-            description="Send email notifications to users"
-          >
-            <Switch 
-              checked={settings.emailNotifications}
-              onCheckedChange={(checked) => handleSettingChange('emailNotifications', checked)}
-            />
-          </SettingItem>
-          <SettingItem 
-            label="Push Notifications" 
-            description="Send push notifications to mobile apps"
-          >
-                  <Switch
-              checked={settings.pushNotifications}
-              onCheckedChange={(checked) => handleSettingChange('pushNotifications', checked)}
-            />
-          </SettingItem>
-          <SettingItem 
-            label="Weekly Reports" 
-            description="Send weekly activity reports"
-          >
-            <Switch 
-              checked={settings.weeklyReports}
-              onCheckedChange={(checked) => handleSettingChange('weeklyReports', checked)}
-            />
-          </SettingItem>
-          <SettingItem 
-            label="Application Alerts" 
-            description="Notify when new applications are submitted"
-          >
-            <Switch 
-              checked={settings.applicationAlerts}
-              onCheckedChange={(checked) => handleSettingChange('applicationAlerts', checked)}
-            />
-          </SettingItem>
-        </SettingSection>
-
-        {/* System Settings */}
-        <SettingSection
-          title="System Settings"
-          description="Advanced system configuration"
-          icon={Database}
-        >
-          <SettingItem 
-            label="Maintenance Mode" 
-            description="Put the site in maintenance mode"
-          >
-            <div className="flex items-center gap-2">
-              <Switch 
-                checked={settings.maintenanceMode}
-                onCheckedChange={(checked) => handleSettingChange('maintenanceMode', checked)}
-              />
-              {settings.maintenanceMode && (
-                <Badge variant="destructive" className="text-xs">
-                  <AlertTriangle className="w-3 h-3 mr-1" />
-                  Active
-                </Badge>
-              )}
-                </div>
-          </SettingItem>
-          <SettingItem 
-            label="Debug Mode" 
-            description="Enable debug logging (development only)"
-          >
-            <Switch 
-              checked={settings.debugMode}
-              onCheckedChange={(checked) => handleSettingChange('debugMode', checked)}
-            />
-          </SettingItem>
-          <SettingItem 
-            label="Automatic Backup" 
-            description="Enable automatic database backups"
-          >
-            <Switch 
-              checked={settings.autoBackup}
-              onCheckedChange={(checked) => handleSettingChange('autoBackup', checked)}
-            />
-          </SettingItem>
-          <SettingItem 
-            label="Backup Frequency" 
-            description="How often to create backups"
-          >
-            <Select value={settings.backupFrequency} onValueChange={(value) => handleSettingChange('backupFrequency', value)}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="hourly">Hourly</SelectItem>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-              </SelectContent>
-            </Select>
-          </SettingItem>
-        </SettingSection>
+                      onChange={(e) => handleSettingChange('contactEmail', e.target.value)}
+                      placeholder="contact@novakinetix.com"
+                    />
                   </div>
-
-      {/* Status Messages */}
-      <AnimatePresence>
-        {saveStatus === 'success' && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl"
-          >
-            <div className="flex items-start gap-3">
-              <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="maintenanceMode"
+                      checked={settings.maintenanceMode}
+                      onCheckedChange={(checked) => handleSettingChange('maintenanceMode', checked)}
+                    />
+                    <Label htmlFor="maintenanceMode">Maintenance Mode</Label>
+                  </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="security" className="p-6">
+                <div className="space-y-6">
                   <div>
-                <p className="text-green-800 font-medium mb-1">Settings Saved Successfully</p>
-                <p className="text-green-700 text-sm">
-                  All configuration changes have been applied and saved.
-                </p>
+                    <Label htmlFor="sessionTimeout">Session Timeout (minutes)</Label>
+                    <Input
+                      id="sessionTimeout"
+                      type="number"
+                      value={settings.sessionTimeout}
+                      onChange={(e) => handleSettingChange('sessionTimeout', parseInt(e.target.value))}
+                      min="5"
+                      max="1440"
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="twoFactorAuth"
+                      checked={settings.twoFactorAuth}
+                      onCheckedChange={(checked) => handleSettingChange('twoFactorAuth', checked)}
+                    />
+                    <Label htmlFor="twoFactorAuth">Require Two-Factor Authentication</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="passwordPolicy"
+                      checked={settings.passwordPolicy}
+                      onCheckedChange={(checked) => handleSettingChange('passwordPolicy', checked)}
+                    />
+                    <Label htmlFor="passwordPolicy">Enforce Strong Password Policy</Label>
                   </div>
                 </div>
-          </motion.div>
-        )}
-        
-        {saveStatus === 'error' && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="p-4 bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-xl"
-          >
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-red-800 font-medium mb-1">Error Saving Settings</p>
-                <p className="text-red-700 text-sm">
-                  There was an error saving your settings. Please try again.
-                </p>
+              </TabsContent>
+              
+              <TabsContent value="notifications" className="p-6">
+                <div className="space-y-6">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="emailNotifications"
+                      checked={settings.emailNotifications}
+                      onCheckedChange={(checked) => handleSettingChange('emailNotifications', checked)}
+                    />
+                    <Label htmlFor="emailNotifications">Email Notifications</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="pushNotifications"
+                      checked={settings.pushNotifications}
+                      onCheckedChange={(checked) => handleSettingChange('pushNotifications', checked)}
+                    />
+                    <Label htmlFor="pushNotifications">Push Notifications</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="adminAlerts"
+                      checked={settings.applicationAlerts}
+                      onCheckedChange={(checked) => handleSettingChange('applicationAlerts', checked)}
+                    />
+                    <Label htmlFor="adminAlerts">Admin Alert Notifications</Label>
                   </div>
                 </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </TabsContent>
+              
+              <TabsContent value="advanced" className="p-6">
+                <div className="space-y-6">
+                  <div>
+                    <Label htmlFor="logLevel">Log Level</Label>
+                    <Select value={settings.logLevel} onValueChange={(value) => handleSettingChange('logLevel', value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="error">Error</SelectItem>
+                        <SelectItem value="warn">Warning</SelectItem>
+                        <SelectItem value="info">Info</SelectItem>
+                        <SelectItem value="debug">Debug</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="debugMode"
+                      checked={settings.debugMode}
+                      onCheckedChange={(checked) => handleSettingChange('debugMode', checked)}
+                    />
+                    <Label htmlFor="debugMode">Debug Mode</Label>
+                  </div>
+                  <div>
+                    <Label htmlFor="apiRateLimit">API Rate Limit (requests per minute)</Label>
+                    <Input
+                      id="apiRateLimit"
+                      type="number"
+                      value={settings.apiRateLimit}
+                      onChange={(e) => handleSettingChange('apiRateLimit', parseInt(e.target.value))}
+                      min="10"
+                      max="1000"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 }

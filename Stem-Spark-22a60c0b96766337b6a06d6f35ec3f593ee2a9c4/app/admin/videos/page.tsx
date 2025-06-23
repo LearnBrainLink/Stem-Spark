@@ -213,7 +213,7 @@ export default function VideosPage() {
   )
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
@@ -224,7 +224,7 @@ export default function VideosPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Video Management</h1>
-            <p className="text-gray-600">Manage and upload video content for the platform.</p>
+            <p className="text-gray-600">Upload and manage educational videos.</p>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={fetchVideos}>
@@ -235,56 +235,49 @@ export default function VideosPage() {
               <DialogTrigger asChild>
                 <Button className="bg-[hsl(var(--novakinetix-primary))] text-white hover:bg-[hsl(var(--novakinetix-dark))]">
                   <Plus className="w-4 h-4 mr-2" />
-                  Upload Video
+                  Add Video
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Upload New Video</DialogTitle>
-                  <DialogDescription>
-                    Fill in the details to upload a new video.
-                  </DialogDescription>
+                  <DialogTitle>Add New Video</DialogTitle>
+                  <DialogDescription>Upload a new educational video to the platform.</DialogDescription>
                 </DialogHeader>
                 <form action={handleCreateVideo} className="space-y-4">
-                  <div className="space-y-2">
+                  <div>
                     <Label htmlFor="title">Title</Label>
                     <Input id="title" name="title" required />
                   </div>
-                  <div className="space-y-2">
+                  <div>
                     <Label htmlFor="description">Description</Label>
                     <Textarea id="description" name="description" />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="video_url">Video URL</Label>
-                    <Input id="video_url" name="video_url" type="url" required />
+                  <div>
+                    <Label htmlFor="videoUrl">Video URL</Label>
+                    <Input id="videoUrl" name="videoUrl" type="url" required />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="category">Category</Label>
-                      <Select name="category">
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="tutorial">Tutorial</SelectItem>
-                          <SelectItem value="lecture">Lecture</SelectItem>
-                          <SelectItem value="demo">Demo</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="duration">Duration (seconds)</Label>
-                      <Input id="duration" name="duration" type="number" min="1" />
-                    </div>
+                  <div>
+                    <Label htmlFor="duration">Duration (seconds)</Label>
+                    <Input id="duration" name="duration" type="number" />
                   </div>
-                  <div className="flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={isLoading}>
-                      {isLoading ? "Uploading..." : "Upload Video"}
-                    </Button>
+                  <div>
+                    <Label htmlFor="category">Category</Label>
+                    <Select name="category" required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="STEM">STEM</SelectItem>
+                        <SelectItem value="Technology">Technology</SelectItem>
+                        <SelectItem value="Science">Science</SelectItem>
+                        <SelectItem value="Math">Math</SelectItem>
+                        <SelectItem value="Engineering">Engineering</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-4">
+                    <Button type="submit" className="flex-1">Add Video</Button>
+                    <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
                   </div>
                 </form>
               </DialogContent>
@@ -293,69 +286,15 @@ export default function VideosPage() {
         </div>
       </motion.header>
 
-      {/* Stats Cards */}
-      <motion.div 
-        className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-      >
-        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Videos</p>
-                <p className="text-2xl font-bold text-gray-900">{videos.length}</p>
-              </div>
-              <VideoIcon className="w-8 h-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Active Videos</p>
-                <p className="text-2xl font-bold text-gray-900">{videos.filter(v => v.status === 'active').length}</p>
-              </div>
-              <Play className="w-8 h-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Duration</p>
-                <p className="text-2xl font-bold text-gray-900">{Math.floor(videos.reduce((sum, v) => sum + (v.duration || 0), 0) / 60)}m</p>
-              </div>
-              <Clock className="w-8 h-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pending Review</p>
-                <p className="text-2xl font-bold text-gray-900">{videos.filter(v => v.status === 'pending').length}</p>
-              </div>
-              <Upload className="w-8 h-8 text-amber-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
       {/* Message Alert */}
       {message && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
           className="mb-4"
         >
-          <Alert className={message.type === 'success' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
-            <AlertDescription className={message.type === 'success' ? 'text-green-800' : 'text-red-800'}>
+          <Alert className={message.type === "success" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
+            <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
               {message.text}
             </AlertDescription>
           </Alert>
@@ -363,87 +302,92 @@ export default function VideosPage() {
       )}
 
       {/* Videos Grid */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-      >
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <VideoCardSkeleton key={i} index={i} />
-            ))}
-          </div>
-        ) : videos.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {videos.map((video, i) => (
-              <VideoCard key={video.id} video={video} index={i} />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <VideoIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No videos found</h3>
-            <p className="text-gray-500">Upload your first video to get started.</p>
-          </div>
-        )}
-      </motion.div>
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <VideoCardSkeleton key={i} index={i} />
+          ))}
+        </div>
+      ) : videos.length === 0 ? (
+        <div className="text-center py-12">
+          <VideoIcon className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No videos found</h3>
+          <p className="mt-1 text-sm text-gray-500">Get started by adding your first video.</p>
+        </div>
+      ) : (
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          {videos.map((video, index) => (
+            <VideoCard key={video.id} video={video} index={index} />
+          ))}
+        </motion.div>
+      )}
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Video</DialogTitle>
-            <DialogDescription>
-              Update the video details.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedVideo && (
+      {/* Edit Video Dialog */}
+      {selectedVideo && (
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Video</DialogTitle>
+              <DialogDescription>Update video information.</DialogDescription>
+            </DialogHeader>
             <form action={handleUpdateVideo} className="space-y-4">
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="edit-title">Title</Label>
                 <Input id="edit-title" name="title" defaultValue={selectedVideo.title} required />
               </div>
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="edit-description">Description</Label>
                 <Textarea id="edit-description" name="description" defaultValue={selectedVideo.description} />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-video_url">Video URL</Label>
-                <Input id="edit-video_url" name="video_url" type="url" defaultValue={selectedVideo.video_url} required />
+              <div>
+                <Label htmlFor="edit-videoUrl">Video URL</Label>
+                <Input id="edit-videoUrl" name="videoUrl" type="url" defaultValue={selectedVideo.video_url} required />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-category">Category</Label>
-                  <Select name="category" defaultValue={selectedVideo.category}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="tutorial">Tutorial</SelectItem>
-                      <SelectItem value="lecture">Lecture</SelectItem>
-                      <SelectItem value="demo">Demo</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-duration">Duration (seconds)</Label>
-                  <Input id="edit-duration" name="duration" type="number" min="1" defaultValue={selectedVideo.duration} />
-                </div>
+              <div>
+                <Label htmlFor="edit-duration">Duration (seconds)</Label>
+                <Input id="edit-duration" name="duration" type="number" defaultValue={selectedVideo.duration} />
               </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? "Updating..." : "Update Video"}
-                </Button>
+              <div>
+                <Label htmlFor="edit-category">Category</Label>
+                <Select name="category" defaultValue={selectedVideo.category} required>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="STEM">STEM</SelectItem>
+                    <SelectItem value="Technology">Technology</SelectItem>
+                    <SelectItem value="Science">Science</SelectItem>
+                    <SelectItem value="Math">Math</SelectItem>
+                    <SelectItem value="Engineering">Engineering</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-status">Status</Label>
+                <Select name="status" defaultValue={selectedVideo.status} required>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-4">
+                <Button type="submit" className="flex-1">Update Video</Button>
+                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
               </div>
             </form>
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

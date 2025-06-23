@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid, XAxis, YAxis, Tooltip, Legend, AreaChart, Area } from 'recharts'
-import { Users, TrendingUp, Briefcase, Mail, DollarSign, Eye, Download, Calendar, Target, Award, Activity, BarChart3, RefreshCw } from "lucide-react"
+import { Users, TrendingUp, Briefcase, Mail, DollarSign, Eye, Download, Calendar, Target, Award, Activity, BarChart3, RefreshCw, Loader2 } from "lucide-react"
 import { motion } from "framer-motion"
 import { getEnhancedDashboardStats } from '../enhanced-actions'
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { FileText, Video } from "lucide-react"
 
 const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#06B6D4']
 
@@ -58,6 +60,8 @@ export default function AnalyticsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [timeRange, setTimeRange] = useState('7d')
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false)
+  const [message, setMessage] = useState<{ type: string; text: string } | null>(null)
 
   useEffect(() => {
     fetchAnalytics()
@@ -83,6 +87,29 @@ export default function AnalyticsPage() {
       setAnalyticsData(null)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleGenerateReport = async () => {
+    try {
+      setIsGeneratingReport(true)
+      setError(null)
+      
+      const result = await getEnhancedDashboardStats()
+      
+      if (result.error) {
+        setError(result.error)
+        setAnalyticsData(null)
+      } else if (result.stats) {
+        setAnalyticsData(result.stats)
+      } else {
+        setAnalyticsData(null)
+      }
+    } catch (err) {
+      setError('Failed to generate report')
+      setAnalyticsData(null)
+    } finally {
+      setIsGeneratingReport(false)
     }
   }
 
@@ -171,7 +198,7 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
@@ -182,24 +209,52 @@ export default function AnalyticsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Analytics & Reports</h1>
-            <p className="text-gray-600">View detailed analytics and platform insights.</p>
+            <p className="text-gray-600">Comprehensive insights and data analysis.</p>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={fetchAnalytics}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
             </Button>
-            <Button className="bg-[hsl(var(--novakinetix-primary))] text-white hover:bg-[hsl(var(--novakinetix-dark))]">
-              <Download className="w-4 h-4 mr-2" />
-              Export Report
+            <Button 
+              className="bg-[hsl(var(--novakinetix-primary))] text-white hover:bg-[hsl(var(--novakinetix-dark))]"
+              onClick={handleGenerateReport}
+              disabled={isGeneratingReport}
+            >
+              {isGeneratingReport ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 mr-2" />
+                  Generate Report
+                </>
+              )}
             </Button>
-                  </div>
-                </div>
+          </div>
+        </div>
       </motion.header>
+
+      {/* Message Alert */}
+      {message && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4"
+        >
+          <Alert className={message.type === "success" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
+            <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
+              {message.text}
+            </AlertDescription>
+          </Alert>
+        </motion.div>
+      )}
 
       {/* Key Metrics */}
       <motion.div 
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
+        className="grid grid-cols-2 md:grid-cols-4 gap-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
@@ -327,7 +382,6 @@ export default function AnalyticsPage() {
                   borderRadius: '8px',
                   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                 }} 
-                formatter={(value: any) => [`$${value.toLocaleString()}`, 'Revenue']}
               />
               <Area type="monotone" dataKey="revenue" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.3} />
             </AreaChart>

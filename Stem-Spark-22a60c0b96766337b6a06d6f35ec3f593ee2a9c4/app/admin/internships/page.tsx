@@ -229,7 +229,7 @@ export default function InternshipsPage() {
   )
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
@@ -251,72 +251,58 @@ export default function InternshipsPage() {
               <DialogTrigger asChild>
                 <Button className="bg-[hsl(var(--novakinetix-primary))] text-white hover:bg-[hsl(var(--novakinetix-dark))]">
                   <Plus className="w-4 h-4 mr-2" />
-                  Create Internship
+                  Add Internship
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-md">
                 <DialogHeader>
                   <DialogTitle>Create New Internship</DialogTitle>
-                  <DialogDescription>
-                    Fill in the details to create a new internship opportunity.
-                  </DialogDescription>
+                  <DialogDescription>Add a new internship opportunity for students.</DialogDescription>
                 </DialogHeader>
                 <form action={handleCreateInternship} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="title">Title</Label>
-                      <Input id="title" name="title" required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="company">Company</Label>
-                      <Input id="company" name="company" required />
-                    </div>
+                  <div>
+                    <Label htmlFor="title">Title</Label>
+                    <Input id="title" name="title" required />
                   </div>
-                  <div className="space-y-2">
+                  <div>
                     <Label htmlFor="description">Description</Label>
                     <Textarea id="description" name="description" required />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="location">Location</Label>
-                      <Input id="location" name="location" required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="duration">Duration</Label>
-                      <Input id="duration" name="duration" placeholder="e.g., 3 months" required />
-                    </div>
+                  <div>
+                    <Label htmlFor="company">Company</Label>
+                    <Input id="company" name="company" required />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="start_date">Start Date</Label>
-                      <Input id="start_date" name="start_date" type="date" required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="end_date">End Date</Label>
-                      <Input id="end_date" name="end_date" type="date" required />
-                    </div>
+                  <div>
+                    <Label htmlFor="location">Location</Label>
+                    <Input id="location" name="location" required />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="application_deadline">Application Deadline</Label>
-                      <Input id="application_deadline" name="application_deadline" type="date" required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="max_participants">Max Participants</Label>
-                      <Input id="max_participants" name="max_participants" type="number" min="1" required />
-                    </div>
+                  <div>
+                    <Label htmlFor="duration">Duration</Label>
+                    <Input id="duration" name="duration" placeholder="e.g., 3 months" required />
                   </div>
-                  <div className="space-y-2">
+                  <div>
                     <Label htmlFor="requirements">Requirements</Label>
                     <Textarea id="requirements" name="requirements" />
                   </div>
-                  <div className="flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={isLoading}>
-                      {isLoading ? "Creating..." : "Create Internship"}
-                    </Button>
+                  <div>
+                    <Label htmlFor="applicationDeadline">Application Deadline</Label>
+                    <Input id="applicationDeadline" name="applicationDeadline" type="date" required />
+                  </div>
+                  <div>
+                    <Label htmlFor="startDate">Start Date</Label>
+                    <Input id="startDate" name="startDate" type="date" required />
+                  </div>
+                  <div>
+                    <Label htmlFor="endDate">End Date</Label>
+                    <Input id="endDate" name="endDate" type="date" required />
+                  </div>
+                  <div>
+                    <Label htmlFor="maxParticipants">Max Participants</Label>
+                    <Input id="maxParticipants" name="maxParticipants" type="number" min="1" required />
+                  </div>
+                  <div className="flex gap-4">
+                    <Button type="submit" className="flex-1">Create Internship</Button>
+                    <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
                   </div>
                 </form>
               </DialogContent>
@@ -325,69 +311,15 @@ export default function InternshipsPage() {
         </div>
       </motion.header>
 
-      {/* Stats Cards */}
-      <motion.div 
-        className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-      >
-        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Internships</p>
-                <p className="text-2xl font-bold text-gray-900">{internships.length}</p>
-              </div>
-              <Briefcase className="w-8 h-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Active</p>
-                <p className="text-2xl font-bold text-gray-900">{internships.filter(i => i.status === 'active').length}</p>
-              </div>
-              <Calendar className="w-8 h-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Participants</p>
-                <p className="text-2xl font-bold text-gray-900">{internships.reduce((sum, i) => sum + i.current_participants, 0)}</p>
-              </div>
-              <Users className="w-8 h-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Available Spots</p>
-                <p className="text-2xl font-bold text-gray-900">{internships.reduce((sum, i) => sum + (i.max_participants - i.current_participants), 0)}</p>
-              </div>
-              <Plus className="w-8 h-8 text-amber-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
       {/* Message Alert */}
       {message && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
           className="mb-4"
         >
-          <Alert className={message.type === 'success' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
-            <AlertDescription className={message.type === 'success' ? 'text-green-800' : 'text-red-800'}>
+          <Alert className={message.type === "success" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
+            <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
               {message.text}
             </AlertDescription>
           </Alert>
@@ -395,31 +327,30 @@ export default function InternshipsPage() {
       )}
 
       {/* Internships Grid */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-      >
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <InternshipCardSkeleton key={i} index={i} />
-            ))}
-          </div>
-        ) : internships.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {internships.map((internship, i) => (
-              <InternshipCard key={internship.id} internship={internship} index={i} />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No internships found</h3>
-            <p className="text-gray-500">Create your first internship opportunity to get started.</p>
-          </div>
-        )}
-      </motion.div>
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <InternshipCardSkeleton key={i} index={i} />
+          ))}
+        </div>
+      ) : internships.length === 0 ? (
+        <div className="text-center py-12">
+          <Briefcase className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No internships found</h3>
+          <p className="mt-1 text-sm text-gray-500">Get started by creating your first internship opportunity.</p>
+        </div>
+      ) : (
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          {internships.map((internship, index) => (
+            <InternshipCard key={internship.id} internship={internship} index={index} />
+          ))}
+        </motion.div>
+      )}
     </div>
   )
 }

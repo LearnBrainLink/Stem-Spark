@@ -8,10 +8,11 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Eye, Check, X, Flag, MessageSquare, Video, FileText, AlertTriangle, Clock, Shield } from "lucide-react"
+import { Search, Eye, Check, X, Flag, MessageSquare, Video, FileText, AlertTriangle, Clock, Shield, RefreshCw } from "lucide-react"
 import Image from "next/image"
 import { motion } from "framer-motion"
 import { getEnhancedVideosData, getEnhancedApplicationsData } from '../enhanced-actions'
+import { supabase } from '@/lib/supabase'
 
 interface ContentItem {
   id: string
@@ -165,7 +166,7 @@ export default function ContentModerationPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
@@ -179,21 +180,23 @@ export default function ContentModerationPage() {
             <p className="text-gray-600">Review and manage platform content effectively.</p>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
+            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={fetchContentItems}>
+              <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
             </Button>
           </div>
         </div>
       </motion.header>
 
+      {/* Message Alert */}
       {message && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
+          className="mb-4"
         >
-          <Alert className={`${message.type === "error" ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"}`}>
-            <AlertDescription className={message.type === "error" ? "text-red-700" : "text-green-700"}>
+          <Alert className={message.type === "success" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
+            <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
               {message.text}
             </AlertDescription>
           </Alert>
@@ -202,166 +205,161 @@ export default function ContentModerationPage() {
 
       {/* Stats Cards */}
       <motion.div 
-        className="grid grid-cols-2 md:grid-cols-5 gap-4"
+        className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
-        <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
+        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Content</p>
-                <p className="text-2xl font-bold text-[var(--novakinetix-dark)]">{stats.total}</p>
+                <p className="text-sm font-medium text-gray-600">Total</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
               </div>
-              <div className="w-12 h-12 bg-gradient-to-br from-[var(--novakinetix-primary)] to-[var(--novakinetix-accent)] rounded-lg flex items-center justify-center shadow-lg">
-                <FileText className="w-6 h-6 text-white" />
-              </div>
+              <FileText className="w-8 h-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
-        
-        <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
+        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Pending Review</p>
-                <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
+                <p className="text-sm font-medium text-gray-600">Pending</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
               </div>
-              <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg flex items-center justify-center shadow-lg">
-                <Clock className="w-6 h-6 text-white" />
-              </div>
+              <Clock className="w-8 h-8 text-yellow-600" />
             </div>
           </CardContent>
         </Card>
-        
-        <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
+        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Approved</p>
-                <p className="text-2xl font-bold text-green-600">{stats.approved}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.approved}</p>
               </div>
-              <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center shadow-lg">
-                <Check className="w-6 h-6 text-white" />
-              </div>
+              <Check className="w-8 h-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
-        
-        <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
+        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Rejected</p>
-                <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.rejected}</p>
               </div>
-              <div className="w-12 h-12 bg-gradient-to-br from-red-400 to-red-600 rounded-lg flex items-center justify-center shadow-lg">
-                <X className="w-6 h-6 text-white" />
-              </div>
+              <X className="w-8 h-8 text-red-600" />
             </div>
           </CardContent>
         </Card>
-        
-        <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
+        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Flagged</p>
-                <p className="text-2xl font-bold text-orange-600">{stats.flagged}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.flagged}</p>
               </div>
-              <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg flex items-center justify-center shadow-lg">
-                <Flag className="w-6 h-6 text-white" />
-              </div>
+              <Flag className="w-8 h-8 text-orange-600" />
             </div>
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* Search and Filters */}
-      <motion.div
+      {/* Filters and Content */}
+      <motion.div 
+        className="space-y-6"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.3 }}
       >
         <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
+              <div className="flex-grow">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
-                    placeholder="Search content, authors, or titles..."
+                    placeholder="Search content..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 border-gray-200 focus:border-[var(--novakinetix-primary)] focus:ring-[var(--novakinetix-primary)]"
+                    className="pl-10"
                   />
                 </div>
               </div>
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
-                <TabsList className="grid w-full grid-cols-5 bg-gray-100">
-                  <TabsTrigger value="all" className="data-[state=active]:bg-[var(--novakinetix-primary)] data-[state=active]:text-white">All</TabsTrigger>
-                  <TabsTrigger value="pending" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white">Pending</TabsTrigger>
-                  <TabsTrigger value="approved" className="data-[state=active]:bg-green-500 data-[state=active]:text-white">Approved</TabsTrigger>
-                  <TabsTrigger value="rejected" className="data-[state=active]:bg-red-500 data-[state=active]:text-white">Rejected</TabsTrigger>
-                  <TabsTrigger value="flagged" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">Flagged</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-5">
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="pending">Pending</TabsTrigger>
+                  <TabsTrigger value="approved">Approved</TabsTrigger>
+                  <TabsTrigger value="rejected">Rejected</TabsTrigger>
+                  <TabsTrigger value="flagged">Flagged</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
           </CardContent>
         </Card>
-      </motion.div>
 
-      {/* Content Table */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-      >
+        {/* Content Table */}
         <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold text-[var(--novakinetix-dark)]">
-              Content Items ({filteredItems.length})
-            </CardTitle>
-            <CardDescription>
-              Review and moderate user-generated content
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {filteredItems.length === 0 ? (
-              <div className="text-center py-12">
-                <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No content found</h3>
-                <p className="text-gray-500">No content items match your current filters.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table className="min-w-full divide-y divide-gray-200">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</TableCell>
-                      <TableCell className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Author</TableCell>
-                      <TableCell className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</TableCell>
-                      <TableCell className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredItems.map((item) => (
-                      <TableRow key={item.id} className="bg-white">
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.title}</TableCell>
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.author}</TableCell>
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getStatusBadge(item.status)}</TableCell>
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <Button variant="link" className="text-blue-600 hover:text-blue-900" onClick={() => handleModerateContent(item.id, 'approve', item.type)}>Approve</Button>
-                          <Button variant="link" className="text-red-600 hover:text-red-900 ml-2" onClick={() => handleModerateContent(item.id, 'reject', item.type)}>Reject</Button>
-                          <Button variant="link" className="text-yellow-600 hover:text-yellow-900 ml-2" onClick={() => handleModerateContent(item.id, 'flag', item.type)}>Flag</Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Author</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredItems.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {getTypeIcon(item.type)}
+                        <span className="capitalize">{item.type}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-medium">{item.title}</TableCell>
+                    <TableCell>{item.author}</TableCell>
+                    <TableCell>{getStatusBadge(item.status)}</TableCell>
+                    <TableCell>{new Date(item.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleModerateContent(item.id, "approve", item.type)}
+                          disabled={item.status === "approved"}
+                        >
+                          <Check className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleModerateContent(item.id, "reject", item.type)}
+                          disabled={item.status === "rejected"}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleModerateContent(item.id, "flag", item.type)}
+                          disabled={item.status === "flagged"}
+                        >
+                          <Flag className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       </motion.div>
