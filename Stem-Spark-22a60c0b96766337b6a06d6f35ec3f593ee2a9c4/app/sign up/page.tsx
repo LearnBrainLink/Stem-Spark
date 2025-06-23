@@ -170,9 +170,9 @@ export default function SignUpPage() {
         // Add role-specific fields
         if (formData.role === "student") {
           profileData.grade = parseInt(formData.grade);
-          profileData.school_name = formData.schoolName;
+          profileData.school = formData.schoolName;
         } else if (formData.role === "teacher") {
-          profileData.school_name = formData.schoolName;
+          profileData.school = formData.schoolName;
           profileData.phone = formData.phone;
         } else if (formData.role === "parent") {
           profileData.phone = formData.phone;
