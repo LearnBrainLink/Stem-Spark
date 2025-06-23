@@ -164,6 +164,116 @@
   @apply bg-gradient-to-br from-white to-brand-surface border border-brand-light/30 rounded-2xl p-8 hover:shadow-brand transition-all duration-300 transform hover:scale-105;
 }
 
+/* Ensure admin sidebar is always visible */
+.admin-layout {
+  @apply flex h-screen w-full overflow-hidden;
+}
+
+.admin-sidebar-container {
+  @apply fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white shadow-xl border-r border-gray-200;
+  min-width: 16rem !important;
+  max-width: 16rem !important;
+}
+
+.admin-content-area {
+  @apply flex-1 flex flex-col overflow-hidden;
+}
+
+.admin-main-content {
+  @apply flex-1 overflow-y-auto p-4 lg:p-6;
+}
+
+/* Force sidebar visibility on larger screens */
+@media (min-width: 1024px) {
+  .admin-sidebar-container {
+    @apply translate-x-0 !important;
+    transform: translateX(0) !important;
+  }
+  
+  .admin-content-area {
+    @apply ml-64;
+    margin-left: 16rem !important;
+  }
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 1023px) {
+  .admin-sidebar-container {
+    @apply transition-transform duration-300 ease-in-out;
+  }
+  
+  .admin-sidebar-container.sidebar-open {
+    @apply translate-x-0;
+  }
+  
+  .admin-sidebar-container.sidebar-closed {
+    @apply -translate-x-full;
+  }
+}
+
+/* Additional responsive utilities for admin pages */
+.admin-page-container {
+  @apply w-full max-w-none min-h-0;
+}
+
+.admin-grid {
+  @apply grid gap-4 lg:gap-6;
+}
+
+.admin-grid-cols-1 {
+  @apply grid-cols-1;
+}
+
+.admin-grid-cols-2 {
+  @apply grid-cols-1 md:grid-cols-2;
+}
+
+.admin-grid-cols-3 {
+  @apply grid-cols-1 md:grid-cols-2 lg:grid-cols-3;
+}
+
+.admin-grid-cols-4 {
+  @apply grid-cols-1 md:grid-cols-2 lg:grid-cols-4;
+}
+
+.admin-table-container {
+  @apply overflow-x-auto w-full;
+}
+
+.admin-card-responsive {
+  @apply p-4 lg:p-6;
+}
+
+.admin-button-responsive {
+  @apply text-sm lg:text-base px-3 lg:px-4 py-2 lg:py-3;
+}
+
+/* Ensure content doesn't overflow on small screens */
+@media (max-width: 640px) {
+  .admin-main-content {
+    @apply p-3;
+  }
+  
+  .admin-card-responsive {
+    @apply p-3;
+  }
+  
+  .admin-button-responsive {
+    @apply text-sm px-3 py-2;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 641px) and (max-width: 1023px) {
+  .admin-main-content {
+    @apply p-4;
+  }
+  
+  .admin-card-responsive {
+    @apply p-4;
+  }
+}
+
 /* Logo specific styles */
 .logo-container {
   @apply transition-all duration-300 hover:scale-110 drop-shadow-xl;
@@ -265,4 +375,15 @@
       transform: none;
     }
   }
+}
+
+/* Fallback for any potential z-index issues */
+.admin-sidebar-container {
+  z-index: 9999 !important;
+}
+
+/* Ensure the sidebar is always rendered */
+.admin-sidebar-container {
+  display: block !important;
+  visibility: visible !important;
 }
