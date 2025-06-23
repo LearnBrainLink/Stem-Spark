@@ -173,20 +173,31 @@
   @apply fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white shadow-xl border-r border-gray-200;
   min-width: 16rem !important;
   max-width: 16rem !important;
+  height: 100vh !important;
 }
 
 .admin-content-area {
   @apply flex-1 flex flex-col overflow-hidden;
-  width: calc(100vw - 16rem); /* Full width minus sidebar */
+  width: calc(100vw - 16rem) !important; /* Full width minus sidebar */
+  margin-left: 0 !important;
+  padding: 0 !important;
 }
 
 .admin-main-content {
-  @apply flex-1 overflow-y-auto p-4 lg:p-6;
+  @apply flex-1 overflow-y-auto;
+  padding: 1.5rem !important;
+  width: 100% !important;
+  height: 100vh !important;
+  max-width: none !important;
 }
 
 .admin-main-content-full {
-  @apply flex-1 overflow-y-auto p-4 lg:p-6 w-full h-full;
-  min-height: calc(100vh - 4rem);
+  @apply flex-1 overflow-y-auto;
+  padding: 1.5rem !important;
+  width: 100% !important;
+  height: 100vh !important;
+  max-width: none !important;
+  min-height: 100vh !important;
 }
 
 /* Force sidebar visibility on larger screens */
@@ -194,11 +205,14 @@
   .admin-sidebar-container {
     @apply translate-x-0 !important;
     transform: translateX(0) !important;
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
   }
   
   .admin-content-area {
-    @apply ml-64;
     margin-left: 16rem !important;
+    width: calc(100vw - 16rem) !important;
   }
 }
 
@@ -206,22 +220,30 @@
 @media (max-width: 1023px) {
   .admin-sidebar-container {
     @apply transition-transform duration-300 ease-in-out;
+    position: fixed !important;
+    height: 100vh !important;
+    transform: translateX(-100%);
   }
   
   .admin-sidebar-container.sidebar-open {
     @apply translate-x-0;
+    transform: translateX(0);
   }
   
   .admin-sidebar-container.sidebar-closed {
     @apply -translate-x-full;
+    transform: translateX(-100%);
   }
   
   .admin-content-area {
-    width: 100vw; /* Full width on mobile */
+    width: 100vw !important; /* Full width on mobile */
+    margin-left: 0 !important;
   }
   
   .admin-main-content-full {
-    min-height: calc(100vh - 4rem);
+    min-height: 100vh !important;
+    width: 100% !important;
+    padding: 1rem !important;
   }
 }
 
@@ -264,8 +286,10 @@
 
 /* Ensure content doesn't overflow on small screens */
 @media (max-width: 640px) {
-  .admin-main-content {
-    @apply p-3;
+  .admin-main-content, .admin-main-content-full {
+    padding: 0.75rem !important;
+    width: 100% !important;
+    height: 100vh !important;
   }
   
   .admin-card-responsive {
@@ -279,8 +303,10 @@
 
 /* Tablet adjustments */
 @media (min-width: 641px) and (max-width: 1023px) {
-  .admin-main-content {
-    @apply p-4;
+  .admin-main-content, .admin-main-content-full {
+    padding: 1rem !important;
+    width: 100% !important;
+    height: 100vh !important;
   }
   
   .admin-card-responsive {
@@ -391,13 +417,44 @@
   }
 }
 
-/* Fallback for any potential z-index issues */
-.admin-sidebar-container {
-  z-index: 9999 !important;
+/* Ensure full-width content area utilization */
+.admin-page-content {
+  @apply w-full h-full max-w-none;
+  min-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
-/* Ensure the sidebar is always rendered */
-.admin-sidebar-container {
-  display: block !important;
-  visibility: visible !important;
+.admin-content-wrapper {
+  @apply w-full h-full max-w-none overflow-hidden;
+}
+
+/* Force full-width for all admin containers */
+.admin-page-content > * {
+  max-width: none !important;
+}
+
+/* Override any max-width constraints in admin pages */
+.admin-page-content .container,
+.admin-page-content .max-w-7xl,
+.admin-page-content .max-w-6xl,
+.admin-page-content .max-w-5xl,
+.admin-page-content .max-w-4xl {
+  max-width: none !important;
+  width: 100% !important;
+}
+
+/* Ensure grids and flexbox containers use full width */
+.admin-page-content .grid,
+.admin-page-content .flex {
+  width: 100% !important;
+}
+
+/* Responsive admin utilities */
+@media (min-width: 1024px) {
+  .admin-page-content {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
 }

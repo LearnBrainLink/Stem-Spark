@@ -155,7 +155,7 @@ export default function SettingsPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="admin-page-content space-y-6 p-0 m-0">
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
