@@ -172,7 +172,7 @@ export default function AdminLayout({
         />
       )}
       
-      {/* Main Content Area */}
+      {/* Main Content Area - Full Width */}
       <div className="admin-content-area">
         {/* Mobile Menu Button */}
         <button 
@@ -182,8 +182,8 @@ export default function AdminLayout({
           <Menu className="w-5 h-5 text-[hsl(var(--novakinetix-primary))]" />
         </button>
         
-        {/* Content */}
-        <main className="admin-main-content pt-16 lg:pt-6">
+        {/* Content - Full Width and Height */}
+        <main className="admin-main-content-full pt-16 lg:pt-6">
           {children}
         </main>
       </div>

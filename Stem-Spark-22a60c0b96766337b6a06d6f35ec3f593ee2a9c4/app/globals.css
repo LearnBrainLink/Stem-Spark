@@ -177,10 +177,16 @@
 
 .admin-content-area {
   @apply flex-1 flex flex-col overflow-hidden;
+  width: calc(100vw - 16rem); /* Full width minus sidebar */
 }
 
 .admin-main-content {
   @apply flex-1 overflow-y-auto p-4 lg:p-6;
+}
+
+.admin-main-content-full {
+  @apply flex-1 overflow-y-auto p-4 lg:p-6 w-full h-full;
+  min-height: calc(100vh - 4rem);
 }
 
 /* Force sidebar visibility on larger screens */
@@ -208,6 +214,14 @@
   
   .admin-sidebar-container.sidebar-closed {
     @apply -translate-x-full;
+  }
+  
+  .admin-content-area {
+    width: 100vw; /* Full width on mobile */
+  }
+  
+  .admin-main-content-full {
+    min-height: calc(100vh - 4rem);
   }
 }
 

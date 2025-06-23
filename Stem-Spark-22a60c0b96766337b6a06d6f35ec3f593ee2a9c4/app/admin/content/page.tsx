@@ -8,11 +8,17 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Eye, Check, X, Flag, MessageSquare, Video, FileText, AlertTriangle, Clock, Shield, RefreshCw } from "lucide-react"
+import { Search, Eye, Check, X, Flag, MessageSquare, Video, FileText, AlertTriangle, Clock, Shield, RefreshCw, Download } from "lucide-react"
 import Image from "next/image"
 import { motion } from "framer-motion"
 import { getEnhancedVideosData, getEnhancedApplicationsData } from '../enhanced-actions'
 import { supabase } from '@/lib/supabase'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Button as UiButton } from "@/components/ui/button"
+import { CheckCircle } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface ContentItem {
   id: string
@@ -32,6 +38,10 @@ export default function ContentModerationPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [isLoading, setIsLoading] = useState(true)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null)
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [typeFilter, setTypeFilter] = useState("all")
 
   useEffect(() => {
     fetchContentItems()
@@ -45,6 +55,7 @@ export default function ContentModerationPage() {
     try {
       setIsLoading(true)
       setMessage(null)
+      setError(null)
       // Fetch videos
       const videosResult = await getEnhancedVideosData()
       // Fetch applications
@@ -72,7 +83,7 @@ export default function ContentModerationPage() {
       setContentItems(allItems)
     } catch (error) {
       console.error("Error fetching content:", error)
-      setMessage({ type: "error", text: "Failed to fetch content items" })
+      setError("Failed to fetch content items")
     } finally {
       setIsLoading(false)
     }
@@ -157,6 +168,111 @@ export default function ContentModerationPage() {
     flagged: contentItems.filter((item) => item.status === "flagged").length,
   }
 
+  const filteredContent = filteredItems.filter((item) => {
+    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.author.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = statusFilter === "all" || item.status === statusFilter
+    const matchesType = typeFilter === "all" || item.type === typeFilter
+    return matchesSearch && matchesStatus && matchesType
+  })
+
+  const exportContent = () => {
+    const csvContent = [
+      ['Type', 'Title', 'Author', 'Status', 'Created Date'],
+      ...filteredContent.map(content => [
+        content.type,
+        content.title,
+        content.author,
+        content.status,
+        new Date(content.created_at).toLocaleDateString()
+      ])
+    ].map(row => row.join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `content-export-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const getTypeBadgeColor = (type: string) => {
+    switch (type) {
+      case 'post': return 'bg-blue-100 text-blue-800 border-blue-200'
+      case 'comment': return 'bg-green-100 text-green-800 border-green-200'
+      case 'video': return 'bg-purple-100 text-purple-800 border-purple-200'
+      default: return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+  }
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case 'approved': return 'bg-green-100 text-green-800 border-green-200'
+      case 'rejected': return 'bg-red-100 text-red-800 border-red-200'
+      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      case 'flagged': return 'bg-orange-100 text-orange-800 border-orange-200'
+      default: return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+  }
+
+  const ContentCard = ({ content, index }: { content: ContentItem; index: number }) => (
+    <Card className="shadow-md hover:shadow-lg transition-all duration-300">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <Badge className={getTypeBadgeColor(content.type)}>
+            {content.type}
+          </Badge>
+          <Badge className={getStatusBadgeColor(content.status)}>
+            {content.status}
+          </Badge>
+        </div>
+        <CardTitle className="text-lg">{content.title}</CardTitle>
+        <CardDescription>by {content.author}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p className="text-gray-600 line-clamp-3">{content.content}</p>
+        <div className="flex items-center justify-between mt-4">
+          <span className="text-sm text-gray-500">
+            {new Date(content.created_at).toLocaleDateString()}
+          </span>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setSelectedContent(content)}
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            Review
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+
+  const ContentCardSkeleton = ({ index }: { index: number }) => (
+    <Card className="shadow-md">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-6 w-16" />
+          <Skeleton className="h-6 w-20" />
+        </div>
+        <Skeleton className="h-6 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+      </CardHeader>
+      <CardContent>
+        <Skeleton className="h-4 w-full mb-2" />
+        <Skeleton className="h-4 w-full mb-2" />
+        <Skeleton className="h-4 w-2/3" />
+        <div className="flex items-center justify-between mt-4">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-8 w-20" />
+        </div>
+      </CardContent>
+    </Card>
+  )
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -166,203 +282,169 @@ export default function ContentModerationPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full h-full space-y-6">
       {/* Header */}
-      <motion.header
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-        className="mb-6"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Content Moderation</h1>
-            <p className="text-gray-600">Review and manage platform content effectively.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={fetchContentItems}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
-            </Button>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Content Moderation</h1>
+          <p className="text-gray-600 mt-1">Review and moderate user-generated content</p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button variant="outline" onClick={fetchContentItems} className="w-full sm:w-auto">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+          <Button variant="outline" onClick={exportContent} className="w-full sm:w-auto">
+            <Download className="w-4 h-4 mr-2" />
+            Export
+          </Button>
+        </div>
+      </div>
+
+      {/* Filters and Search */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="md:col-span-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder="Search content..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
         </div>
-      </motion.header>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger>
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="pending">Pending Review</SelectItem>
+            <SelectItem value="approved">Approved</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger>
+            <SelectValue placeholder="Filter by type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="post">Posts</SelectItem>
+            <SelectItem value="comment">Comments</SelectItem>
+            <SelectItem value="video">Videos</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      {/* Message Alert */}
+      {/* Message Display */}
       {message && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-4"
-        >
-          <Alert className={message.type === "success" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
-            <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
-              {message.text}
-            </AlertDescription>
-          </Alert>
-        </motion.div>
+        <Alert className={message.type === "success" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
+          <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
+            {message.text}
+          </AlertDescription>
+        </Alert>
       )}
 
-      {/* Stats Cards */}
-      <motion.div 
-        className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-      >
-        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-              </div>
-              <FileText className="w-8 h-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
-              </div>
-              <Clock className="w-8 h-8 text-yellow-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Approved</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.approved}</p>
-              </div>
-              <Check className="w-8 h-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Rejected</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.rejected}</p>
-              </div>
-              <X className="w-8 h-8 text-red-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Flagged</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.flagged}</p>
-              </div>
-              <Flag className="w-8 h-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+      {/* Error Display */}
+      {error && (
+        <Alert className="border-red-200 bg-red-50">
+          <AlertTriangle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">{error}</AlertDescription>
+        </Alert>
+      )}
 
-      {/* Filters and Content */}
-      <motion.div 
-        className="space-y-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-      >
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-grow">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    placeholder="Search content..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
+      {/* Content Grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <ContentCardSkeleton key={index} index={index} />
+          ))}
+        </div>
+      ) : filteredContent.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredContent.map((content, index) => (
+            <ContentCard key={content.id} content={content} index={index} />
+          ))}
+        </div>
+      ) : (
+        <Card className="text-center py-12">
+          <CardContent>
+            <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No content found</h3>
+            <p className="text-gray-600">Try adjusting your search or filters to find content.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Content Review Dialog */}
+      {selectedContent && (
+        <Dialog open={!!selectedContent} onOpenChange={() => setSelectedContent(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Content Review</DialogTitle>
+              <DialogDescription>
+                Review content and take moderation action.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Author</Label>
+                  <p className="text-lg font-semibold">{selectedContent.author}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Content Type</Label>
+                  <Badge className={getTypeBadgeColor(selectedContent.type)}>
+                    {selectedContent.type}
+                  </Badge>
                 </div>
               </div>
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
-                <TabsList className="grid w-full grid-cols-5">
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="pending">Pending</TabsTrigger>
-                  <TabsTrigger value="approved">Approved</TabsTrigger>
-                  <TabsTrigger value="rejected">Rejected</TabsTrigger>
-                  <TabsTrigger value="flagged">Flagged</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Content</Label>
+                <div className="mt-2 p-4 bg-gray-50 rounded-lg">
+                  <p className="text-gray-800">{selectedContent.content}</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Created Date</Label>
+                  <p className="text-gray-800">{new Date(selectedContent.created_at).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Current Status</Label>
+                  <Badge className={getStatusBadgeColor(selectedContent.status)}>
+                    {selectedContent.status}
+                  </Badge>
+                </div>
+              </div>
+              
+              {selectedContent.status === 'pending' && (
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button 
+                    onClick={() => handleModerateContent(selectedContent.id, 'approve', selectedContent.type)}
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Approve
+                  </Button>
+                  <Button 
+                    onClick={() => handleModerateContent(selectedContent.id, 'reject', selectedContent.type)}
+                    variant="destructive"
+                    className="flex-1"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Reject
+                  </Button>
+                </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Content Table */}
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Author</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredItems.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {getTypeIcon(item.type)}
-                        <span className="capitalize">{item.type}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">{item.title}</TableCell>
-                    <TableCell>{item.author}</TableCell>
-                    <TableCell>{getStatusBadge(item.status)}</TableCell>
-                    <TableCell>{new Date(item.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleModerateContent(item.id, "approve", item.type)}
-                          disabled={item.status === "approved"}
-                        >
-                          <Check className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleModerateContent(item.id, "reject", item.type)}
-                          disabled={item.status === "rejected"}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleModerateContent(item.id, "flag", item.type)}
-                          disabled={item.status === "flagged"}
-                        >
-                          <Flag className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </motion.div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
-import { Users, Briefcase, Mail, DollarSign, TrendingUp, Shield, AlertCircle, CheckCircle, Clock, Award, Target, Zap, UserCheck, BarChart3, Download, FileText } from "lucide-react";
+import { Users, Briefcase, Mail, DollarSign, TrendingUp, Shield, AlertCircle, CheckCircle, Clock, Award, Target, Zap, UserCheck, BarChart3, Download, FileText, RefreshCw, Activity, GraduationCap, Video } from "lucide-react";
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import { getDashboardStats, getAnalyticsData, generateReport } from './actions';
@@ -26,6 +26,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getEnhancedDashboardStats, generateReport as enhancedGenerateReport } from './enhanced-actions';
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
+import {
+  Label,
+} from "@/components/ui/label";
 
 // --- COMPONENTS ---
 
@@ -272,302 +280,357 @@ export default function AdminDashboard() {
     },
   ] : [];
 
-  // Use real data for charts, fallback to sample data if needed
-  const displayChartData = chartData && chartData.length > 0 ? chartData : sampleChartData;
-  const displayUserDistribution = userDistribution && userDistribution.length > 0 ? userDistribution : samplePieData;
+  const downloadReport = (data: any) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `admin-report-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const displayChartData = chartData || sampleChartData;
+  const displayUserDistribution = userDistribution || samplePieData;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="w-full h-full space-y-6">
       {/* Header */}
-      <motion.header
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-        className="mb-6"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Admin Dashboard</h1>
-            <p className="text-gray-600">Welcome back! Here's your platform overview.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button 
-              variant="outline" 
-              className="border-gray-300 text-gray-700 hover:bg-gray-100"
-              onClick={() => window.location.reload()}
-            >
-              Refresh Data
-            </Button>
-            <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-[hsl(var(--novakinetix-primary))] text-white hover:bg-[hsl(var(--novakinetix-dark))]">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Generate Report
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Generate Report</DialogTitle>
-                  <DialogDescription>
-                    Select a report type to generate and download.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">Report Type</label>
-                    <Select value={selectedReportType} onValueChange={setSelectedReportType}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="comprehensive">Comprehensive Report</SelectItem>
-                        <SelectItem value="user_analytics">User Analytics</SelectItem>
-                        <SelectItem value="internship_analytics">Internship Analytics</SelectItem>
-                        <SelectItem value="revenue_analytics">Revenue Analytics</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+          <p className="text-gray-600 mt-1">Overview of platform statistics and recent activity</p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="w-full sm:w-auto">
+                <Download className="w-4 h-4 mr-2" />
+                Generate Report
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Generate Report</DialogTitle>
+                <DialogDescription>
+                  Create a comprehensive report of platform data.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Report Type</Label>
+                  <Select value={selectedReportType} onValueChange={setSelectedReportType}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="comprehensive">Comprehensive Report</SelectItem>
+                      <SelectItem value="user-analytics">User Analytics</SelectItem>
+                      <SelectItem value="internship-stats">Internship Statistics</SelectItem>
+                      <SelectItem value="financial-summary">Financial Summary</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-3 pt-4">
                   <Button 
-                    onClick={handleGenerateReport}
+                    onClick={handleGenerateReport} 
                     disabled={isGeneratingReport}
-                    className="w-full"
+                    className="flex-1"
                   >
                     {isGeneratingReport ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                         Generating...
                       </>
                     ) : (
                       <>
-                        <Download className="w-4 h-4 mr-2" />
-                        Generate & Download
+                        <FileText className="w-4 h-4 mr-2" />
+                        Generate
                       </>
                     )}
                   </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsReportDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
                 </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+          
+          <Button 
+            variant="outline" 
+            onClick={() => window.location.reload()}
+            className="w-full sm:w-auto"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
         </div>
-      </motion.header>
+      </div>
+
+      {/* Connection Status */}
+      {connectionStatus === 'loading' && (
+        <Alert>
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          <AlertDescription>Connecting to database...</AlertDescription>
+        </Alert>
+      )}
+
+      {connectionStatus === 'error' && (
+        <Alert className="border-red-200 bg-red-50">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
+            Unable to connect to database. Showing sample data.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Stats Grid */}
-      <motion.div 
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-      >
-        <AnimatePresence>
-          {isLoading ? (
-            <>
-              <StatCardSkeleton delay={0.1} />
-              <StatCardSkeleton delay={0.2} />
-              <StatCardSkeleton delay={0.3} />
-              <StatCardSkeleton delay={0.4} />
-            </>
-          ) : error ? (
-            <motion.div 
-              className="col-span-full"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-            >
-              <Card className="border-red-200 bg-gradient-to-r from-red-50 to-pink-50 p-4">
-                <CardContent className="p-0">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-red-100 rounded-full">
-                      <AlertCircle className="w-6 h-6 text-red-600" />
-                    </div>
-                    <div>
-                      <p className="text-red-800 font-semibold text-lg">Connection Error</p>
-                      <p className="text-red-600 text-sm">{error}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <Button 
-                      onClick={() => window.location.reload()} 
-                      variant="outline" 
-                      className="border-red-300 text-red-700 hover:bg-red-100"
-                    >
-                      Retry Connection
-                    </Button>
-                    <Button 
-                      onClick={() => window.open('/admin/setup', '_blank')}
-                      className="bg-red-600 hover:bg-red-700"
-                    >
-                      Check Setup
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-              </motion.div>
-          ) : (
-            statsData.map((stat, index) => (
-              <StatCard key={stat.title} {...stat} delay={index * 0.1} />
-            ))
-          )}
-        </AnimatePresence>
-      </motion.div>
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <StatCardSkeleton key={index} delay={index * 0.1} />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard
+            title="Total Users"
+            value={stats?.totalUsers?.toLocaleString() || "0"}
+            icon={Users}
+            description="Registered users"
+            color="text-blue-600"
+            bgColor="bg-blue-100"
+            delay={0.1}
+            trend="+12%"
+            trendValue="this month"
+          />
+          <StatCard
+            title="Students"
+            value={stats?.students?.toLocaleString() || "0"}
+            icon={GraduationCap}
+            description="Active students"
+            color="text-green-600"
+            bgColor="bg-green-100"
+            delay={0.2}
+            trend="+8%"
+            trendValue="this month"
+          />
+          <StatCard
+            title="Teachers"
+            value={stats?.teachers?.toLocaleString() || "0"}
+            icon={Shield}
+            description="Active teachers"
+            color="text-purple-600"
+            bgColor="bg-purple-100"
+            delay={0.3}
+            trend="+5%"
+            trendValue="this month"
+          />
+          <StatCard
+            title="Parents"
+            value={stats?.parents?.toLocaleString() || "0"}
+            icon={UserCheck}
+            description="Registered parents"
+            color="text-orange-600"
+            bgColor="bg-orange-100"
+            delay={0.4}
+            trend="+15%"
+            trendValue="this month"
+          />
+          <StatCard
+            title="Active Internships"
+            value={stats?.activeInternships?.toLocaleString() || "0"}
+            icon={Briefcase}
+            description="Current programs"
+            color="text-indigo-600"
+            bgColor="bg-indigo-100"
+            delay={0.5}
+            trend="+3"
+            trendValue="new this week"
+          />
+          <StatCard
+            title="Pending Applications"
+            value={stats?.pendingApplications?.toLocaleString() || "0"}
+            icon={Clock}
+            description="Awaiting review"
+            color="text-yellow-600"
+            bgColor="bg-yellow-100"
+            delay={0.6}
+            trend="+7"
+            trendValue="new today"
+          />
+          <StatCard
+            title="Total Revenue"
+            value={`$${stats?.totalRevenue?.toLocaleString() || "0"}`}
+            icon={DollarSign}
+            description="Platform revenue"
+            color="text-emerald-600"
+            bgColor="bg-emerald-100"
+            delay={0.7}
+            trend="+18%"
+            trendValue="this month"
+          />
+          <StatCard
+            title="Total Videos"
+            value={stats?.totalVideos?.toLocaleString() || "0"}
+            icon={Video}
+            description="Educational content"
+            color="text-red-600"
+            bgColor="bg-red-100"
+            delay={0.8}
+            trend="+12"
+            trendValue="new this week"
+          />
+        </div>
+      )}
 
       {/* Charts Section */}
-      <motion.div 
-        className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-      >
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg font-semibold text-gray-800">User Growth</CardTitle>
-            <TrendingUp className="w-5 h-5 text-green-600" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* User Growth Chart */}
+        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-gray-900">User Growth</CardTitle>
+            <CardDescription>Monthly user registration trends</CardDescription>
           </CardHeader>
           <CardContent>
-            {displayChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={displayChartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={displayChartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="name" stroke="#666" />
-                  <YAxis stroke="#666" />
+                  <XAxis dataKey="name" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: 'white', 
-                      border: '1px solid #e2e8f0', 
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px'
                     }} 
                   />
                   <Legend />
-                  <Line type="monotone" dataKey="users" stroke="#3B82F6" strokeWidth={2} />
-                  <Line type="monotone" dataKey="interns" stroke="#10B981" strokeWidth={2} />
-                  <Line type="monotone" dataKey="applications" stroke="#F59E0B" strokeWidth={2} />
+                  <Line 
+                    type="monotone" 
+                    dataKey="users" 
+                    stroke="#3b82f6" 
+                    strokeWidth={3}
+                    dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="interns" 
+                    stroke="#10b981" 
+                    strokeWidth={3}
+                    dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
+                  />
                 </LineChart>
               </ResponsiveContainer>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-gray-500">
-                <div className="text-center">
-                  <BarChart3 className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                  <p>No chart data available</p>
-                </div>
-              </div>
-            )}
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg font-semibold text-gray-800">User Distribution</CardTitle>
-            <Users className="w-5 h-5 text-blue-600" />
+        {/* User Distribution Chart */}
+        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-gray-900">User Distribution</CardTitle>
+            <CardDescription>Breakdown by user type</CardDescription>
           </CardHeader>
           <CardContent>
-            {displayUserDistribution.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie 
-                    data={displayUserDistribution} 
-                    dataKey="value" 
-                    nameKey="name" 
-                    cx="50%" 
-                    cy="50%" 
-                    outerRadius={80} 
-                    fill="#8884d8" 
+                  <Pie
+                    data={displayUserDistribution}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   >
-                    {displayUserDistribution.map((entry: { name: string; value: number; color: string }, index: number) => (
+                    {(displayUserDistribution).map((entry: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px'
+                    }} 
+                  />
                 </PieChart>
               </ResponsiveContainer>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-gray-500">
-                <div className="text-center">
-                  <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                  <p>No user data available</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Activity */}
+      <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold text-gray-900">Recent Activity</CardTitle>
+          <CardDescription>Latest platform activities and updates</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {stats?.recentActivity && stats.recentActivity.length > 0 ? (
+              stats.recentActivity.map((activity: any, index: number) => (
+                <div key={index} className="flex items-center gap-4 p-3 rounded-lg bg-gray-50">
+                  <div className="p-2 rounded-full bg-blue-100">
+                    <Activity className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                    <p className="text-xs text-gray-600">{activity.description}</p>
+                  </div>
+                  <span className="text-xs text-gray-500">{activity.time}</span>
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <Activity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">No recent activity to display</p>
               </div>
             )}
-          </CardContent>
-        </Card>
-      </motion.div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Quick Actions */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-        className="mb-6"
-      >
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
+      {/* Report Results */}
+      {reportData && (
+        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              <Zap className="w-5 h-5 text-yellow-600" />
-              Quick Actions
-            </CardTitle>
+            <CardTitle className="text-lg font-semibold text-gray-900">Generated Report</CardTitle>
+            <CardDescription>Report results and download options</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Link href="/admin/users">
-                <Button variant="outline" className="w-full h-auto flex flex-col items-center gap-2 p-4 hover:bg-blue-50 border-blue-200">
-                  <Users className="w-6 h-6 text-blue-600" />
-                  <span className="text-sm">Manage Users</span>
+            <div className="space-y-4">
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <span className="text-green-800 font-medium">Report generated successfully!</span>
+                </div>
+                <p className="text-green-700 text-sm mt-1">
+                  {reportData.summary}
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button onClick={() => downloadReport(reportData)}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Report
                 </Button>
-              </Link>
-              <Link href="/admin/applications">
-                <Button variant="outline" className="w-full h-auto flex flex-col items-center gap-2 p-4 hover:bg-green-50 border-green-200">
-                  <UserCheck className="w-6 h-6 text-green-600" />
-                  <span className="text-sm">Applications</span>
-                </Button>
-              </Link>
-              <Link href="/admin/internships">
-                <Button variant="outline" className="w-full h-auto flex flex-col items-center gap-2 p-4 hover:bg-purple-50 border-purple-200">
-                  <Briefcase className="w-6 h-6 text-purple-600" />
-                  <span className="text-sm">Internships</span>
-                </Button>
-              </Link>
-              <Link href="/admin/analytics">
-                <Button variant="outline" className="w-full h-auto flex flex-col items-center gap-2 p-4 hover:bg-orange-50 border-orange-200">
-                  <BarChart3 className="w-6 h-6 text-orange-600" />
-                  <span className="text-sm">Analytics</span>
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Database Status Warning */}
-      {isSampleData && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl"
-        >
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-amber-800 font-medium mb-1">Database Connection Issue</p>
-              <p className="text-amber-700 text-sm">
-                The dashboard is showing sample data. Please check your Supabase configuration and ensure all tables exist with proper RLS policies.
-              </p>
-              <div className="mt-3 flex gap-2">
-                <Link href="/admin/setup">
-                  <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white">
-                    Check Setup
-                  </Button>
-                </Link>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="border-amber-300 text-amber-700 hover:bg-amber-100"
-                  onClick={() => window.location.reload()}
-                >
-                  Retry Connection
+                <Button variant="outline" onClick={() => setReportData(null)}>
+                  Close
                 </Button>
               </div>
             </div>
-          </div>
-        </motion.div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

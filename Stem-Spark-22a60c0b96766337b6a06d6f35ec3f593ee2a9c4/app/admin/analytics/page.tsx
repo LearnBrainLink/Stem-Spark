@@ -5,55 +5,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid, XAxis, YAxis, Tooltip, Legend, AreaChart, Area } from 'recharts'
-import { Users, TrendingUp, Briefcase, Mail, DollarSign, Eye, Download, Calendar, Target, Award, Activity, BarChart3, RefreshCw, Loader2 } from "lucide-react"
+import { Users, TrendingUp, Briefcase, Mail, DollarSign, Eye, Download, Calendar, Target, Award, Activity, BarChart3, RefreshCw, Loader2, UserCheck, FileText, Video, AlertTriangle } from "lucide-react"
 import { motion } from "framer-motion"
-import { getEnhancedDashboardStats } from '../enhanced-actions'
+import { getEnhancedAnalyticsData } from '../enhanced-actions'
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { FileText, Video } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#06B6D4']
-
-const sampleAnalyticsData = {
-  totalUsers: 1247,
-  newUsersThisMonth: 89,
-  totalVideos: 156,
-  totalApplications: 342,
-  activeInternships: 23,
-  userGrowth: [
-    { month: 'Jan', users: 420, interns: 240, applications: 180 },
-    { month: 'Feb', users: 380, interns: 139, applications: 220 },
-    { month: 'Mar', users: 520, interns: 980, applications: 340 },
-    { month: 'Apr', users: 478, interns: 390, applications: 280 },
-    { month: 'May', users: 589, interns: 480, applications: 420 },
-    { month: 'Jun', users: 639, interns: 380, applications: 380 },
-    { month: 'Jul', users: 749, interns: 430, applications: 520 },
-  ],
-  applicationStats: [
-    { status: 'pending', count: 156, color: '#F59E0B' },
-    { status: 'approved', count: 89, color: '#10B981' },
-    { status: 'rejected', count: 97, color: '#EF4444' },
-  ],
-  userTypes: [
-    { type: 'Students', count: 810, percentage: 65 },
-    { type: 'Teachers', count: 249, percentage: 20 },
-    { type: 'Admins', count: 188, percentage: 15 },
-  ],
-  monthlyRevenue: [
-    { month: 'Jan', revenue: 12500 },
-    { month: 'Feb', revenue: 15800 },
-    { month: 'Mar', revenue: 18900 },
-    { month: 'Apr', revenue: 14200 },
-    { month: 'May', revenue: 22100 },
-    { month: 'Jun', revenue: 19800 },
-    { month: 'Jul', revenue: 25600 },
-  ],
-  engagementMetrics: [
-    { metric: 'Page Views', value: 45600, change: '+12%' },
-    { metric: 'Session Duration', value: '4m 32s', change: '+8%' },
-    { metric: 'Bounce Rate', value: '23%', change: '-5%' },
-    { metric: 'Conversion Rate', value: '3.2%', change: '+15%' },
-  ]
-}
 
 export default function AnalyticsPage() {
   const [analyticsData, setAnalyticsData] = useState<any>(null)
@@ -62,6 +20,8 @@ export default function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState('7d')
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null)
+  const [metricType, setMetricType] = useState('users')
+  const [chartType, setChartType] = useState('line')
 
   useEffect(() => {
     fetchAnalytics()
@@ -72,13 +32,13 @@ export default function AnalyticsPage() {
       setIsLoading(true)
       setError(null)
       
-      const result = await getEnhancedDashboardStats()
+      const result = await getEnhancedAnalyticsData()
       
       if (result.error) {
         setError(result.error)
         setAnalyticsData(null)
-      } else if (result.stats) {
-        setAnalyticsData(result.stats)
+      } else if (result.analytics) {
+        setAnalyticsData(result.analytics)
       } else {
         setAnalyticsData(null)
       }
@@ -95,30 +55,46 @@ export default function AnalyticsPage() {
       setIsGeneratingReport(true)
       setError(null)
       
-      const result = await getEnhancedDashboardStats()
+      const result = await getEnhancedAnalyticsData()
       
       if (result.error) {
         setError(result.error)
-        setAnalyticsData(null)
-      } else if (result.stats) {
-        setAnalyticsData(result.stats)
-      } else {
-        setAnalyticsData(null)
+      } else if (result.analytics) {
+        setAnalyticsData(result.analytics)
+        setMessage({ type: 'success', text: 'Analytics report generated successfully!' })
       }
     } catch (err) {
       setError('Failed to generate report')
-      setAnalyticsData(null)
     } finally {
       setIsGeneratingReport(false)
     }
   }
 
-  // Use real data for charts, fallback to sample data if needed
-  const displayChartData = analyticsData?.userGrowth && analyticsData.userGrowth.length > 0 ? analyticsData.userGrowth : sampleAnalyticsData.userGrowth;
-  const displayUserDistribution = analyticsData?.userTypes && analyticsData.userTypes.length > 0 ? analyticsData.userTypes : sampleAnalyticsData.userTypes;
-  const displayApplicationStats = analyticsData?.applicationStats && analyticsData.applicationStats.length > 0 ? analyticsData.applicationStats : sampleAnalyticsData.applicationStats;
-  const displayMonthlyRevenue = analyticsData?.monthlyRevenue && analyticsData.monthlyRevenue.length > 0 ? analyticsData.monthlyRevenue : sampleAnalyticsData.monthlyRevenue;
-  const displayEngagementMetrics = analyticsData?.engagementMetrics && analyticsData.engagementMetrics.length > 0 ? analyticsData.engagementMetrics : sampleAnalyticsData.engagementMetrics;
+  const exportAnalytics = () => {
+    if (!analyticsData) return
+
+    const csvContent = [
+      ['Metric', 'Value', 'Change'],
+      ['Total Users', analyticsData.totalUsers, ''],
+      ['New Users This Month', analyticsData.newUsersThisMonth, ''],
+      ['Active Users', analyticsData.activeUsers, ''],
+      ['Total Videos', analyticsData.totalVideos, ''],
+      ['Total Applications', analyticsData.totalApplications, ''],
+      ['Active Internships', analyticsData.activeInternships, ''],
+      ['Total Revenue', `$${analyticsData.totalRevenue}`, ''],
+      ['This Month Revenue', `$${analyticsData.thisMonthRevenue}`, ''],
+    ].map(row => row.join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `analytics-export-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   const MetricCard = ({ title, value, change, icon: Icon, color }: any) => (
     <motion.div
@@ -168,7 +144,7 @@ export default function AnalyticsPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 p-6">
+      <div className="w-full h-full space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i} className="shadow-lg border-0">
@@ -198,244 +174,257 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full h-full space-y-6">
       {/* Header */}
-      <motion.header
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-        className="mb-6"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Analytics & Reports</h1>
-            <p className="text-gray-600">Comprehensive insights and data analysis.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={fetchAnalytics}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
-            </Button>
-            <Button 
-              className="bg-[hsl(var(--novakinetix-primary))] text-white hover:bg-[hsl(var(--novakinetix-dark))]"
-              onClick={handleGenerateReport}
-              disabled={isGeneratingReport}
-            >
-              {isGeneratingReport ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4 mr-2" />
-                  Generate Report
-                </>
-              )}
-            </Button>
-          </div>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Analytics & Reports</h1>
+          <p className="text-gray-600 mt-1">Comprehensive platform analytics and insights</p>
         </div>
-      </motion.header>
-
-      {/* Message Alert */}
-      {message && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-4"
-        >
-          <Alert className={message.type === "success" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
-            <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
-              {message.text}
-            </AlertDescription>
-          </Alert>
-        </motion.div>
-      )}
-
-      {/* Key Metrics */}
-      <motion.div 
-        className="grid grid-cols-2 md:grid-cols-4 gap-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-      >
-        <MetricCard
-          title="Total Users"
-          value={analyticsData?.totalUsers?.toLocaleString() || '0'}
-          change="+12%"
-          icon={Users}
-          color="bg-blue-500"
-        />
-        <MetricCard
-          title="New Users"
-          value={analyticsData?.newUsersThisMonth?.toLocaleString() || '0'}
-          change="+8%"
-          icon={TrendingUp}
-          color="bg-green-500"
-        />
-        <MetricCard
-          title="Active Internships"
-          value={analyticsData?.activeInternships?.toLocaleString() || '0'}
-          change="+15%"
-          icon={Briefcase}
-          color="bg-purple-500"
-        />
-        <MetricCard
-          title="Total Applications"
-          value={analyticsData?.totalApplications?.toLocaleString() || '0'}
-          change="+23%"
-          icon={Mail}
-          color="bg-amber-500"
-        />
-      </motion.div>
-
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* User Growth Chart */}
-        <ChartCard
-          title="User Growth"
-          description="Monthly user registration and activity trends"
-        >
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={displayChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="month" stroke="#666" />
-              <YAxis stroke="#666" />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'white', 
-                  border: '1px solid #e2e8f0', 
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                }} 
-              />
-              <Legend />
-              <Line type="monotone" dataKey="users" stroke="#3B82F6" strokeWidth={2} name="Users" />
-              <Line type="monotone" dataKey="interns" stroke="#10B981" strokeWidth={2} name="Interns" />
-              <Line type="monotone" dataKey="applications" stroke="#F59E0B" strokeWidth={2} name="Applications" />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        {/* User Distribution Chart */}
-        <ChartCard
-          title="User Distribution"
-          description="Breakdown of users by type"
-        >
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={displayUserDistribution}
-                dataKey="count"
-                nameKey="type"
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                label={({ type, percentage }) => `${type} (${percentage}%)`}
-              >
-                {displayUserDistribution.map((entry: any, index: number) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        {/* Application Status Chart */}
-        <ChartCard
-          title="Application Status"
-          description="Current status of internship applications"
-        >
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={displayApplicationStats}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="status" stroke="#666" />
-              <YAxis stroke="#666" />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'white', 
-                  border: '1px solid #e2e8f0', 
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                }} 
-              />
-              <Bar dataKey="count" fill="#8884d8" />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        {/* Monthly Revenue Chart */}
-        <ChartCard
-          title="Monthly Revenue"
-          description="Revenue trends over the past months"
-        >
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={displayMonthlyRevenue}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="month" stroke="#666" />
-              <YAxis stroke="#666" />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'white', 
-                  border: '1px solid #e2e8f0', 
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                }} 
-              />
-              <Area type="monotone" dataKey="revenue" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.3} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </ChartCard>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button variant="outline" onClick={fetchAnalytics} className="w-full sm:w-auto">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+          <Button variant="outline" onClick={handleGenerateReport} className="w-full sm:w-auto">
+            <Download className="w-4 h-4 mr-2" />
+            Generate Report
+          </Button>
+        </div>
       </div>
 
-      {/* Engagement Metrics */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-      >
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
-              <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-blue-600" />
-              Engagement Metrics
-            </CardTitle>
-            <CardDescription>Key performance indicators for user engagement</CardDescription>
-              </CardHeader>
-              <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {displayEngagementMetrics.map((metric: any, index: number) => (
-                <div key={index} className="text-center p-4 bg-white rounded-lg border border-gray-100">
-                  <p className="text-sm font-medium text-gray-600 mb-1">{metric.metric}</p>
-                  <p className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</p>
-                  <p className={`text-sm font-medium ${metric.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-                    {metric.change}
-                  </p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-      </motion.div>
+      {/* Filters */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Select value={timeRange} onValueChange={setTimeRange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select time range" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7d">Last 7 days</SelectItem>
+            <SelectItem value="30d">Last 30 days</SelectItem>
+            <SelectItem value="90d">Last 90 days</SelectItem>
+            <SelectItem value="1y">Last year</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={metricType} onValueChange={setMetricType}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select metric" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="users">User Growth</SelectItem>
+            <SelectItem value="engagement">Engagement</SelectItem>
+            <SelectItem value="revenue">Revenue</SelectItem>
+            <SelectItem value="content">Content</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={chartType} onValueChange={setChartType}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select chart type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="line">Line Chart</SelectItem>
+            <SelectItem value="bar">Bar Chart</SelectItem>
+            <SelectItem value="pie">Pie Chart</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      {/* Data Status Warning */}
+      {/* Message Display */}
+      {message && (
+        <Alert className={message.type === "success" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
+          <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
+            {message.text}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Error Display */}
       {error && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl"
-        >
-          <div className="flex items-start gap-3">
-            <BarChart3 className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-amber-800 font-medium mb-1">Using Sample Data</p>
-              <p className="text-amber-700 text-sm">
-                Analytics data is currently showing sample information. Check your database connection for real-time data.
-              </p>
-                </div>
+        <Alert className="border-red-200 bg-red-50">
+          <AlertTriangle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Analytics Content */}
+      {analyticsData ? (
+        <>
+          {/* Key Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <MetricCard
+              title="Total Users"
+              value={analyticsData.totalUsers?.toLocaleString() || "0"}
+              change="+12%"
+              icon={Users}
+              color="bg-blue-500"
+            />
+            <MetricCard
+              title="Active Users"
+              value={analyticsData.activeUsers?.toLocaleString() || "0"}
+              change="+8%"
+              icon={UserCheck}
+              color="bg-green-500"
+            />
+            <MetricCard
+              title="Total Revenue"
+              value={`$${analyticsData.totalRevenue?.toLocaleString() || "0"}`}
+              change="+18%"
+              icon={DollarSign}
+              color="bg-purple-500"
+            />
+            <MetricCard
+              title="Total Applications"
+              value={analyticsData.totalApplications?.toLocaleString() || "0"}
+              change="+23%"
+              icon={Mail}
+              color="bg-amber-500"
+            />
           </div>
-        </motion.div>
+
+          {/* Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ChartCard
+              title="User Growth"
+              description="Monthly user registration and activity trends"
+            >
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={analyticsData.userGrowth || []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="month" stroke="#666" />
+                  <YAxis stroke="#666" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #e2e8f0', 
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }} 
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="users" stroke="#3B82F6" strokeWidth={2} name="Users" />
+                  <Line type="monotone" dataKey="students" stroke="#10B981" strokeWidth={2} name="Students" />
+                  <Line type="monotone" dataKey="teachers" stroke="#F59E0B" strokeWidth={2} name="Teachers" />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartCard>
+            <ChartCard
+              title="User Distribution"
+              description="Breakdown of users by type"
+            >
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={analyticsData.userTypes || []}
+                    dataKey="count"
+                    nameKey="type"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={({ type, percentage }) => `${type} (${percentage}%)`}
+                  >
+                    {(analyticsData.userTypes || []).map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+
+          {/* Detailed Reports */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ChartCard
+              title="Application Status"
+              description="Current status of internship applications"
+            >
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={analyticsData.applicationStats || []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="status" stroke="#666" />
+                  <YAxis stroke="#666" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #e2e8f0', 
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }} 
+                  />
+                  <Bar dataKey="count" fill="#8884d8" />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+            <ChartCard
+              title="Monthly Revenue"
+              description="Revenue trends over the past months"
+            >
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={analyticsData.monthlyRevenue || []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="month" stroke="#666" />
+                  <YAxis stroke="#666" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #e2e8f0', 
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }} 
+                  />
+                  <Area type="monotone" dataKey="revenue" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.3} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+
+          {/* Additional Metrics */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ChartCard
+              title="Engagement Metrics"
+              description="Key performance indicators for user engagement"
+            >
+              <div className="grid grid-cols-2 gap-4">
+                {(analyticsData.engagementMetrics || []).map((metric: any, index: number) => (
+                  <div key={index} className="text-center p-4 bg-white rounded-lg border border-gray-100">
+                    <p className="text-sm font-medium text-gray-600 mb-1">{metric.metric}</p>
+                    <p className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</p>
+                    <p className={`text-sm font-medium ${metric.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
+                      {metric.change}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </ChartCard>
+            <ChartCard
+              title="Top Performing Content"
+              description="Most viewed videos and content"
+            >
+              <div className="space-y-3">
+                {(analyticsData.topContent || []).map((content: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100">
+                    <div>
+                      <p className="font-medium text-gray-900">{content.title}</p>
+                      <p className="text-sm text-gray-600">{content.category}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium text-gray-900">{content.views} views</p>
+                      <p className="text-sm text-gray-600">{Math.floor(content.duration / 60)}:{(content.duration % 60).toString().padStart(2, '0')}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ChartCard>
+          </div>
+        </>
+      ) : (
+        <Card className="text-center py-12">
+          <CardContent>
+            <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No analytics data available</h3>
+            <p className="text-gray-600">Try refreshing the page or check your database connection.</p>
+          </CardContent>
+        </Card>
       )}
     </div>
   )

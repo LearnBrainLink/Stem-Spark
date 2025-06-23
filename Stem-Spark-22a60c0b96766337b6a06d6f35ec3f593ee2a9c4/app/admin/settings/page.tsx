@@ -22,7 +22,8 @@ import {
   CheckCircle,
   Eye,
   EyeOff,
-  Loader2
+  Loader2,
+  RotateCcw
 } from "lucide-react";
 import { motion, AnimatePresence } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -81,28 +82,12 @@ export default function SettingsPage() {
     
     if (result.error) {
       setMessage({ type: 'error', text: result.error });
-    } else if (result.settings && typeof result.settings === 'object') {
-      const settingsData = result.settings as any;
+    } else if (result.settings) {
       setSettings({
-        siteName: settingsData.siteName || "Novakinetix Academy",
-        siteDescription: settingsData.siteDescription || "",
-        contactEmail: settingsData.contactEmail || "",
-        timezone: settingsData.timezone || "UTC",
-        twoFactorAuth: settingsData.twoFactorAuth || false,
-        sessionTimeout: settingsData.sessionTimeout || 30,
-        passwordMinLength: settingsData.passwordMinLength || 8,
-        requireEmailVerification: settingsData.requireEmailVerification || true,
-        emailNotifications: settingsData.emailNotifications || true,
-        pushNotifications: settingsData.pushNotifications || false,
-        weeklyReports: settingsData.weeklyReports || false,
-        applicationAlerts: settingsData.applicationAlerts || true,
-        maintenanceMode: settingsData.maintenanceMode || false,
-        debugMode: settingsData.debugMode || false,
-        autoBackup: settingsData.autoBackup || true,
-        backupFrequency: settingsData.backupFrequency || 'daily',
-        passwordPolicy: settingsData.passwordPolicy || true,
-        logLevel: settingsData.logLevel || 'info',
-        apiRateLimit: settingsData.apiRateLimit || 100
+        ...result.settings,
+        theme: result.settings.theme || 'light',
+        primaryColor: result.settings.primaryColor || '#3B82F6',
+        accentColor: result.settings.accentColor || '#10B981'
       });
     }
     setIsLoading(false);
