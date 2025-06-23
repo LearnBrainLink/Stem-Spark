@@ -299,13 +299,13 @@ export async function getEnhancedApplicationsData() {
   try {
     console.log('Fetching applications data...');
 
-    // First try the modern approach with named relationships
+    // First try the modern approach with named relationships (basic columns only)
     let { data: applications, error } = await supabase
       .from('internship_applications')
       .select(`
         *,
-        profiles!student_id(full_name, email, role, grade, school_name),
-        internships!internship_id(title, company, description, location)
+        profiles!student_id(id, full_name, email, role),
+        internships!internship_id(id, title, company)
       `)
       .order('applied_at', { ascending: false })
 
@@ -317,8 +317,8 @@ export async function getEnhancedApplicationsData() {
         .from('internship_applications')
         .select(`
           *,
-          profiles!internship_applications_student_id_fkey(full_name, email, role, grade, school_name),
-          internships!internship_applications_internship_id_fkey(title, company, description, location)
+          profiles!internship_applications_student_id_fkey(id, full_name, email, role),
+          internships!internship_applications_internship_id_fkey(id, title, company)
         `)
         .order('applied_at', { ascending: false })
       
@@ -355,17 +355,17 @@ export async function getEnhancedApplicationsData() {
       const applicationsWithRelations = []
       
       for (const app of manualResult.data || []) {
-        // Fetch student profile
+        // Fetch student profile (only basic columns to avoid missing column errors)
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name, email, role, grade, school_name')
+          .select('id, full_name, email, role')
           .eq('id', app.student_id)
           .single()
 
         // Fetch internship
         const { data: internship } = await supabase
           .from('internships')
-          .select('title, company, description, location')
+          .select('id, title, company')
           .eq('id', app.internship_id)
           .single()
 

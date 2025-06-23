@@ -34,6 +34,42 @@ BEGIN
         RAISE NOTICE 'Profiles table created successfully.';
     ELSE
         RAISE NOTICE 'Profiles table already exists.';
+        
+        -- Add missing columns to profiles table if they don't exist
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'full_name' AND table_schema = 'public') THEN
+            ALTER TABLE public.profiles ADD COLUMN full_name TEXT;
+            RAISE NOTICE 'Added full_name column to profiles table.';
+        END IF;
+        
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'role' AND table_schema = 'public') THEN
+            ALTER TABLE public.profiles ADD COLUMN role TEXT DEFAULT 'student' CHECK (role IN ('student', 'parent', 'teacher', 'admin'));
+            RAISE NOTICE 'Added role column to profiles table.';
+        END IF;
+        
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'grade' AND table_schema = 'public') THEN
+            ALTER TABLE public.profiles ADD COLUMN grade INTEGER;
+            RAISE NOTICE 'Added grade column to profiles table.';
+        END IF;
+        
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'school_name' AND table_schema = 'public') THEN
+            ALTER TABLE public.profiles ADD COLUMN school_name TEXT;
+            RAISE NOTICE 'Added school_name column to profiles table.';
+        END IF;
+        
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'user_id' AND table_schema = 'public') THEN
+            ALTER TABLE public.profiles ADD COLUMN user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+            RAISE NOTICE 'Added user_id column to profiles table.';
+        END IF;
+        
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'created_at' AND table_schema = 'public') THEN
+            ALTER TABLE public.profiles ADD COLUMN created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+            RAISE NOTICE 'Added created_at column to profiles table.';
+        END IF;
+        
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'updated_at' AND table_schema = 'public') THEN
+            ALTER TABLE public.profiles ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+            RAISE NOTICE 'Added updated_at column to profiles table.';
+        END IF;
     END IF;
 
     -- Check if internships table exists
