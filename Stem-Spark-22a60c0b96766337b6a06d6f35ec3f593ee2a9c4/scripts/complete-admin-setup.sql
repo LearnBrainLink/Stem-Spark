@@ -1,5 +1,5 @@
 -- Complete Admin Dashboard Setup Script
--- This script creates all necessary tables, policies, and sample data for the admin dashboard
+-- This script creates all necessary tables, policies, and empty structure for the admin dashboard
 
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -297,81 +297,6 @@ CREATE POLICY "Admins can manage site configuration" ON site_configuration
         )
     );
 
--- Insert sample data for testing
-
--- Insert sample profiles
-INSERT INTO profiles (id, email, full_name, role, email_verified) VALUES
-('11111111-1111-1111-1111-111111111111', 'admin@novakinetix.com', 'Admin User', 'admin', true),
-('22222222-2222-2222-2222-222222222222', 'teacher@novakinetix.com', 'Teacher User', 'teacher', true),
-('33333333-3333-3333-3333-333333333333', 'student@novakinetix.com', 'Student User', 'student', true),
-('44444444-4444-4444-4444-444444444444', 'student2@novakinetix.com', 'Another Student', 'student', false),
-('55555555-5555-5555-5555-555555555555', 'teacher2@novakinetix.com', 'Another Teacher', 'teacher', true);
-
--- Insert sample internships
-INSERT INTO internships (title, description, requirements, duration, location, status) VALUES
-('Software Development Intern', 'Learn modern web development with React and Node.js', 'Basic JavaScript knowledge', '3 months', 'Remote', 'active'),
-('Data Science Intern', 'Work with real datasets and machine learning models', 'Python programming skills', '6 months', 'Hybrid', 'active'),
-('UI/UX Design Intern', 'Create beautiful user interfaces and user experiences', 'Design portfolio required', '4 months', 'On-site', 'active'),
-('Marketing Intern', 'Help promote our educational programs', 'Strong communication skills', '3 months', 'Remote', 'draft'),
-('Research Intern', 'Conduct research in emerging technologies', 'Academic background preferred', '6 months', 'On-site', 'inactive');
-
--- Insert sample videos
-INSERT INTO videos (title, description, url, category, duration) VALUES
-('Introduction to React', 'Learn the basics of React development', 'https://example.com/react-intro', 'Programming', 1800),
-('Machine Learning Fundamentals', 'Understanding ML concepts and algorithms', 'https://example.com/ml-basics', 'Data Science', 2400),
-('UI Design Principles', 'Creating effective user interfaces', 'https://example.com/ui-design', 'Design', 1200),
-('Web Development Best Practices', 'Modern web development techniques', 'https://example.com/web-dev', 'Programming', 2100),
-('Data Visualization', 'Creating compelling data visualizations', 'https://example.com/data-viz', 'Data Science', 1800);
-
--- Insert sample donations
-INSERT INTO donations (user_id, amount, status, payment_method) VALUES
-('33333333-3333-3333-3333-333333333333', 50.00, 'completed', 'credit_card'),
-('44444444-4444-4444-4444-444444444444', 25.00, 'completed', 'paypal'),
-('33333333-3333-3333-3333-333333333333', 100.00, 'completed', 'credit_card'),
-('55555555-5555-5555-5555-555555555555', 75.00, 'pending', 'bank_transfer'),
-('22222222-2222-2222-2222-222222222222', 200.00, 'completed', 'credit_card');
-
--- Insert sample internship applications
-INSERT INTO internship_applications (user_id, internship_id, cover_letter, status) VALUES
-('33333333-3333-3333-3333-333333333333', (SELECT id FROM internships WHERE title = 'Software Development Intern' LIMIT 1), 'I am excited to apply for this position...', 'pending'),
-('44444444-4444-4444-4444-444444444444', (SELECT id FROM internships WHERE title = 'Data Science Intern' LIMIT 1), 'I have a strong background in Python...', 'approved'),
-('33333333-3333-3333-3333-333333333333', (SELECT id FROM internships WHERE title = 'UI/UX Design Intern' LIMIT 1), 'I am passionate about design...', 'rejected'),
-('55555555-5555-5555-5555-555555555555', (SELECT id FROM internships WHERE title = 'Marketing Intern' LIMIT 1), 'I have experience in digital marketing...', 'pending');
-
--- Insert sample applications
-INSERT INTO applications (user_id, title, description, status) VALUES
-('33333333-3333-3333-3333-333333333333', 'General Application', 'I would like to join the academy', 'pending'),
-('44444444-4444-4444-4444-444444444444', 'Program Inquiry', 'Interested in advanced courses', 'approved'),
-('55555555-5555-5555-5555-555555555555', 'Partnership Request', 'Looking to collaborate on projects', 'pending');
-
--- Insert sample user progress
-INSERT INTO user_progress (user_id, video_id, progress_percentage, completed) VALUES
-('33333333-3333-3333-3333-333333333333', (SELECT id FROM videos WHERE title = 'Introduction to React' LIMIT 1), 75, false),
-('33333333-3333-3333-3333-333333333333', (SELECT id FROM videos WHERE title = 'Machine Learning Fundamentals' LIMIT 1), 100, true),
-('44444444-4444-4444-4444-444444444444', (SELECT id FROM videos WHERE title = 'UI Design Principles' LIMIT 1), 50, false),
-('55555555-5555-5555-5555-555555555555', (SELECT id FROM videos WHERE title = 'Web Development Best Practices' LIMIT 1), 90, false);
-
--- Insert sample user activities
-INSERT INTO user_activities (user_id, activity_type, description) VALUES
-('33333333-3333-3333-3333-333333333333', 'login', 'User logged in'),
-('33333333-3333-3333-3333-333333333333', 'video_watch', 'Watched Introduction to React'),
-('44444444-4444-4444-4444-444444444444', 'application_submit', 'Submitted internship application'),
-('55555555-5555-5555-5555-555555555555', 'donation', 'Made a donation of $75'),
-('22222222-2222-2222-2222-222222222222', 'login', 'Teacher logged in');
-
--- Insert site configuration
-INSERT INTO site_configuration (key, value, description) VALUES
-('site_name', 'Novakinetix Academy', 'The name of the website'),
-('site_url', 'https://novakinetix-academy.vercel.app', 'The main website URL'),
-('supabase_url', 'https://your-project.supabase.co', 'Supabase project URL'),
-('contact_email', 'contact@novakinetix.com', 'Primary contact email'),
-('support_email', 'support@novakinetix.com', 'Support email address'),
-('max_file_size', '10485760', 'Maximum file upload size in bytes'),
-('allowed_file_types', 'jpg,jpeg,png,pdf,doc,docx', 'Allowed file types for uploads'),
-('maintenance_mode', 'false', 'Whether the site is in maintenance mode'),
-('registration_enabled', 'true', 'Whether new user registration is enabled'),
-('email_verification_required', 'true', 'Whether email verification is required for new users');
-
 -- Create views for admin dashboard analytics
 CREATE OR REPLACE VIEW admin_dashboard_stats AS
 SELECT 
@@ -425,9 +350,9 @@ GRANT SELECT ON user_growth_analytics TO authenticated;
 GRANT SELECT ON revenue_analytics TO authenticated;
 
 -- Verify setup
-SELECT 'Setup completed successfully!' as status;
+SELECT 'Setup completed successfully! All tables created with empty structure.' as status;
 
--- Show table counts for verification
+-- Show table counts for verification (should all be 0)
 SELECT 
     'profiles' as table_name, COUNT(*) as record_count FROM profiles
 UNION ALL
@@ -447,5 +372,5 @@ SELECT 'user_activities', COUNT(*) FROM user_activities
 UNION ALL
 SELECT 'site_configuration', COUNT(*) FROM site_configuration;
 
--- Show admin dashboard stats
+-- Show admin dashboard stats (should all be 0)
 SELECT * FROM admin_dashboard_stats; 

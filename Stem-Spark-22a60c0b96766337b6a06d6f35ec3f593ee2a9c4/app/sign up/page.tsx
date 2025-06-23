@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Mail, Lock, User, CheckCircle, Loader2, ArrowLeft, School, Map, Globe } from "lucide-react";
 import Link from "next/link";
-import { enhancedSignUp } from "@/lib/enhanced-auth-actions";
+import { createClient } from "@supabase/supabase-js";
 
 interface FormDataType {
   fullName: string;
@@ -72,18 +72,103 @@ export default function SignUpPage() {
     e.preventDefault();
     setIsLoading(true);
     setMessage(null);
+
+    // Validation
+    if (formData.password !== formData.confirmPassword) {
+      setMessage({ type: "error", text: "Passwords do not match" });
+      setIsLoading(false);
+      return;
+    }
+
+    if (formData.password.length < 8) {
+      setMessage({ type: "error", text: "Password must be at least 8 characters long" });
+      setIsLoading(false);
+      return;
+    }
+
+    if (!formData.role) {
+      setMessage({ type: "error", text: "Please select your role" });
+      setIsLoading(false);
+      return;
+    }
+
+    if (formData.role === "student") {
+      if (!formData.grade || !formData.parentName || !formData.parentEmail) {
+        setMessage({ type: "error", text: "Students must provide grade level and parent information" });
+        setIsLoading(false);
+        return;
+      }
+    }
+
     try {
-      const form = new FormData(e.target as HTMLFormElement);
-      const result = await enhancedSignUp(form);
-      if (result?.error) {
-        setMessage({ type: "error", text: result.error });
-      } else if (result?.success) {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      console.log("🚀 Starting signup for", formData.email, "as", formData.role);
+
+      // Create auth user
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            full_name: formData.fullName,
+          },
+        },
+      });
+
+      if (error) {
+        console.error("Signup error:", error);
+        setMessage({ type: "error", text: error.message });
+        setIsLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        console.log("✅ Auth user created:", data.user.id);
+
+        // Create profile in database
+        const { error: profileError } = await supabase.from("profiles").insert({
+          id: data.user.id,
+          email: formData.email,
+          full_name: formData.fullName,
+          role: formData.role,
+          grade: formData.grade ? parseInt(formData.grade) : null,
+          country: formData.country,
+          state: formData.state,
+          school_name: formData.schoolName,
+          email_verified: false,
+        });
+
+        if (profileError) {
+          console.error("Profile creation error:", profileError);
+          setMessage({ type: "error", text: "Failed to create profile. Please try again." });
+          setIsLoading(false);
+          return;
+        }
+
+        // Log activity
+        await supabase.from("user_activities").insert({
+          user_id: data.user.id,
+          activity_type: "account_created",
+          description: `Account created as ${formData.role}`,
+          metadata: { role: formData.role, grade: formData.grade },
+        });
+
+        console.log("✅ Account created successfully for", formData.email, "as", formData.role);
+
         setMessage({
           type: "success",
-          text: result.message || "Account created successfully! Please check your email to verify your account.",
+          text: "Account created successfully! Please check your email to verify your account.",
         });
+      } else {
+        setMessage({ type: "error", text: "Failed to create account. Please try again." });
       }
     } catch (error) {
+      console.error("Unexpected signup error:", error);
       setMessage({
         type: "error",
         text: "An unexpected error occurred during signup. Please try again.",
