@@ -183,7 +183,8 @@ export default function SignUpPage() {
 
         if (profileError) {
           console.error("Profile creation error:", profileError);
-          setMessage({ type: "error", text: "Failed to create profile. Please try again." });
+          console.error("Profile data attempted:", profileData);
+          setMessage({ type: "error", text: `Failed to create profile: ${profileError.message}` });
           setIsLoading(false);
           return;
         }
@@ -205,12 +206,17 @@ export default function SignUpPage() {
         }
 
         // Log activity
-        await supabase.from("user_activities").insert({
+        const { error: activityError } = await supabase.from("user_activities").insert({
           user_id: data.user.id,
           activity_type: "account_created",
-          description: `Account created as ${formData.role}`,
+          activity_description: `Account created as ${formData.role}`,
           metadata: { role: formData.role },
         });
+
+        if (activityError) {
+          console.error("Activity logging error:", activityError);
+          // Don't fail the signup for this, just log it
+        }
 
         console.log("✅ Account created successfully for", formData.email, "as", formData.role);
 

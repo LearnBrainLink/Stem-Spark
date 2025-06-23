@@ -15,6 +15,82 @@ CREATE TABLE IF NOT EXISTS profiles (
   PRIMARY KEY (id)
 );
 
+-- Ensure all required columns exist in profiles (in case table was created without them)
+DO $$
+BEGIN
+  -- Check and add email column if missing
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' AND column_name = 'email'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN email TEXT;
+  END IF;
+  
+  -- Check and add full_name column if missing
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' AND column_name = 'full_name'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN full_name TEXT;
+  END IF;
+  
+  -- Check and add role column if missing
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' AND column_name = 'role'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN role TEXT DEFAULT 'student' CHECK (role IN ('student', 'teacher', 'parent', 'admin'));
+  END IF;
+  
+  -- Check and add grade column if missing
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' AND column_name = 'grade'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN grade INTEGER;
+  END IF;
+  
+  -- Check and add school column if missing
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' AND column_name = 'school'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN school TEXT;
+  END IF;
+  
+  -- Check and add country column if missing
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' AND column_name = 'country'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN country TEXT;
+  END IF;
+  
+  -- Check and add state column if missing
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' AND column_name = 'state'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN state TEXT;
+  END IF;
+  
+  -- Check and add phone column if missing
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' AND column_name = 'phone'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN phone TEXT;
+  END IF;
+  
+  -- Check and add email_verified column if missing
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' AND column_name = 'email_verified'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN email_verified BOOLEAN DEFAULT FALSE;
+  END IF;
+END $$;
+
 -- Create parent_student_relationships table
 CREATE TABLE IF NOT EXISTS parent_student_relationships (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
