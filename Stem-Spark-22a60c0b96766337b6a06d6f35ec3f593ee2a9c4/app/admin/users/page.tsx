@@ -231,65 +231,95 @@ export default function UserManagementPage() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.05 }}
-      className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+      className="user-card bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
     >
-      <div className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-start gap-4 flex-1 min-w-0">
-            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg">
-              {user.full_name?.charAt(0)?.toUpperCase() || user.email.charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-gray-900 text-lg truncate">{user.full_name || 'No Name'}</h3>
-              <p className="text-gray-600 text-sm truncate">{user.email}</p>
-              <div className="flex flex-wrap gap-2 mt-2">
-                <Badge className={`text-xs px-2 py-1 ${getRoleBadgeColor(user.role)}`}>
-                  {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                </Badge>
-                <Badge className={`text-xs px-2 py-1 ${getStatusBadgeColor(user.status)}`}>
-                  {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
-                </Badge>
-              </div>
+      {/* Header Section with Profile Circle */}
+      <div className="user-card-header p-5 pb-4">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="profile-circle">
+            {user.full_name?.charAt(0)?.toUpperCase() || user.email.charAt(0).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-gray-900 text-lg leading-tight mb-1 user-info-text" title={user.full_name || 'No Name'}>
+              {user.full_name || 'No Name'}
+            </h3>
+            <p className="text-gray-600 text-sm mb-2 user-info-text" title={user.email}>
+              {user.email}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              <Badge className={`user-badge ${getRoleBadgeColor(user.role)}`}>
+                {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+              </Badge>
+              <Badge className={`user-badge ${getStatusBadgeColor(user.status)}`}>
+                {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+              </Badge>
             </div>
           </div>
         </div>
-        
-        <div className="space-y-3 text-sm text-gray-600">
-          <div className="flex items-center gap-2">
+      </div>
+      
+      {/* Content Section */}
+      <div className="user-card-content px-5 pb-4">
+        <div className="grid grid-cols-1 gap-3 text-sm">
+          <div className="flex items-center gap-2 min-h-[20px]">
             <GraduationCap className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <span className="truncate">{user.school_name || 'No school specified'}</span>
+            <span className="text-gray-600 user-info-text" title={user.school_name || 'No school specified'}>
+              {user.school_name || 'No school specified'}
+            </span>
           </div>
-          <div className="flex items-center gap-2">
+          
+          <div className="flex items-center gap-2 min-h-[20px]">
             <Shield className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <span>{user.email_verified ? 'Email Verified' : 'Email Not Verified'}</span>
+            <span className="text-gray-600">
+              {user.email_verified ? 'Email Verified' : 'Not Verified'}
+            </span>
           </div>
+          
           {user.grade && (
-            <div className="flex items-center gap-2">
-              <GraduationCap className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              <span>Grade: {user.grade}</span>
+            <div className="flex items-center gap-2 min-h-[20px]">
+              <div className="w-4 h-4 flex items-center justify-center text-gray-400 flex-shrink-0">
+                <span className="text-xs font-bold">#</span>
+              </div>
+              <span className="text-gray-600">Grade: {user.grade}</span>
             </div>
           )}
+          
           {(user.country || user.state) && (
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              <span className="truncate">
+            <div className="flex items-center gap-2 min-h-[20px]">
+              <div className="w-4 h-4 flex items-center justify-center text-gray-400 flex-shrink-0">
+                🌍
+              </div>
+              <span className="text-gray-600 user-info-text" title={[user.state, user.country].filter(Boolean).join(', ')}>
                 {[user.state, user.country].filter(Boolean).join(', ') || 'Location not specified'}
               </span>
             </div>
           )}
-          <div className="flex items-center gap-2">
+          
+          <div className="flex items-center gap-2 min-h-[20px]">
             <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <span>Joined: {formatDate(user.created_at)}</span>
+            <span className="text-gray-600 text-xs">
+              Joined: {formatDate(user.created_at)}
+            </span>
           </div>
-          <div className="flex items-center gap-2">
+          
+          <div className="flex items-center gap-2 min-h-[20px]">
             <Eye className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <span>Last seen: {user.last_sign_in_at ? formatDate(user.last_sign_in_at) : 'Never'}</span>
+            <span className="text-gray-600 text-xs">
+              Last: {user.last_sign_in_at ? formatDate(user.last_sign_in_at) : 'Never'}
+            </span>
           </div>
         </div>
       </div>
-      <div className="bg-gray-50 px-6 py-4 flex justify-end gap-2">
-        <Button variant="ghost" size="sm" onClick={() => setEditingUser(user)} className="hover:bg-blue-50 hover:text-blue-700">
-          <Edit className="w-4 h-4 mr-2" />
+      
+      {/* Action Section */}
+      <div className="user-card-actions bg-gray-50 px-5 py-3 flex justify-end gap-2 border-t border-gray-100">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => setEditingUser(user)} 
+          className="hover:bg-blue-50 hover:text-blue-700 text-gray-600"
+        >
+          <Edit className="w-4 h-4 mr-1" />
           Edit
         </Button>
         <Button 
@@ -298,7 +328,7 @@ export default function UserManagementPage() {
           className="text-red-600 hover:text-red-700 hover:bg-red-50" 
           onClick={() => handleDeleteUser(user.id)}
         >
-          <Trash2 className="w-4 h-4 mr-2" />
+          <Trash2 className="w-4 h-4 mr-1" />
           Delete
         </Button>
       </div>
@@ -310,31 +340,57 @@ export default function UserManagementPage() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.05 }}
-      className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden"
+      className="user-card bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden"
     >
-      <div className="p-6">
-        <div className="flex items-start gap-4 mb-4">
-          <Skeleton className="w-14 h-14 rounded-full" />
+      {/* Header Section */}
+      <div className="user-card-header p-5 pb-4">
+        <div className="flex items-center gap-4 mb-4">
+          <Skeleton className="w-16 h-16 rounded-full" />
           <div className="flex-1 space-y-2">
             <Skeleton className="h-5 w-32" />
             <Skeleton className="h-4 w-48" />
-            <div className="flex gap-2 mt-2">
+            <div className="flex gap-1.5 mt-2">
               <Skeleton className="h-6 w-16 rounded-full" />
               <Skeleton className="h-6 w-16 rounded-full" />
             </div>
           </div>
         </div>
+      </div>
+      
+      {/* Content Section */}
+      <div className="user-card-content px-5 pb-4">
         <div className="space-y-3">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-4 w-2/3" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-1/2" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-4 h-4" />
+            <Skeleton className="h-4 w-full" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-4 h-4" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-4 h-4" />
+            <Skeleton className="h-4 w-16" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-4 h-4" />
+            <Skeleton className="h-4 w-28" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-4 h-4" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-4 h-4" />
+            <Skeleton className="h-4 w-20" />
+          </div>
         </div>
       </div>
-      <div className="bg-gray-50 px-6 py-4 flex justify-end gap-2">
+      
+      {/* Action Section */}
+      <div className="user-card-actions bg-gray-50 px-5 py-3 flex justify-end gap-2 border-t border-gray-100">
+        <Skeleton className="h-8 w-16" />
         <Skeleton className="h-8 w-20" />
-        <Skeleton className="h-8 w-24" />
       </div>
     </motion.div>
   );
@@ -481,13 +537,13 @@ export default function UserManagementPage() {
 
       {/* Users Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+        <div className="user-card-grid">
           {Array.from({ length: 8 }).map((_, index) => (
             <UserCardSkeleton key={index} index={index} />
           ))}
         </div>
       ) : filteredUsers.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+        <div className="user-card-grid">
           {filteredUsers.map((user, index) => (
             <UserCard key={user.id} user={user} index={index} />
           ))}
