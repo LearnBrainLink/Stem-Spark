@@ -14,6 +14,16 @@ import { getEnhancedUsersData } from '../enhanced-actions';
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
+import { 
+	setupDatabase as setupDatabaseAction, 
+	setupEmail as setupEmailAction, 
+	createAdminAccount as createAdminAccountAction, 
+	createPredefinedAdmins, 
+	verifyAdmins, 
+	checkSetupStatus as checkSetupStatusAction, 
+	exportSetupConfig as exportSetupConfigAction,
+	testDatabaseConnection as testDatabaseConnectionAction 
+} from './actions'
 
 export function SetupPageContent() {
 	const [admins, setAdmins] = useState<any[]>([]);
@@ -28,6 +38,7 @@ export function SetupPageContent() {
 	useEffect(() => {
 		fetchAdmins();
 		fetchSetupData();
+		checkStatus();
 	}, []);
 
 	const fetchAdmins = async () => {
@@ -49,46 +60,152 @@ export function SetupPageContent() {
 		});
 	};
 
+	const checkStatus = async () => {
+		try {
+			const result = await checkSetupStatusAction();
+			if (result.success) {
+				setSetupStatus(result.status);
+			}
+		} catch (err) {
+			console.error('Failed to check setup status:', err);
+		}
+	};
+
 	const handleCreateAdmin = async (formData: FormData) => {
-		// Implementation of handleCreateAdmin
-		const email = formData.get('email') as string;
-		const fullName = formData.get('fullName') as string;
-		const password = formData.get('password') as string;
-		const role = formData.get('role') as string;
-		
-		// Add admin creation logic here
-		setMessage({ type: "success", text: "Admin account created successfully!" });
+		try {
+			setIsSettingUp(true);
+			setError(null);
+			setMessage(null);
+
+			const result = await createAdminAccountAction(formData);
+			
+			if (result.success) {
+				setMessage({ type: "success", text: result.message || "Admin account created successfully!" });
+				fetchAdmins();
+				checkStatus();
+			} else {
+				setError(result.error || "Failed to create admin account");
+			}
+		} catch (err) {
+			setError("Failed to create admin account. Please try again.");
+		} finally {
+			setIsSettingUp(false);
+		}
 	};
 
 	const handleTestConnection = async () => {
-		// Implementation of handleTestConnection
-		setMessage({ type: "success", text: "Database connection test successful!" });
+		try {
+			setIsSettingUp(true);
+			setError(null);
+			setMessage(null);
+
+			const result = await testDatabaseConnectionAction();
+			
+			if (result.success) {
+				setMessage({ type: "success", text: result.message || "Database connection test successful!" });
+			} else {
+				setError(result.error || "Database connection test failed");
+			}
+		} catch (err) {
+			setError("Failed to test database connection");
+		} finally {
+			setIsSettingUp(false);
+		}
 	};
 
 	const handleCheckEnvironment = async () => {
-		// Implementation of handleCheckEnvironment
-		setMessage({ type: "success", text: "Environment check completed!" });
+		try {
+			setIsSettingUp(true);
+			setError(null);
+			setMessage(null);
+
+			const result = await checkSetupStatusAction();
+			
+			if (result.success) {
+				setMessage({ type: "success", text: "Environment check completed!" });
+				setSetupStatus(result.status);
+			} else {
+				setError(result.error || "Environment check failed");
+			}
+		} catch (err) {
+			setError("Failed to check environment");
+		} finally {
+			setIsSettingUp(false);
+		}
 	};
 
 	const checkSetupStatus = async () => {
-		// Implementation of checkSetupStatus
-		setMessage({ type: "success", text: "Setup status checked!" });
+		try {
+			setIsSettingUp(true);
+			setError(null);
+			setMessage(null);
+
+			const result = await checkSetupStatusAction();
+			
+			if (result.success) {
+				setMessage({ type: "success", text: "Setup status checked!" });
+				setSetupStatus(result.status);
+			} else {
+				setError(result.error || "Failed to check setup status");
+			}
+		} catch (err) {
+			setError("Failed to check setup status");
+		} finally {
+			setIsSettingUp(false);
+		}
 	};
 
 	const exportSetup = async () => {
-		// Implementation of exportSetup
-		setMessage({ type: "success", text: "Setup exported successfully!" });
+		try {
+			setIsSettingUp(true);
+			setError(null);
+			setMessage(null);
+
+			const result = await exportSetupConfigAction();
+			
+			if (result.success) {
+				setMessage({ type: "success", text: result.message || "Setup exported successfully!" });
+				
+				// Create downloadable file
+				const configData = JSON.stringify(result.config, null, 2);
+				const blob = new Blob([configData], { type: 'application/json' });
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = `novakinetix-setup-${new Date().toISOString().split('T')[0]}.json`;
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				URL.revokeObjectURL(url);
+			} else {
+				setError(result.error || "Failed to export setup");
+			}
+		} catch (err) {
+			setError("Failed to export setup");
+		} finally {
+			setIsSettingUp(false);
+		}
 	};
 
 	const setupDatabase = async () => {
-		// Implementation of setupDatabase
-		setIsSettingUp(true);
-		setError(null);
 		try {
-			// Database setup logic here
-			setSetupStatus({ database: true });
-			setMessage({ type: "success", text: "Database setup completed!" });
-		} catch (e) {
+			setIsSettingUp(true);
+			setError(null);
+			setMessage(null);
+
+			const formData = new FormData();
+			formData.append('databaseUrl', setupConfig.databaseUrl || '');
+			formData.append('databaseKey', setupConfig.databaseKey || '');
+
+			const result = await setupDatabaseAction(formData);
+			
+			if (result.success) {
+				setMessage({ type: "success", text: result.message || "Database setup completed!" });
+				setSetupStatus({ ...setupStatus, database: true });
+			} else {
+				setError(result.error || "Failed to setup database");
+			}
+		} catch (err) {
 			setError("Failed to setup database. Please try again later.");
 		} finally {
 			setIsSettingUp(false);
@@ -96,14 +213,25 @@ export function SetupPageContent() {
 	};
 
 	const setupEmail = async () => {
-		// Implementation of setupEmail
-		setIsSettingUp(true);
-		setError(null);
 		try {
-			// Email setup logic here
-			setSetupStatus({ email: true });
-			setMessage({ type: "success", text: "Email setup completed!" });
-		} catch (e) {
+			setIsSettingUp(true);
+			setError(null);
+			setMessage(null);
+
+			const formData = new FormData();
+			formData.append('smtpHost', setupConfig.smtpHost || '');
+			formData.append('smtpUser', setupConfig.smtpUser || '');
+			formData.append('smtpPass', setupConfig.smtpPass || '');
+
+			const result = await setupEmailAction(formData);
+			
+			if (result.success) {
+				setMessage({ type: "success", text: result.message || "Email setup completed!" });
+				setSetupStatus({ ...setupStatus, email: true });
+			} else {
+				setError(result.error || "Failed to setup email");
+			}
+		} catch (err) {
 			setError("Failed to setup email. Please try again later.");
 		} finally {
 			setIsSettingUp(false);
@@ -111,14 +239,26 @@ export function SetupPageContent() {
 	};
 
 	const createAdminAccount = async () => {
-		// Implementation of createAdminAccount
-		setIsSettingUp(true);
-		setError(null);
 		try {
-			// Admin account creation logic here
-			setSetupStatus({ admin: true });
-			setMessage({ type: "success", text: "Admin account created successfully!" });
-		} catch (e) {
+			setIsSettingUp(true);
+			setError(null);
+			setMessage(null);
+
+			const formData = new FormData();
+			formData.append('adminName', setupConfig.adminName || '');
+			formData.append('adminEmail', setupConfig.adminEmail || '');
+			formData.append('adminPassword', setupConfig.adminPassword || '');
+
+			const result = await createAdminAccountAction(formData);
+			
+			if (result.success) {
+				setMessage({ type: "success", text: result.message || "Admin account created successfully!" });
+				setSetupStatus({ ...setupStatus, admin: true });
+				fetchAdmins();
+			} else {
+				setError(result.error || "Failed to create admin account");
+			}
+		} catch (err) {
 			setError("Failed to create admin account. Please try again later.");
 		} finally {
 			setIsSettingUp(false);
@@ -195,23 +335,33 @@ export function SetupPageContent() {
 								placeholder="Your database key"
 							/>
 						</div>
-						<Button 
-							onClick={setupDatabase} 
-							disabled={isSettingUp}
-							className="w-full"
-						>
-							{isSettingUp ? (
-								<>
-									<Loader2 className="w-4 h-4 mr-2 animate-spin" />
-									Setting up...
-								</>
-							) : (
-								<>
-									<Database className="w-4 h-4 mr-2" />
-									Setup Database
-								</>
-							)}
-						</Button>
+						<div className="flex gap-2">
+							<Button 
+								onClick={setupDatabase} 
+								disabled={isSettingUp}
+								className="flex-1"
+							>
+								{isSettingUp ? (
+									<>
+										<Loader2 className="w-4 h-4 mr-2 animate-spin" />
+										Setting up...
+									</>
+								) : (
+									<>
+										<Database className="w-4 h-4 mr-2" />
+										Setup Database
+									</>
+								)}
+							</Button>
+							<Button 
+								onClick={handleTestConnection} 
+								disabled={isSettingUp}
+								variant="outline"
+								size="sm"
+							>
+								Test
+							</Button>
+						</div>
 					</CardContent>
 				</Card>
 
@@ -337,6 +487,22 @@ export function SetupPageContent() {
 				</Card>
 			</div>
 
+			{/* Predefined Admin Accounts */}
+			<Card className="shadow-md">
+				<CardHeader>
+					<CardTitle className="flex items-center gap-2">
+						<Users className="w-5 h-5 text-indigo-600" />
+						Predefined Admin Accounts
+					</CardTitle>
+					<CardDescription>
+						Create all 4 predefined administrator accounts with secure credentials
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<AdminSetupClient adminAccounts={[]} />
+				</CardContent>
+			</Card>
+
 			{/* Setup Status */}
 			<Card className="shadow-md">
 				<CardHeader>
@@ -376,6 +542,15 @@ export function SetupPageContent() {
 									{setupStatus.admin ? 'Created' : 'Not created'}
 								</p>
 							</div>
+						</div>
+					</div>
+					
+					{/* Admin Count */}
+					<div className="mt-4 p-3 bg-blue-50 rounded-lg">
+						<div className="flex items-center gap-2">
+							<Users className="w-4 h-4 text-blue-600" />
+							<span className="font-medium">Admin Accounts:</span>
+							<Badge variant="outline">{admins.length}</Badge>
 						</div>
 					</div>
 				</CardContent>
