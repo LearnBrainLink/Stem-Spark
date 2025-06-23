@@ -319,14 +319,27 @@ export default function AnalyticsPage() {
                     nameKey="type"
                     cx="50%"
                     cy="50%"
-                    outerRadius={80}
-                    label={({ type, percentage }) => `${type} (${percentage}%)`}
+                    outerRadius={60}
+                    innerRadius={20}
                   >
                     {(analyticsData.userTypes || []).map((entry: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #e2e8f0', 
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }}
+                    formatter={(value, name) => [`${value} users`, name]}
+                  />
+                  <Legend 
+                    verticalAlign="bottom" 
+                    height={36}
+                    formatter={(value) => `${value}`}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </ChartCard>

@@ -458,3 +458,50 @@
     margin-right: 0 !important;
   }
 }
+
+/* User management specific styles */
+.user-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+}
+
+@media (min-width: 1280px) {
+  .user-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+}
+
+@media (min-width: 1536px) {
+  .user-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+}
+
+/* Analytics chart improvements */
+.analytics-chart-container {
+  width: 100% !important;
+  height: 300px !important;
+}
+
+.pie-chart-container {
+  width: 100% !important;
+  height: 300px !important;
+  overflow: visible !important;
+}
+
+/* Ensure dialog content is properly sized */
+.dialog-content-responsive {
+  width: 95vw;
+  max-width: 28rem;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+@media (min-width: 640px) {
+  .dialog-content-responsive {
+    width: auto;
+    max-width: 32rem;
+  }
+}
