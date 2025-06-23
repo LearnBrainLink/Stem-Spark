@@ -587,7 +587,8 @@ export async function deleteUser(userId: string) {
 // CRUD Functions for Videos
 export async function createVideo(videoData: any) {
   try {
-    console.log('createVideo: Starting video creation with data:', videoData);
+    console.log('=== VIDEO CREATION DEBUG START ===');
+    console.log('createVideo: Starting video creation with data:', JSON.stringify(videoData, null, 2));
 
     // Validate required fields
     if (!videoData.title || !videoData.video_url) {
@@ -607,19 +608,33 @@ export async function createVideo(videoData: any) {
       updated_at: new Date().toISOString(),
     };
 
-    console.log('createVideo: Inserting video with data:', videoToInsert);
+    console.log('createVideo: Final data to insert:', JSON.stringify(videoToInsert, null, 2));
 
     let supabase;
+    let clientType = 'unknown';
     
     // Try to use service role client first, fall back to regular client
     try {
       supabase = createServiceRoleClient();
-      console.log('createVideo: Using service role client');
+      clientType = 'service_role';
+      console.log('createVideo: Using service role client successfully');
     } catch (serviceRoleError) {
-      console.log('createVideo: Service role not available, using regular client');
-      const cookieStore = cookies();
-      supabase = createServerClient(cookieStore);
+      console.log('createVideo: Service role failed, error:', serviceRoleError.message);
+      console.log('createVideo: Falling back to regular client');
+      try {
+        const cookieStore = cookies();
+        supabase = createServerClient(cookieStore);
+        clientType = 'regular';
+        console.log('createVideo: Using regular client successfully');
+      } catch (regularClientError) {
+        console.error('createVideo: Both clients failed');
+        console.error('Service role error:', serviceRoleError.message);
+        console.error('Regular client error:', regularClientError.message);
+        return { error: 'Failed to create database client. Check your Supabase configuration.' };
+      }
     }
+
+    console.log(`createVideo: About to insert using ${clientType} client`);
 
     const { data, error } = await supabase
       .from("videos")
@@ -627,13 +642,33 @@ export async function createVideo(videoData: any) {
       .select()
       .single();
 
+    console.log('createVideo: Insert response - data:', data);
+    console.log('createVideo: Insert response - error:', error);
+
     if (error) {
-      console.error('createVideo: Database error:', error);
+      console.error('createVideo: Database error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
       
-      // If it's an RLS policy error, provide specific guidance
-      if (error.message?.includes('policy') || error.message?.includes('permission')) {
+      // Provide specific error messages based on error type
+      if (error.message?.includes('policy') || error.code === '42501') {
         return { 
-          error: `Database permission error: ${error.message}. Please run the SQL policy fix in your Supabase dashboard.`
+          error: `RLS Policy Error: ${error.message}. Please run the SQL policy fix script in your Supabase dashboard.`
+        };
+      }
+      
+      if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+        return {
+          error: `Table Error: ${error.message}. The videos table may not exist or be accessible.`
+        };
+      }
+      
+      if (error.message?.includes('column') || error.code === '42703') {
+        return {
+          error: `Column Error: ${error.message}. There may be a mismatch in table schema.`
         };
       }
       
@@ -641,19 +676,26 @@ export async function createVideo(videoData: any) {
     }
 
     console.log('createVideo: Video created successfully:', data);
+    console.log('=== VIDEO CREATION DEBUG END ===');
     return { error: null, success: true, video: data };
   } catch (error) {
+    console.error('=== VIDEO CREATION ERROR ===');
     console.error('createVideo: Unexpected error:', error);
+    console.error('Error type:', typeof error);
+    console.error('Error constructor:', error.constructor?.name);
+    
     const errorMessage = error instanceof Error ? error.message : 'Failed to create video';
+    console.error('Final error message:', errorMessage);
+    console.error('=== VIDEO CREATION ERROR END ===');
     
     // Provide more specific error messages
     if (errorMessage.includes('duplicate key')) {
       return { error: 'A video with this information already exists' };
     } else if (errorMessage.includes('Missing Supabase service role configuration')) {
-      return { error: 'Service role not configured. Please add SUPABASE_SERVICE_ROLE_KEY to your environment variables or run the SQL policy fix.' };
+      return { error: 'Database configuration error. Service role key missing.' };
     } else if (errorMessage.includes('permission') || errorMessage.includes('policy')) {
       return { error: 'Database permission error. Please run the video creation policy fix script in your Supabase dashboard.' };
-    } else if (errorMessage.includes('network')) {
+    } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
       return { error: 'Network error. Please check your connection and try again.' };
     }
     
