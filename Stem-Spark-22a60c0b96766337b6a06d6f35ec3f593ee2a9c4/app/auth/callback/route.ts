@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { RoleManager } from '@/lib/role-manager'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
@@ -9,6 +10,7 @@ export async function GET(request: NextRequest) {
   if (code) {
     const cookieStore = cookies()
     const supabase = createServerClient(cookieStore)
+    const roleManager = new RoleManager()
     
     try {
       const { data, error } = await supabase.auth.exchangeCodeForSession(code)
@@ -19,30 +21,15 @@ export async function GET(request: NextRequest) {
       }
 
       if (data.user) {
-        // Update email_verified status in profiles table
-        await supabase
-          .from('profiles')
-          .update({ email_verified: true })
-          .eq('id', data.user.id)
+        console.log('✅ User authenticated:', data.user.email)
 
-        // Get user role to determine redirect
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', data.user.id)
-          .single()
+        // Use role manager to get user role and determine redirect
+        const userRole = await roleManager.getUserRole(data.user)
+        console.log('🎯 User role determined:', userRole)
 
-        let redirectPath = '/dashboard'
-        if (profile && (profile as any).role) {
-          const role = (profile as any).role
-          if (role === 'admin') {
-            redirectPath = '/admin'
-          } else if (role === 'teacher') {
-            redirectPath = '/teacher-dashboard'
-          } else if (role === 'student') {
-            redirectPath = '/student-dashboard'
-          }
-        }
+        // Get dashboard URL based on role
+        const redirectPath = roleManager.getDashboardUrl(userRole)
+        console.log('📍 Redirecting to:', redirectPath)
 
         return NextResponse.redirect(`${origin}${redirectPath}`)
       }

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock, User, CheckCircle, Loader2, ArrowLeft, School, Map, Globe } from "lucide-react";
+import { Mail, Lock, User, CheckCircle, Loader2, ArrowLeft, School, Map, Globe, Phone } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 
@@ -24,6 +24,7 @@ interface FormDataType {
   parentPhone: string;
   relationship: string;
   role: string;
+  phone: string; // Added for parent/teacher accounts
 }
 
 export default function SignUpPage() {
@@ -44,6 +45,7 @@ export default function SignUpPage() {
     parentPhone: "",
     relationship: "",
     role: "",
+    phone: "",
   });
 
   // Floating particles animation
@@ -68,36 +70,59 @@ export default function SignUpPage() {
     setFormData({ ...formData, role: value });
   };
 
+  const validateForm = (): string | null => {
+    // Basic validation
+    if (formData.password !== formData.confirmPassword) {
+      return "Passwords do not match";
+    }
+
+    if (formData.password.length < 8) {
+      return "Password must be at least 8 characters long";
+    }
+
+    if (!formData.role) {
+      return "Please select your role";
+    }
+
+    // Role-specific validation
+    if (formData.role === "student") {
+      if (!formData.grade) {
+        return "Students must provide their grade level";
+      }
+      if (!formData.parentName || !formData.parentEmail) {
+        return "Students must provide parent/guardian information";
+      }
+    }
+
+    if (formData.role === "parent") {
+      if (!formData.phone) {
+        return "Parents must provide their phone number";
+      }
+    }
+
+    if (formData.role === "teacher") {
+      if (!formData.schoolName) {
+        return "Teachers must provide their school name";
+      }
+      if (!formData.phone) {
+        return "Teachers must provide their phone number";
+      }
+    }
+
+    return null;
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setMessage(null);
 
-    // Validation
-    if (formData.password !== formData.confirmPassword) {
-      setMessage({ type: "error", text: "Passwords do not match" });
+    // Validate form
+    const validationError = validateForm();
+    if (validationError) {
+      setMessage({ type: "error", text: validationError });
       setIsLoading(false);
       return;
-    }
-
-    if (formData.password.length < 8) {
-      setMessage({ type: "error", text: "Password must be at least 8 characters long" });
-      setIsLoading(false);
-      return;
-    }
-
-    if (!formData.role) {
-      setMessage({ type: "error", text: "Please select your role" });
-      setIsLoading(false);
-      return;
-    }
-
-    if (formData.role === "student") {
-      if (!formData.grade || !formData.parentName || !formData.parentEmail) {
-        setMessage({ type: "error", text: "Students must provide grade level and parent information" });
-        setIsLoading(false);
-        return;
-      }
     }
 
     try {
@@ -116,6 +141,7 @@ export default function SignUpPage() {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
             full_name: formData.fullName,
+            role: formData.role, // Store role in user metadata
           },
         },
       });
@@ -130,18 +156,30 @@ export default function SignUpPage() {
       if (data.user) {
         console.log("✅ Auth user created:", data.user.id);
 
-        // Create profile in database
-        const { error: profileError } = await supabase.from("profiles").insert({
+        // Prepare profile data based on role
+        const profileData: any = {
           id: data.user.id,
           email: formData.email,
           full_name: formData.fullName,
           role: formData.role,
-          grade: formData.grade ? parseInt(formData.grade) : null,
           country: formData.country,
           state: formData.state,
-          school_name: formData.schoolName,
           email_verified: false,
-        });
+        };
+
+        // Add role-specific fields
+        if (formData.role === "student") {
+          profileData.grade = parseInt(formData.grade);
+          profileData.school_name = formData.schoolName;
+        } else if (formData.role === "teacher") {
+          profileData.school_name = formData.schoolName;
+          profileData.phone = formData.phone;
+        } else if (formData.role === "parent") {
+          profileData.phone = formData.phone;
+        }
+
+        // Create profile in database
+        const { error: profileError } = await supabase.from("profiles").insert(profileData);
 
         if (profileError) {
           console.error("Profile creation error:", profileError);
@@ -150,12 +188,28 @@ export default function SignUpPage() {
           return;
         }
 
+        // If student, create parent relationship record
+        if (formData.role === "student" && formData.parentEmail) {
+          const { error: parentError } = await supabase.from("parent_student_relationships").insert({
+            student_id: data.user.id,
+            parent_name: formData.parentName,
+            parent_email: formData.parentEmail,
+            parent_phone: formData.parentPhone,
+            relationship: formData.relationship,
+          });
+
+          if (parentError) {
+            console.error("Parent relationship creation error:", parentError);
+            // Don't fail the signup for this, just log it
+          }
+        }
+
         // Log activity
         await supabase.from("user_activities").insert({
           user_id: data.user.id,
           activity_type: "account_created",
           description: `Account created as ${formData.role}`,
-          metadata: { role: formData.role, grade: formData.grade },
+          metadata: { role: formData.role },
         });
 
         console.log("✅ Account created successfully for", formData.email, "as", formData.role);
@@ -362,6 +416,44 @@ export default function SignUpPage() {
                   </div>
                 </div>
 
+                {/* Location Information */}
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label htmlFor="country" className="text-white font-semibold flex items-center">
+                      <Globe className="w-4 h-4 mr-2" />
+                      Country *
+                    </Label>
+                    <Input
+                      id="country"
+                      name="country"
+                      type="text"
+                      placeholder="e.g. United States"
+                      value={formData.country}
+                      onChange={handleInputChange}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 rounded-xl py-3"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label htmlFor="state" className="text-white font-semibold flex items-center">
+                      <Map className="w-4 h-4 mr-2" />
+                      State/Province *
+                    </Label>
+                    <Input
+                      id="state"
+                      name="state"
+                      type="text"
+                      placeholder="e.g. California"
+                      value={formData.state}
+                      onChange={handleInputChange}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 rounded-xl py-3"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Role-specific Information */}
                 {selectedRole === "student" && (
                   <>
                     {/* Student Information */}
@@ -406,45 +498,9 @@ export default function SignUpPage() {
                           />
                         </div>
                       </div>
-
-                      <div className="grid md:grid-cols-2 gap-6">
-                        <div className="space-y-3">
-                          <Label htmlFor="country" className="text-white font-semibold flex items-center">
-                            <Globe className="w-4 h-4 mr-2" />
-                            Country *
-                          </Label>
-                          <Input
-                            id="country"
-                            name="country"
-                            type="text"
-                            placeholder="e.g. United States"
-                            value={formData.country}
-                            onChange={handleInputChange}
-                            className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 rounded-xl py-3"
-                            required
-                          />
-                        </div>
-
-                        <div className="space-y-3">
-                          <Label htmlFor="state" className="text-white font-semibold flex items-center">
-                            <Map className="w-4 h-4 mr-2" />
-                            State/Province *
-                          </Label>
-                          <Input
-                            id="state"
-                            name="state"
-                            type="text"
-                            placeholder="e.g. California"
-                            value={formData.state}
-                            onChange={handleInputChange}
-                            className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 rounded-xl py-3"
-                            required
-                          />
-                        </div>
-                      </div>
                     </div>
 
-                    {/* Parent Information */}
+                    {/* Parent Information for Students */}
                     <div className="border-t border-white/20 pt-6 space-y-6">
                       <h3 className="text-2xl font-bold text-blue-100 flex items-center">
                         <User className="w-6 h-6 mr-2" />
@@ -518,6 +574,97 @@ export default function SignUpPage() {
                             <option value="guardian" className="text-blue-900 bg-white">Guardian</option>
                             <option value="other" className="text-blue-900 bg-white">Other</option>
                           </select>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {selectedRole === "teacher" && (
+                  <>
+                    {/* Teacher Information */}
+                    <div className="border-t border-white/20 pt-6 space-y-6">
+                      <h3 className="text-2xl font-bold text-blue-100 flex items-center">
+                        <School className="w-6 h-6 mr-2" />
+                        Teacher Information
+                      </h3>
+                      <div className="grid md:grid-cols-2 gap-6">
+                        <div className="space-y-3">
+                          <Label htmlFor="schoolName" className="text-white font-semibold">
+                            School Name *
+                          </Label>
+                          <Input
+                            id="schoolName"
+                            name="schoolName"
+                            type="text"
+                            placeholder="Your school's name"
+                            value={formData.schoolName}
+                            onChange={handleInputChange}
+                            className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 rounded-xl py-3"
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <Label htmlFor="phone" className="text-white font-semibold flex items-center">
+                            <Phone className="w-4 h-4 mr-2" />
+                            Phone Number *
+                          </Label>
+                          <Input
+                            id="phone"
+                            name="phone"
+                            type="tel"
+                            placeholder="(555) 123-4567"
+                            value={formData.phone}
+                            onChange={handleInputChange}
+                            className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 rounded-xl py-3"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {selectedRole === "parent" && (
+                  <>
+                    {/* Parent Information */}
+                    <div className="border-t border-white/20 pt-6 space-y-6">
+                      <h3 className="text-2xl font-bold text-blue-100 flex items-center">
+                        <User className="w-6 h-6 mr-2" />
+                        Parent Information
+                      </h3>
+                      <div className="grid md:grid-cols-2 gap-6">
+                        <div className="space-y-3">
+                          <Label htmlFor="phone" className="text-white font-semibold flex items-center">
+                            <Phone className="w-4 h-4 mr-2" />
+                            Phone Number *
+                          </Label>
+                          <Input
+                            id="phone"
+                            name="phone"
+                            type="tel"
+                            placeholder="(555) 123-4567"
+                            value={formData.phone}
+                            onChange={handleInputChange}
+                            className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 rounded-xl py-3"
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <Label htmlFor="schoolName" className="text-white font-semibold">
+                            Children's School (Optional)
+                          </Label>
+                          <Input
+                            id="schoolName"
+                            name="schoolName"
+                            type="text"
+                            placeholder="Your children's school name"
+                            value={formData.schoolName}
+                            onChange={handleInputChange}
+                            className="bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 rounded-xl py-3"
+                          />
                         </div>
                       </div>
                     </div>
