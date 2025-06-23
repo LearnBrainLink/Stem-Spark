@@ -636,7 +636,8 @@ export async function createVideo(videoData: any) {
 
     console.log(`createVideo: About to insert using ${clientType} client`);
 
-    const { data, error } = await supabase
+    // First attempt with video_url column
+    let { data, error } = await supabase
       .from("videos")
       .insert(videoToInsert)
       .select()
@@ -644,6 +645,31 @@ export async function createVideo(videoData: any) {
 
     console.log('createVideo: Insert response - data:', data);
     console.log('createVideo: Insert response - error:', error);
+
+    // If video_url column doesn't exist, try with url column as fallback
+    if (error && error.message?.includes('video_url')) {
+      console.log('createVideo: video_url column not found, trying with url column...');
+      
+      const fallbackVideoData = {
+        ...videoToInsert,
+        url: videoToInsert.video_url, // Map video_url to url
+      };
+      delete fallbackVideoData.video_url; // Remove video_url
+      
+      console.log('createVideo: Fallback data:', JSON.stringify(fallbackVideoData, null, 2));
+      
+      const fallbackResult = await supabase
+        .from("videos")
+        .insert(fallbackVideoData)
+        .select()
+        .single();
+        
+      data = fallbackResult.data;
+      error = fallbackResult.error;
+      
+      console.log('createVideo: Fallback response - data:', data);
+      console.log('createVideo: Fallback response - error:', error);
+    }
 
     if (error) {
       console.error('createVideo: Database error details:', {
@@ -668,7 +694,7 @@ export async function createVideo(videoData: any) {
       
       if (error.message?.includes('column') || error.code === '42703') {
         return {
-          error: `Column Error: ${error.message}. There may be a mismatch in table schema.`
+          error: `Column Error: ${error.message}. Please run the column schema fix script: scripts/fix-video-column-schema.sql`
         };
       }
       
@@ -697,6 +723,8 @@ export async function createVideo(videoData: any) {
       return { error: 'Database permission error. Please run the video creation policy fix script in your Supabase dashboard.' };
     } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
       return { error: 'Network error. Please check your connection and try again.' };
+    } else if (errorMessage.includes('column') || errorMessage.includes('video_url')) {
+      return { error: 'Database schema error. Please run the column schema fix script: scripts/fix-video-column-schema.sql' };
     }
     
     return { error: `Video creation failed: ${errorMessage}` };

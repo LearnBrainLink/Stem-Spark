@@ -1,62 +1,99 @@
 # 🎥 Video Creation Fix Guide
 
 ## 🔍 Issue Diagnosis
-The video creation is failing because **Supabase environment variables are missing**. This is preventing the application from connecting to your database.
+The video creation is failing because of a **database schema column mismatch**. The code expects a `video_url` column but your database table has a `url` column instead. This needs to be fixed in your Supabase database.
 
-## ✅ Quick Fix (5 minutes)
+## ✅ Quick Fix (2 minutes)
 
-### Step 1: Get Your Supabase Configuration
+### Step 1: Fix Database Schema
 1. Go to your [Supabase Dashboard](https://app.supabase.com)
 2. Select your project
-3. Go to **Settings** → **API**
-4. Copy these three values:
-   - **Project URL** (looks like: `https://abcdefgh.supabase.co`)
-   - **anon public** key (starts with `eyJhbGciOiJIUzI1NiIs...`)
-   - **service_role** key (starts with `eyJhbGciOiJIUzI1NiIs...`)
-
-### Step 2: Create Environment File
-1. In your project root folder, create a file named `.env.local`
-2. Add this content (replace with your actual values):
-
-```bash
-# Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
-```
-
-### Step 3: Restart Your Development Server
-```bash
-# Stop your current server (Ctrl+C)
-# Then restart:
-npm run dev
-# or
-pnpm dev
-```
-
-### Step 4: Test Video Creation
-1. Go to Admin → Videos
-2. Try creating a video
-3. If it still fails, continue to Step 5
-
-### Step 5: Fix Database Permissions (If Needed)
-If you get a "policy" or "permission" error, run this SQL in your **Supabase Dashboard → SQL Editor**:
+3. Go to **SQL Editor**
+4. Copy and run this SQL script:
 
 ```sql
--- Fix video creation permissions
-DROP POLICY IF EXISTS "videos_insert_policy" ON public.videos;
-DROP POLICY IF EXISTS "videos_update_policy" ON public.videos;
-DROP POLICY IF EXISTS "videos_delete_policy" ON public.videos;
+-- Fix Video Table Column Schema Issue
+-- This script detects and fixes the column name mismatch in the videos table
 
-CREATE POLICY "videos_insert_policy" ON public.videos 
-FOR INSERT TO authenticated WITH CHECK (true);
+DO $$
+BEGIN
+    -- Check if the videos table exists
+    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'videos' AND table_schema = 'public') THEN
+        RAISE NOTICE 'Videos table does not exist. Creating it now...';
+        
+        -- Create the videos table with correct schema
+        CREATE TABLE public.videos (
+            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT,
+            video_url TEXT NOT NULL,
+            thumbnail_url TEXT,
+            duration INTEGER DEFAULT 0,
+            category TEXT DEFAULT 'general',
+            status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'draft')),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
 
-CREATE POLICY "videos_update_policy" ON public.videos 
-FOR UPDATE TO authenticated USING (true);
+        -- Enable RLS and create policies
+        ALTER TABLE public.videos ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY "videos_select_policy" ON public.videos FOR SELECT TO authenticated USING (true);
+        CREATE POLICY "videos_insert_policy" ON public.videos FOR INSERT TO authenticated WITH CHECK (true);
+        CREATE POLICY "videos_update_policy" ON public.videos FOR UPDATE TO authenticated USING (true);
+        CREATE POLICY "videos_delete_policy" ON public.videos FOR DELETE TO authenticated USING (true);
 
-CREATE POLICY "videos_delete_policy" ON public.videos 
-FOR DELETE TO authenticated USING (true);
+        RAISE NOTICE 'Videos table created successfully with video_url column.';
+        
+    ELSE
+        -- Check if url column exists instead of video_url
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'videos' AND column_name = 'url' AND table_schema = 'public') THEN
+            RAISE NOTICE 'Found url column instead of video_url. Renaming column...';
+            ALTER TABLE public.videos RENAME COLUMN url TO video_url;
+            RAISE NOTICE 'Successfully renamed url column to video_url.';
+        END IF;
+        
+        -- Ensure required columns exist
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'videos' AND column_name = 'video_url' AND table_schema = 'public') THEN
+            ALTER TABLE public.videos ADD COLUMN video_url TEXT NOT NULL DEFAULT '';
+        END IF;
+        
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'videos' AND column_name = 'category' AND table_schema = 'public') THEN
+            ALTER TABLE public.videos ADD COLUMN category TEXT DEFAULT 'general';
+        END IF;
+        
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'videos' AND column_name = 'status' AND table_schema = 'public') THEN
+            ALTER TABLE public.videos ADD COLUMN status TEXT DEFAULT 'active';
+        END IF;
+        
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'videos' AND column_name = 'duration' AND table_schema = 'public') THEN
+            ALTER TABLE public.videos ADD COLUMN duration INTEGER DEFAULT 0;
+        END IF;
+    END IF;
+
+    -- Ensure RLS policies exist
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'videos' AND policyname = 'videos_insert_policy') THEN
+        CREATE POLICY "videos_insert_policy" ON public.videos FOR INSERT TO authenticated WITH CHECK (true);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'videos' AND policyname = 'videos_update_policy') THEN
+        CREATE POLICY "videos_update_policy" ON public.videos FOR UPDATE TO authenticated USING (true);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'videos' AND policyname = 'videos_delete_policy') THEN
+        CREATE POLICY "videos_delete_policy" ON public.videos FOR DELETE TO authenticated USING (true);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'videos' AND policyname = 'videos_select_policy') THEN
+        CREATE POLICY "videos_select_policy" ON public.videos FOR SELECT TO authenticated USING (true);
+    END IF;
+
+    RAISE NOTICE 'Video table schema fix completed successfully!';
+END $$;
 ```
+
+### Step 2: Test Video Creation
+1. Go to Admin → Videos
+2. Try creating a video - it should work immediately!
 
 ## 🧪 Testing & Debugging
 
