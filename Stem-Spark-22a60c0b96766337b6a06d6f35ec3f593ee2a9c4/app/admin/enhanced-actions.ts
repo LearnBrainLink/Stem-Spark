@@ -586,9 +586,6 @@ export async function deleteUser(userId: string) {
 
 // CRUD Functions for Videos
 export async function createVideo(videoData: any) {
-  // Use service role client to bypass RLS policies for admin operations
-  const supabase = createServiceRoleClient();
-
   try {
     console.log('createVideo: Starting video creation with data:', videoData);
 
@@ -612,6 +609,18 @@ export async function createVideo(videoData: any) {
 
     console.log('createVideo: Inserting video with data:', videoToInsert);
 
+    let supabase;
+    
+    // Try to use service role client first, fall back to regular client
+    try {
+      supabase = createServiceRoleClient();
+      console.log('createVideo: Using service role client');
+    } catch (serviceRoleError) {
+      console.log('createVideo: Service role not available, using regular client');
+      const cookieStore = cookies();
+      supabase = createServerClient(cookieStore);
+    }
+
     const { data, error } = await supabase
       .from("videos")
       .insert(videoToInsert)
@@ -620,6 +629,14 @@ export async function createVideo(videoData: any) {
 
     if (error) {
       console.error('createVideo: Database error:', error);
+      
+      // If it's an RLS policy error, provide specific guidance
+      if (error.message?.includes('policy') || error.message?.includes('permission')) {
+        return { 
+          error: `Database permission error: ${error.message}. Please run the SQL policy fix in your Supabase dashboard.`
+        };
+      }
+      
       throw error;
     }
 
@@ -632,13 +649,15 @@ export async function createVideo(videoData: any) {
     // Provide more specific error messages
     if (errorMessage.includes('duplicate key')) {
       return { error: 'A video with this information already exists' };
+    } else if (errorMessage.includes('Missing Supabase service role configuration')) {
+      return { error: 'Service role not configured. Please add SUPABASE_SERVICE_ROLE_KEY to your environment variables or run the SQL policy fix.' };
     } else if (errorMessage.includes('permission') || errorMessage.includes('policy')) {
-      return { error: 'Database permission error. Please run the video creation policy fix script.' };
+      return { error: 'Database permission error. Please run the video creation policy fix script in your Supabase dashboard.' };
     } else if (errorMessage.includes('network')) {
       return { error: 'Network error. Please check your connection and try again.' };
     }
     
-    return { error: errorMessage };
+    return { error: `Video creation failed: ${errorMessage}` };
   }
 }
 
