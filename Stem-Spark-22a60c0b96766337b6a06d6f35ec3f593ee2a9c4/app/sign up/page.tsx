@@ -156,35 +156,37 @@ export default function SignUpPage() {
       if (data.user) {
         console.log("✅ Auth user created:", data.user.id);
 
-        // Prepare profile data based on role
-        const profileData: any = {
-          id: data.user.id,
-          email: formData.email,
+        // The database trigger will automatically create the profile
+        // We just need to update it with additional information if needed
+        
+        // Prepare profile update data based on role
+        const profileUpdateData: any = {
           full_name: formData.fullName,
-          role: formData.role,
           country: formData.country,
           state: formData.state,
-          email_verified: false,
         };
 
         // Add role-specific fields
         if (formData.role === "student") {
-          profileData.grade = parseInt(formData.grade);
-          profileData.school = formData.schoolName;
+          profileUpdateData.grade = parseInt(formData.grade);
+          profileUpdateData.school = formData.schoolName;
         } else if (formData.role === "teacher") {
-          profileData.school = formData.schoolName;
-          profileData.phone = formData.phone;
+          profileUpdateData.school = formData.schoolName;
+          profileUpdateData.phone = formData.phone;
         } else if (formData.role === "parent") {
-          profileData.phone = formData.phone;
+          profileUpdateData.phone = formData.phone;
         }
 
-        // Create profile in database
-        const { error: profileError } = await supabase.from("profiles").insert(profileData);
+        // Update profile with additional information
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update(profileUpdateData)
+          .eq("id", data.user.id);
 
         if (profileError) {
-          console.error("Profile creation error:", profileError);
-          console.error("Profile data attempted:", profileData);
-          setMessage({ type: "error", text: `Failed to create profile: ${profileError.message}` });
+          console.error("Profile update error:", profileError);
+          console.error("Profile data attempted:", profileUpdateData);
+          setMessage({ type: "error", text: `Failed to update profile: ${profileError.message}` });
           setIsLoading(false);
           return;
         }
@@ -203,19 +205,6 @@ export default function SignUpPage() {
             console.error("Parent relationship creation error:", parentError);
             // Don't fail the signup for this, just log it
           }
-        }
-
-        // Log activity
-        const { error: activityError } = await supabase.from("user_activities").insert({
-          user_id: data.user.id,
-          activity_type: "account_created",
-          activity_description: `Account created as ${formData.role}`,
-          metadata: { role: formData.role },
-        });
-
-        if (activityError) {
-          console.error("Activity logging error:", activityError);
-          // Don't fail the signup for this, just log it
         }
 
         console.log("✅ Account created successfully for", formData.email, "as", formData.role);
