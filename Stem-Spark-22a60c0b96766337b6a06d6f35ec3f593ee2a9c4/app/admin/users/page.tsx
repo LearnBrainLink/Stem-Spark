@@ -22,7 +22,7 @@ import { supabase } from "@/lib/supabase"
 import { Search, Plus, Edit, Trash2, Users, Download, UserCheck, UserX, GraduationCap, Mail, Calendar, Eye, MoreHorizontal, RefreshCw, Shield, AlertTriangle } from "lucide-react"
 import { motion, AnimatePresence } from 'framer-motion'
 import { Skeleton } from "@/components/ui/skeleton"
-import { getUsersData } from '../actions'
+import { getEnhancedUsersData, createUser, updateUser, deleteUser } from '../enhanced-actions'
 
 interface User {
   id: string
@@ -77,17 +77,12 @@ export default function UserManagementPage() {
       setIsLoading(true)
       setError(null)
       
-      const result = await getUsersData()
+      const result = await getEnhancedUsersData()
       
       if (result.error) {
         setError(result.error)
       } else if (result.users) {
-        // Add mock status for demo purposes
-        const usersWithStatus = result.users.map((user: any) => ({
-          ...user,
-          status: Math.random() > 0.1 ? 'active' : (Math.random() > 0.5 ? 'pending' : 'inactive') as 'active' | 'inactive' | 'pending'
-        }))
-        setUsers(usersWithStatus)
+        setUsers(result.users)
       }
     } catch (err) {
       setError('Failed to load users')
@@ -131,32 +126,15 @@ export default function UserManagementPage() {
         state: formData.get("state") as string,
       }
 
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: userData.email,
-        password: "TempPassword123!",
-        email_confirm: true,
-        user_metadata: {
-          full_name: userData.full_name,
-        },
-      })
+      const result = await createUser(userData)
 
-      if (authError) throw authError
-
-      // Create profile
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: authData.user.id,
-        ...userData,
-        email_verified: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-
-      if (profileError) throw profileError
-
-      setMessage({ type: "success", text: "User created successfully!" })
-      setIsCreateDialogOpen(false)
-      fetchUsers()
+      if (result.error) {
+        setMessage({ type: "error", text: result.error })
+      } else {
+        setMessage({ type: "success", text: "User created successfully!" })
+        setIsCreateDialogOpen(false)
+        fetchUsers()
+      }
     } catch (error: any) {
       setMessage({ type: "error", text: error.message || "Failed to create user" })
     }
@@ -173,16 +151,17 @@ export default function UserManagementPage() {
         school_name: formData.get("schoolName") as string,
         country: formData.get("country") as string,
         state: formData.get("state") as string,
-        updated_at: new Date().toISOString(),
       }
 
-      const { error } = await supabase.from("profiles").update(userData).eq("id", editingUser.id)
+      const result = await updateUser(editingUser.id, userData)
 
-      if (error) throw error
-
-      setMessage({ type: "success", text: "User updated successfully!" })
-      setEditingUser(null)
-      fetchUsers()
+      if (result.error) {
+        setMessage({ type: "error", text: result.error })
+      } else {
+        setMessage({ type: "success", text: "User updated successfully!" })
+        setEditingUser(null)
+        fetchUsers()
+      }
     } catch (error: any) {
       setMessage({ type: "error", text: error.message || "Failed to update user" })
     }
@@ -194,12 +173,14 @@ export default function UserManagementPage() {
     }
 
     try {
-      // Delete from auth
-      const { error: authError } = await supabase.auth.admin.deleteUser(userId)
-      if (authError) throw authError
+      const result = await deleteUser(userId)
 
-      setMessage({ type: "success", text: "User deleted successfully!" })
-      fetchUsers()
+      if (result.error) {
+        setMessage({ type: "error", text: result.error })
+      } else {
+        setMessage({ type: "success", text: "User deleted successfully!" })
+        fetchUsers()
+      }
     } catch (error: any) {
       setMessage({ type: "error", text: error.message || "Failed to delete user" })
     }

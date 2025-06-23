@@ -1,0 +1,909 @@
+'use server'
+
+import { signOut as signOutOriginal } from '@/lib/enhanced-auth-actions'
+import { redirect } from 'next/navigation'
+import { createServerClient } from '@/lib/supabase-server'
+import { cookies } from 'next/headers'
+
+export async function signOut() {
+  const result = await signOutOriginal()
+  if (result.redirectPath) {
+    redirect(result.redirectPath)
+  }
+}
+
+export async function getEnhancedDashboardStats() {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    console.log('🔍 Starting enhanced dashboard stats fetch...')
+
+    // Initialize stats with defaults
+    let stats = {
+      totalUsers: 0,
+      students: 0,
+      teachers: 0,
+      parents: 0,
+      admins: 0,
+      activeInternships: 0,
+      totalInternships: 0,
+      pendingApplications: 0,
+      totalApplications: 0,
+      totalRevenue: 0,
+      thisMonthRevenue: 0,
+      totalVideos: 0,
+      activeVideos: 0,
+      recentActivity: [] as any[],
+      userGrowth: [] as any[],
+      applicationStats: [] as any[],
+    }
+
+    // Fetch user statistics with role breakdown
+    try {
+      const { data: users, error: userError } = await supabase
+        .from('profiles')
+        .select('role, created_at, email_verified, full_name, email')
+        .order('created_at', { ascending: false })
+
+      if (!userError && users) {
+        stats.totalUsers = users.length
+        stats.students = users.filter(u => u.role === 'student').length
+        stats.teachers = users.filter(u => u.role === 'teacher').length
+        stats.parents = users.filter(u => u.role === 'parent').length
+        stats.admins = users.filter(u => u.role === 'admin').length
+
+        // Get recent activity (last 10 users)
+        stats.recentActivity = users.slice(0, 10).map(user => ({
+          type: 'user_registered',
+          user: user,
+          timestamp: user.created_at,
+          description: `New ${user.role} registered`,
+          name: user.full_name || user.email
+        }))
+
+        // Generate user growth data (last 6 months)
+        const now = new Date()
+        stats.userGrowth = []
+        for (let i = 5; i >= 0; i--) {
+          const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1)
+          const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
+          const monthName = monthStart.toLocaleString('default', { month: 'short' })
+          
+          const usersInMonth = users.filter(user => {
+            const userDate = new Date(user.created_at)
+            return userDate >= monthStart && userDate <= monthEnd
+          }).length
+          
+          stats.userGrowth.push({ 
+            month: monthName, 
+            users: usersInMonth,
+            students: users.filter(user => {
+              const userDate = new Date(user.created_at)
+              return user.role === 'student' && userDate >= monthStart && userDate <= monthEnd
+            }).length,
+            teachers: users.filter(user => {
+              const userDate = new Date(user.created_at)
+              return user.role === 'teacher' && userDate >= monthStart && userDate <= monthEnd
+            }).length,
+            parents: users.filter(user => {
+              const userDate = new Date(user.created_at)
+              return user.role === 'parent' && userDate >= monthStart && userDate <= monthEnd
+            }).length,
+          })
+        }
+      }
+    } catch (err) {
+      console.log('⚠️ Users query exception:', err)
+    }
+
+    // Fetch internship statistics
+    try {
+      const { data: internships, error: internshipError } = await supabase
+        .from('internships')
+        .select('*')
+
+      if (!internshipError && internships) {
+        stats.totalInternships = internships.length
+        stats.activeInternships = internships.filter(i => i.status === 'active').length
+      }
+    } catch (err) {
+      console.log('⚠️ Internships query exception:', err)
+    }
+
+    // Fetch application statistics
+    try {
+      const { data: applications, error: applicationError } = await supabase
+        .from('internship_applications')
+        .select('*')
+
+      if (!applicationError && applications) {
+        stats.totalApplications = applications.length
+        stats.pendingApplications = applications.filter(a => a.status === 'pending').length
+        
+        // Application status breakdown
+        const statusCounts = {
+          pending: applications.filter(a => a.status === 'pending').length,
+          approved: applications.filter(a => a.status === 'approved').length,
+          rejected: applications.filter(a => a.status === 'rejected').length,
+          withdrawn: applications.filter(a => a.status === 'withdrawn').length,
+        }
+        
+        stats.applicationStats = [
+          { status: 'pending', count: statusCounts.pending, color: '#F59E0B' },
+          { status: 'approved', count: statusCounts.approved, color: '#10B981' },
+          { status: 'rejected', count: statusCounts.rejected, color: '#EF4444' },
+          { status: 'withdrawn', count: statusCounts.withdrawn, color: '#6B7280' },
+        ]
+      }
+    } catch (err) {
+      console.log('⚠️ Applications query exception:', err)
+    }
+
+    // Fetch revenue statistics
+    try {
+      const { data: donations, error: donationError } = await supabase
+        .from('donations')
+        .select('amount, created_at, status')
+
+      if (!donationError && donations) {
+        const completedDonations = donations.filter(d => d.status === 'completed')
+        stats.totalRevenue = completedDonations.reduce((sum, d) => sum + (d.amount || 0), 0)
+        
+        // Calculate this month's revenue
+        const now = new Date()
+        const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        const thisMonthDonations = completedDonations.filter(d => 
+          new Date(d.created_at) >= thisMonth
+        )
+        stats.thisMonthRevenue = thisMonthDonations.reduce((sum, d) => sum + (d.amount || 0), 0)
+      }
+    } catch (err) {
+      console.log('⚠️ Revenue query exception:', err)
+    }
+
+    // Fetch video statistics
+    try {
+      const { data: videos, error: videoError } = await supabase
+        .from('videos')
+        .select('*')
+
+      if (!videoError && videos) {
+        stats.totalVideos = videos.length
+        stats.activeVideos = videos.filter(v => v.status === 'active').length
+      }
+    } catch (err) {
+      console.log('⚠️ Videos query exception:', err)
+    }
+
+    console.log('📊 Enhanced stats:', stats)
+
+    return {
+      error: null,
+      stats: stats
+    }
+  } catch (error) {
+    console.error('💥 Unexpected error in getEnhancedDashboardStats:', error)
+    return {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stats: {
+        totalUsers: 0,
+        students: 0,
+        teachers: 0,
+        parents: 0,
+        admins: 0,
+        activeInternships: 0,
+        totalInternships: 0,
+        pendingApplications: 0,
+        totalApplications: 0,
+        totalRevenue: 0,
+        thisMonthRevenue: 0,
+        totalVideos: 0,
+        activeVideos: 0,
+        recentActivity: [],
+        userGrowth: [],
+        applicationStats: [],
+      },
+    }
+  }
+}
+
+export async function getEnhancedUsersData() {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { data: users, error } = await supabase
+      .from('profiles')
+      .select(`
+        *,
+        parent_student_relationships(student_id, parent_name, parent_email),
+        parent_children(child_name, child_grade, child_school)
+      `)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching users:', error)
+      return { error: error.message, users: [] }
+    }
+
+    // Transform the data for better display
+    const transformedUsers = users?.map(user => ({
+      ...user,
+      relationships: user.parent_student_relationships || [],
+      children: user.parent_children || [],
+      status: user.email_verified ? 'Verified' : 'Pending',
+      lastActive: user.updated_at || user.created_at,
+    })) || []
+
+    return { error: null, users: transformedUsers }
+  } catch (error) {
+    console.error('Error in getEnhancedUsersData:', error)
+    return { error: 'Failed to fetch users', users: [] }
+  }
+}
+
+export async function getEnhancedInternshipsData() {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { data: internships, error } = await supabase
+      .from('internships')
+      .select(`
+        *,
+        internship_applications(count)
+      `)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching internships:', error)
+      return { error: error.message, internships: [] }
+    }
+
+    // Transform the data
+    const transformedInternships = internships?.map(internship => ({
+      ...internship,
+      applicationCount: internship.internship_applications?.[0]?.count || 0,
+      isActive: internship.status === 'active',
+      daysLeft: internship.application_deadline ? 
+        Math.ceil((new Date(internship.application_deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null,
+    })) || []
+
+    return { error: null, internships: transformedInternships }
+  } catch (error) {
+    console.error('Error in getEnhancedInternshipsData:', error)
+    return { error: 'Failed to fetch internships', internships: [] }
+  }
+}
+
+export async function getEnhancedApplicationsData() {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { data: applications, error } = await supabase
+      .from('internship_applications')
+      .select(`
+        *,
+        profiles!internship_applications_student_id_fkey(full_name, email, role),
+        internships!internship_applications_internship_id_fkey(title, company)
+      `)
+      .order('applied_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching applications:', error)
+      return { error: error.message, applications: [] }
+    }
+
+    // Transform the data
+    const transformedApplications = applications?.map(app => ({
+      ...app,
+      studentName: app.profiles?.full_name || 'Unknown',
+      studentEmail: app.profiles?.email || 'Unknown',
+      studentRole: app.profiles?.role || 'Unknown',
+      internshipTitle: app.internships?.title || 'Unknown',
+      company: app.internships?.company || 'Unknown',
+      statusColor: app.status === 'pending' ? 'yellow' : 
+                   app.status === 'approved' ? 'green' : 
+                   app.status === 'rejected' ? 'red' : 'gray',
+    })) || []
+
+    return { error: null, applications: transformedApplications }
+  } catch (error) {
+    console.error('Error in getEnhancedApplicationsData:', error)
+    return { error: 'Failed to fetch applications', applications: [] }
+  }
+}
+
+export async function getEnhancedVideosData() {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { data: videos, error } = await supabase
+      .from('videos')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching videos:', error)
+      return { error: error.message, videos: [] }
+    }
+
+    // Transform the data
+    const transformedVideos = videos?.map(video => ({
+      ...video,
+      isActive: video.status === 'active',
+      durationFormatted: video.duration ? `${Math.floor(video.duration / 60)}:${(video.duration % 60).toString().padStart(2, '0')}` : '0:00',
+      categoryColor: video.category === 'STEM' ? 'blue' : 
+                     video.category === 'Technology' ? 'purple' : 
+                     video.category === 'Science' ? 'green' : 'gray',
+    })) || []
+
+    return { error: null, videos: transformedVideos }
+  } catch (error) {
+    console.error('Error in getEnhancedVideosData:', error)
+    return { error: 'Failed to fetch videos', videos: [] }
+  }
+}
+
+export async function updateUserRole(userId: string, newRole: string) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role: newRole })
+      .eq('id', userId)
+
+    if (error) {
+      console.error('Error updating user role:', error)
+      return { error: error.message }
+    }
+
+    return { error: null, success: true }
+  } catch (error) {
+    console.error('Error in updateUserRole:', error)
+    return { error: 'Failed to update user role' }
+  }
+}
+
+export async function updateApplicationStatus(applicationId: string, newStatus: string) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { error } = await supabase
+      .from('internship_applications')
+      .update({ status: newStatus })
+      .eq('id', applicationId)
+
+    if (error) {
+      console.error('Error updating application status:', error)
+      return { error: error.message }
+    }
+
+    return { error: null, success: true }
+  } catch (error) {
+    console.error('Error in updateApplicationStatus:', error)
+    return { error: 'Failed to update application status' }
+  }
+}
+
+export async function updateInternshipStatus(internshipId: string, newStatus: string) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { error } = await supabase
+      .from('internships')
+      .update({ status: newStatus })
+      .eq('id', internshipId)
+
+    if (error) {
+      console.error('Error updating internship status:', error)
+      return { error: error.message }
+    }
+
+    return { error: null, success: true }
+  } catch (error) {
+    console.error('Error in updateInternshipStatus:', error)
+    return { error: 'Failed to update internship status' }
+  }
+}
+
+export async function updateVideoStatus(videoId: string, newStatus: string) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { error } = await supabase
+      .from('videos')
+      .update({ status: newStatus })
+      .eq('id', videoId)
+
+    if (error) {
+      console.error('Error updating video status:', error)
+      return { error: error.message }
+    }
+
+    return { error: null, success: true }
+  } catch (error) {
+    console.error('Error in updateVideoStatus:', error)
+    return { error: 'Failed to update video status' }
+  }
+}
+
+export async function getEnhancedConfigurationData() {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+  try {
+    const { data: config, error } = await supabase
+      .from('configuration')
+      .select('*')
+      .single();
+    if (error) {
+      return { error: error.message, config: null };
+    }
+    return { error: null, config };
+  } catch (error) {
+    return { error: 'Failed to fetch configuration', config: null };
+  }
+}
+
+export async function getEnhancedSettingsData() {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+  try {
+    const { data: settings, error } = await supabase
+      .from('settings')
+      .select('*')
+      .single();
+    if (error) {
+      return { error: error.message, settings: null };
+    }
+    return { error: null, settings };
+  } catch (error) {
+    return { error: 'Failed to fetch settings', settings: null };
+  }
+}
+
+export async function updateEnhancedSettingsData(newSettings: any) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+  try {
+    const { error } = await supabase
+      .from('settings')
+      .update(newSettings)
+      .eq('id', newSettings.id);
+    if (error) {
+      return { error: error.message };
+    }
+    return { error: null, success: true };
+  } catch (error) {
+    return { error: 'Failed to update settings' };
+  }
+}
+
+// CRUD Functions for Users
+export async function createUser(userData: any) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    // Create auth user
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: userData.email,
+      password: userData.password || "TempPassword123!",
+      email_confirm: true,
+      user_metadata: {
+        full_name: userData.full_name,
+      },
+    });
+
+    if (authError) throw authError;
+
+    // Create profile
+    const { error: profileError } = await supabase.from("profiles").insert({
+      id: authData.user.id,
+      ...userData,
+      email_verified: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    if (profileError) throw profileError;
+
+    return { error: null, success: true, user: authData.user };
+  } catch (error) {
+    console.error('Error in createUser:', error);
+    return { error: error instanceof Error ? error.message : 'Failed to create user' };
+  }
+}
+
+export async function updateUser(userId: string, userData: any) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        ...userData,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId);
+
+    if (error) throw error;
+
+    return { error: null, success: true };
+  } catch (error) {
+    console.error('Error in updateUser:', error);
+    return { error: error instanceof Error ? error.message : 'Failed to update user' };
+  }
+}
+
+export async function deleteUser(userId: string) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    // Delete from auth
+    const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+    if (authError) throw authError;
+
+    // Delete profile (should be handled by RLS)
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .delete()
+      .eq("id", userId);
+
+    if (profileError) throw profileError;
+
+    return { error: null, success: true };
+  } catch (error) {
+    console.error('Error in deleteUser:', error);
+    return { error: error instanceof Error ? error.message : 'Failed to delete user' };
+  }
+}
+
+// CRUD Functions for Videos
+export async function createVideo(videoData: any) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { data, error } = await supabase
+      .from("videos")
+      .insert({
+        ...videoData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return { error: null, success: true, video: data };
+  } catch (error) {
+    console.error('Error in createVideo:', error);
+    return { error: error instanceof Error ? error.message : 'Failed to create video' };
+  }
+}
+
+export async function updateVideo(videoId: string, videoData: any) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { data, error } = await supabase
+      .from("videos")
+      .update({
+        ...videoData,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", videoId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return { error: null, success: true, video: data };
+  } catch (error) {
+    console.error('Error in updateVideo:', error);
+    return { error: error instanceof Error ? error.message : 'Failed to update video' };
+  }
+}
+
+export async function deleteVideo(videoId: string) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { error } = await supabase
+      .from("videos")
+      .delete()
+      .eq("id", videoId);
+
+    if (error) throw error;
+
+    return { error: null, success: true };
+  } catch (error) {
+    console.error('Error in deleteVideo:', error);
+    return { error: error instanceof Error ? error.message : 'Failed to delete video' };
+  }
+}
+
+// CRUD Functions for Internships
+export async function createInternship(internshipData: any) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { data, error } = await supabase
+      .from("internships")
+      .insert({
+        ...internshipData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return { error: null, success: true, internship: data };
+  } catch (error) {
+    console.error('Error in createInternship:', error);
+    return { error: error instanceof Error ? error.message : 'Failed to create internship' };
+  }
+}
+
+export async function updateInternship(internshipId: string, internshipData: any) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { data, error } = await supabase
+      .from("internships")
+      .update({
+        ...internshipData,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", internshipId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return { error: null, success: true, internship: data };
+  } catch (error) {
+    console.error('Error in updateInternship:', error);
+    return { error: error instanceof Error ? error.message : 'Failed to update internship' };
+  }
+}
+
+export async function deleteInternship(internshipId: string) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { error } = await supabase
+      .from("internships")
+      .delete()
+      .eq("id", internshipId);
+
+    if (error) throw error;
+
+    return { error: null, success: true };
+  } catch (error) {
+    console.error('Error in deleteInternship:', error);
+    return { error: error instanceof Error ? error.message : 'Failed to delete internship' };
+  }
+}
+
+// CRUD Functions for Applications
+export async function createApplication(applicationData: any) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { data, error } = await supabase
+      .from("internship_applications")
+      .insert({
+        ...applicationData,
+        applied_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return { error: null, success: true, application: data };
+  } catch (error) {
+    console.error('Error in createApplication:', error);
+    return { error: error instanceof Error ? error.message : 'Failed to create application' };
+  }
+}
+
+export async function updateApplication(applicationId: string, applicationData: any) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { data, error } = await supabase
+      .from("internship_applications")
+      .update({
+        ...applicationData,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", applicationId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return { error: null, success: true, application: data };
+  } catch (error) {
+    console.error('Error in updateApplication:', error);
+    return { error: error instanceof Error ? error.message : 'Failed to update application' };
+  }
+}
+
+export async function deleteApplication(applicationId: string) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    const { error } = await supabase
+      .from("internship_applications")
+      .delete()
+      .eq("id", applicationId);
+
+    if (error) throw error;
+
+    return { error: null, success: true };
+  } catch (error) {
+    console.error('Error in deleteApplication:', error);
+    return { error: error instanceof Error ? error.message : 'Failed to delete application' };
+  }
+}
+
+// Generate Report Function
+export async function generateReport(reportType: string) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(cookieStore);
+
+  try {
+    console.log('🔍 Generating report:', reportType);
+
+    let reportData: any = {
+      type: reportType,
+      generated_at: new Date().toISOString(),
+      summary: {},
+      details: [],
+    };
+
+    switch (reportType) {
+      case 'comprehensive':
+        // Get all data for comprehensive report
+        const [users, internships, applications, videos, donations] = await Promise.all([
+          supabase.from('profiles').select('*'),
+          supabase.from('internships').select('*'),
+          supabase.from('internship_applications').select('*'),
+          supabase.from('videos').select('*'),
+          supabase.from('donations').select('*'),
+        ]);
+
+        reportData.summary = {
+          totalUsers: users.data?.length || 0,
+          totalInternships: internships.data?.length || 0,
+          totalApplications: applications.data?.length || 0,
+          totalVideos: videos.data?.length || 0,
+          totalRevenue: donations.data?.reduce((sum, d) => sum + (d.amount || 0), 0) || 0,
+        };
+
+        reportData.details = {
+          users: users.data || [],
+          internships: internships.data || [],
+          applications: applications.data || [],
+          videos: videos.data || [],
+          donations: donations.data || [],
+        };
+        break;
+
+      case 'user_analytics':
+        const { data: userData } = await supabase
+          .from('profiles')
+          .select('role, created_at, email_verified');
+
+        if (userData) {
+          const roleBreakdown = userData.reduce((acc: any, user) => {
+            acc[user.role] = (acc[user.role] || 0) + 1;
+            return acc;
+          }, {});
+
+          const monthlyGrowth = userData.reduce((acc: any, user) => {
+            const month = new Date(user.created_at).toLocaleString('default', { month: 'short' });
+            acc[month] = (acc[month] || 0) + 1;
+            return acc;
+          }, {});
+
+          reportData.summary = {
+            totalUsers: userData.length,
+            roleBreakdown,
+            monthlyGrowth,
+            verifiedUsers: userData.filter(u => u.email_verified).length,
+          };
+        }
+        break;
+
+      case 'application_status':
+        const { data: appData } = await supabase
+          .from('internship_applications')
+          .select('status, applied_at');
+
+        if (appData) {
+          const statusBreakdown = appData.reduce((acc: any, app) => {
+            acc[app.status] = (acc[app.status] || 0) + 1;
+            return acc;
+          }, {});
+
+          const monthlyApplications = appData.reduce((acc: any, app) => {
+            const month = new Date(app.applied_at).toLocaleString('default', { month: 'short' });
+            acc[month] = (acc[month] || 0) + 1;
+            return acc;
+          }, {});
+
+          reportData.summary = {
+            totalApplications: appData.length,
+            statusBreakdown,
+            monthlyApplications,
+          };
+        }
+        break;
+
+      case 'revenue_report':
+        const { data: donationData } = await supabase
+          .from('donations')
+          .select('amount, created_at, status');
+
+        if (donationData) {
+          const completedDonations = donationData.filter(d => d.status === 'completed');
+          const monthlyRevenue = completedDonations.reduce((acc: any, donation) => {
+            const month = new Date(donation.created_at).toLocaleString('default', { month: 'short' });
+            acc[month] = (acc[month] || 0) + (donation.amount || 0);
+            return acc;
+          }, {});
+
+          reportData.summary = {
+            totalRevenue: completedDonations.reduce((sum, d) => sum + (d.amount || 0), 0),
+            totalDonations: completedDonations.length,
+            monthlyRevenue,
+            averageDonation: completedDonations.reduce((sum, d) => sum + (d.amount || 0), 0) / completedDonations.length || 0,
+          };
+        }
+        break;
+
+      default:
+        return { error: 'Invalid report type' };
+    }
+
+    console.log('✅ Report generated successfully:', reportType);
+
+    return {
+      error: null,
+      report: reportData,
+    };
+  } catch (error) {
+    console.error('💥 Error generating report:', error);
+    return {
+      error: error instanceof Error ? error.message : 'Failed to generate report',
+      report: null,
+    };
+  }
+} 

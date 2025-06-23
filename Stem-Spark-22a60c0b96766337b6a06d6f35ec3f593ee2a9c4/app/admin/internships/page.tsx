@@ -16,12 +16,13 @@ import {
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { createInternship } from "@/lib/internship-actions"
+import { createInternship, updateInternship, deleteInternship } from '../enhanced-actions'
 import { supabase } from "@/lib/supabase"
 import { Plus, Edit, Trash2, Users, Calendar, RefreshCw, MapPin, Clock, Briefcase } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { Skeleton } from "@/components/ui/skeleton"
+import { getEnhancedInternshipsData } from '../enhanced-actions'
 
 interface Internship {
   id: string
@@ -52,10 +53,12 @@ export default function InternshipsPage() {
 
   const fetchInternships = async () => {
     setIsLoading(true)
-    const { data, error } = await supabase.from("internships").select("*").order("created_at", { ascending: false })
-
-    if (data) {
-      setInternships(data)
+    const result = await getEnhancedInternshipsData()
+    if (result.error) {
+      setMessage({ type: "error", text: result.error })
+      setInternships([])
+    } else if (result.internships) {
+      setInternships(result.internships)
     }
     setIsLoading(false)
   }
@@ -64,13 +67,62 @@ export default function InternshipsPage() {
     setIsLoading(true)
     setMessage(null)
 
-    const result = await createInternship(formData)
+    const internshipData = {
+      title: formData.get("title") as string,
+      description: formData.get("description") as string,
+      company: formData.get("company") as string,
+      location: formData.get("location") as string,
+      duration: formData.get("duration") as string,
+      requirements: formData.get("requirements") as string,
+      application_deadline: formData.get("applicationDeadline") as string,
+      start_date: formData.get("startDate") as string,
+      end_date: formData.get("endDate") as string,
+      max_participants: Number(formData.get("maxParticipants")),
+      current_participants: 0,
+      status: "active",
+    }
+
+    const result = await createInternship(internshipData)
 
     if (result?.error) {
       setMessage({ type: "error", text: result.error })
     } else if (result?.success) {
       setMessage({ type: "success", text: "Internship created successfully!" })
       setIsCreateDialogOpen(false)
+      fetchInternships()
+    }
+
+    setIsLoading(false)
+  }
+
+  const handleUpdateInternship = async (internshipId: string, internshipData: any) => {
+    setIsLoading(true)
+    setMessage(null)
+
+    const result = await updateInternship(internshipId, internshipData)
+
+    if (result?.error) {
+      setMessage({ type: "error", text: result.error })
+    } else if (result?.success) {
+      setMessage({ type: "success", text: "Internship updated successfully!" })
+      fetchInternships()
+    }
+
+    setIsLoading(false)
+  }
+
+  const handleDeleteInternship = async (internshipId: string) => {
+    if (!confirm("Are you sure you want to delete this internship?")) return
+
+    setIsLoading(true)
+    setMessage(null)
+
+    const result = await deleteInternship(internshipId)
+
+    if (result?.error) {
+      setMessage({ type: "error", text: result.error })
+    } else if (result?.success) {
+      setMessage({ type: "success", text: "Internship deleted successfully!" })
       fetchInternships()
     }
 

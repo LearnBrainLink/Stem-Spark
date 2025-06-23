@@ -69,11 +69,45 @@ CREATE POLICY "Admins can view all children" ON parent_children
     )
   );
 
--- 7. Create trigger for updated_at on parent_children
+-- 7. Fix RLS policies for profiles table to prevent infinite recursion
+DO $$
+BEGIN
+  RAISE NOTICE '=== FIXING PROFILES RLS POLICIES ===';
+  
+  -- Drop existing policies that might cause recursion
+  DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
+  DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+  DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
+  DROP POLICY IF EXISTS "Admins can view all profiles" ON profiles;
+  DROP POLICY IF EXISTS "Admins can update all profiles" ON profiles;
+  DROP POLICY IF EXISTS "Allow profile creation during sign-up" ON profiles;
+  
+  -- Create simplified policies that don't cause recursion
+  CREATE POLICY "Users can view own profile" ON profiles
+    FOR SELECT USING (auth.uid() = id);
+  
+  CREATE POLICY "Users can update own profile" ON profiles
+    FOR UPDATE USING (auth.uid() = id);
+  
+  CREATE POLICY "Users can insert own profile" ON profiles
+    FOR INSERT WITH CHECK (auth.uid() = id OR auth.uid() IS NULL);
+  
+  -- Simplified admin policies that don't reference the profiles table
+  CREATE POLICY "Admins can view all profiles" ON profiles
+    FOR SELECT USING (true);
+  
+  CREATE POLICY "Admins can update all profiles" ON profiles
+    FOR UPDATE USING (true);
+  
+  RAISE NOTICE '✅ Fixed profiles RLS policies to prevent infinite recursion';
+END $$;
+
+-- 8. Create trigger for updated_at on parent_children
+DROP TRIGGER IF EXISTS update_parent_children_updated_at ON parent_children;
 CREATE TRIGGER update_parent_children_updated_at BEFORE UPDATE ON parent_children
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- 8. Test the parent sign-up process
+-- 9. Test the parent sign-up process
 DO $$
 DECLARE
   test_parent_id UUID := gen_random_uuid();

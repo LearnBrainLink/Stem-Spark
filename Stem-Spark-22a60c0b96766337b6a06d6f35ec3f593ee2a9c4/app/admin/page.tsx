@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getEnhancedDashboardStats, generateReport as enhancedGenerateReport } from './enhanced-actions';
 
 // --- COMPONENTS ---
 
@@ -119,10 +120,20 @@ const samplePieData = [
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<{
-    users: number;
-    internships: number;
-    applications: number;
-    revenue: number;
+    totalUsers: number;
+    students: number;
+    teachers: number;
+    parents: number;
+    admins: number;
+    activeInternships: number;
+    totalInternships: number;
+    pendingApplications: number;
+    totalApplications: number;
+    totalRevenue: number;
+    thisMonthRevenue: number;
+    totalVideos: number;
+    activeVideos: number;
+    recentActivity: any[];
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -132,6 +143,7 @@ export default function AdminDashboard() {
   const [selectedReportType, setSelectedReportType] = useState('comprehensive');
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
+  const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
 
   useEffect(() => {
     async function fetchStats() {
@@ -152,7 +164,9 @@ export default function AdminDashboard() {
           setConnectionStatus('connected');
           
           // Check if this is real data (not all zeros)
-          const hasRealData = Object.values(result.stats).some(value => value > 0);
+          const hasRealData = Object.values(result.stats).some(value => 
+            typeof value === 'number' ? value > 0 : Array.isArray(value) ? value.length > 0 : false
+          );
           setIsSampleData(!hasRealData);
           
           console.log('✅ Dashboard stats loaded:', result.stats);
@@ -192,21 +206,13 @@ export default function AdminDashboard() {
   const handleGenerateReport = async () => {
     try {
       setIsGeneratingReport(true);
-      const result = await generateReport(selectedReportType);
+      const result = await enhancedGenerateReport(selectedReportType);
       
       if (result.error) {
         setError(result.error);
       } else if (result.report) {
         setReportData(result.report);
-        // Download the report as JSON
-        const dataStr = JSON.stringify(result.report, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${selectedReportType}_report_${new Date().toISOString().split('T')[0]}.json`;
-        link.click();
-        URL.revokeObjectURL(url);
+        setMessage({ type: "success", text: `Report generated successfully!` });
       }
     } catch (err) {
       setError('Failed to generate report');
@@ -226,7 +232,7 @@ export default function AdminDashboard() {
   const statsData = stats ? [
     {
       title: "Total Users",
-      value: numberFormatter.format(stats.users),
+      value: numberFormatter.format(stats.totalUsers),
       icon: Users,
       description: isSampleData ? "Database connection issue" : "Active user accounts",
       color: "text-blue-600",
@@ -236,7 +242,7 @@ export default function AdminDashboard() {
     },
     {
       title: "Active Internships",
-      value: numberFormatter.format(stats.internships),
+      value: numberFormatter.format(stats.activeInternships),
       icon: Briefcase,
       description: isSampleData ? "Database connection issue" : "Available programs",
       color: "text-purple-600",
@@ -246,7 +252,7 @@ export default function AdminDashboard() {
     },
     {
       title: "Applications",
-      value: numberFormatter.format(stats.applications),
+      value: numberFormatter.format(stats.totalApplications),
       icon: Mail,
       description: isSampleData ? "Database connection issue" : "Pending reviews",
       color: "text-amber-600",
@@ -256,7 +262,7 @@ export default function AdminDashboard() {
     },
     {
       title: "Total Revenue",
-      value: currencyFormatter.format(stats.revenue),
+      value: currencyFormatter.format(stats.totalRevenue),
       icon: DollarSign,
       description: isSampleData ? "Database connection issue" : "Year-to-date earnings",
       color: "text-emerald-600",

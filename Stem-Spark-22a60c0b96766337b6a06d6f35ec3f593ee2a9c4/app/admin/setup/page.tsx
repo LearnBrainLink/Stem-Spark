@@ -9,40 +9,26 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-
-// Define admin accounts directly in the component
-const ADMIN_ACCOUNTS = [
-	{
-		email: "admin@stemspark.academy",
-		password: "STEMAdmin2024!",
-		fullName: "Dr. Sarah Johnson",
-		role: "Main Administrator",
-		state: "California",
-	},
-	{
-		email: "director@stemspark.academy",
-		password: "STEMDirector2024!",
-		fullName: "Prof. Michael Chen",
-		role: "Program Director",
-		state: "New York",
-	},
-	{
-		email: "coordinator@stemspark.academy",
-		password: "STEMCoord2024!",
-		fullName: "Dr. Emily Rodriguez",
-		role: "Education Coordinator",
-		state: "Texas",
-	},
-	{
-		email: "manager@stemspark.academy",
-		password: "STEMManager2024!",
-		fullName: "Prof. David Kim",
-		role: "Content Manager",
-		state: "Washington",
-	},
-]
+import { useEffect, useState } from 'react';
+import { getEnhancedUsersData } from '../enhanced-actions';
 
 export function SetupPageContent() {
+	const [admins, setAdmins] = useState<any[]>([]);
+	const [isLoading, setIsLoading] = useState(true);
+
+	useEffect(() => {
+		fetchAdmins();
+	}, []);
+
+	const fetchAdmins = async () => {
+		setIsLoading(true);
+		const result = await getEnhancedUsersData();
+		if (result.users) {
+			setAdmins(result.users.filter((u: any) => u.role === 'admin'));
+		}
+		setIsLoading(false);
+	};
+
 	return (
 		<motion.div 
 			className="space-y-8 p-2 sm:p-4 lg:p-6"
@@ -61,7 +47,7 @@ export function SetupPageContent() {
 						<p className="text-gray-600">Manage admin accounts and permissions.</p>
 					</div>
 					<div className="flex items-center gap-2">
-						<Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100">
+						<Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={fetchAdmins}>
 							Refresh
 						</Button>
 					</div>
@@ -80,16 +66,22 @@ export function SetupPageContent() {
 						<CardDescription className="text-xs text-gray-500">Manage admin user accounts</CardDescription>
 					</CardHeader>
 					<CardContent className="pt-0">
-						<div className="space-y-1 text-xs">
-							<div className="flex items-center justify-between">
-								<Label htmlFor="admin-name">Admin Name</Label>
-								<Input id="admin-name" placeholder="John Doe" className="text-xs px-2 py-1" />
+						{isLoading ? (
+							<div>Loading...</div>
+						) : (
+							<div className="space-y-2">
+								{admins.map((admin, idx) => (
+									<div key={admin.id || idx} className="flex items-center justify-between border-b border-gray-100 py-2">
+										<div>
+											<div className="font-semibold text-sm">{admin.full_name || admin.email}</div>
+											<div className="text-xs text-gray-500">{admin.email}</div>
+										</div>
+										<Badge className="bg-red-100 text-red-800 border-red-200">Admin</Badge>
+									</div>
+								))}
+								{admins.length === 0 && <div className="text-xs text-gray-500">No admin users found.</div>}
 							</div>
-							<div className="flex items-center justify-between">
-								<Label htmlFor="admin-role">Admin Role</Label>
-								<Input id="admin-role" placeholder="Super Admin" className="text-xs px-2 py-1" />
-							</div>
-						</div>
+						)}
 					</CardContent>
 				</Card>
 			</motion.div>

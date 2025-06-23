@@ -17,80 +17,117 @@ export async function getDashboardStats() {
   const supabase = createServerClient(cookieStore);
 
   try {
-    console.log('🔍 Starting dashboard stats fetch...')
+    console.log('🔍 Starting enhanced dashboard stats fetch...')
 
     // Initialize stats with defaults
     let stats = {
-      users: 0,
-      internships: 0,
-      applications: 0,
-      revenue: 0,
+      totalUsers: 0,
+      students: 0,
+      teachers: 0,
+      parents: 0,
+      admins: 0,
+      activeInternships: 0,
+      totalInternships: 0,
+      pendingApplications: 0,
+      totalApplications: 0,
+      totalRevenue: 0,
+      thisMonthRevenue: 0,
+      totalVideos: 0,
+      activeVideos: 0,
+      recentActivity: [] as any[],
     }
 
-    // Try to fetch each stat individually with error handling
+    // Fetch user statistics with role breakdown
     try {
-      const { count: userCount, error: userError } = await supabase
+      const { data: users, error: userError } = await supabase
         .from('profiles')
-        .select('*', { count: 'exact', head: true })
-      
-      if (!userError && userCount !== null) {
-        stats.users = userCount
-        console.log('✅ Users count:', userCount)
-      } else {
-        console.log('⚠️ Users query failed:', userError?.message || 'Unknown error')
+        .select('role, created_at, email_verified')
+        .order('created_at', { ascending: false })
+
+      if (!userError && users) {
+        stats.totalUsers = users.length
+        stats.students = users.filter(u => u.role === 'student').length
+        stats.teachers = users.filter(u => u.role === 'teacher').length
+        stats.parents = users.filter(u => u.role === 'parent').length
+        stats.admins = users.filter(u => u.role === 'admin').length
+
+        // Get recent activity (last 10 users)
+        stats.recentActivity = users.slice(0, 10).map(user => ({
+          type: 'user_registered',
+          user: user,
+          timestamp: user.created_at,
+          description: `New ${user.role} registered`
+        }))
       }
     } catch (err) {
       console.log('⚠️ Users query exception:', err)
     }
 
+    // Fetch internship statistics
     try {
-      const { count: internshipCount, error: internshipError } = await supabase
+      const { data: internships, error: internshipError } = await supabase
         .from('internships')
-        .select('*', { count: 'exact', head: true })
-      
-      if (!internshipError && internshipCount !== null) {
-        stats.internships = internshipCount
-        console.log('✅ Internships count:', internshipCount)
-      } else {
-        console.log('⚠️ Internships query failed:', internshipError?.message || 'Unknown error')
+        .select('*')
+
+      if (!internshipError && internships) {
+        stats.totalInternships = internships.length
+        stats.activeInternships = internships.filter(i => i.status === 'active').length
       }
     } catch (err) {
       console.log('⚠️ Internships query exception:', err)
     }
 
+    // Fetch application statistics
     try {
-      const { count: applicationCount, error: applicationError } = await supabase
+      const { data: applications, error: applicationError } = await supabase
         .from('internship_applications')
-        .select('*', { count: 'exact', head: true })
-      
-      if (!applicationError && applicationCount !== null) {
-        stats.applications = applicationCount
-        console.log('✅ Applications count:', applicationCount)
-      } else {
-        console.log('⚠️ Applications query failed:', applicationError?.message || 'Unknown error')
+        .select('*')
+
+      if (!applicationError && applications) {
+        stats.totalApplications = applications.length
+        stats.pendingApplications = applications.filter(a => a.status === 'pending').length
       }
     } catch (err) {
       console.log('⚠️ Applications query exception:', err)
     }
 
+    // Fetch revenue statistics
     try {
-      const { data: revenueData, error: revenueError } = await supabase
+      const { data: donations, error: donationError } = await supabase
         .from('donations')
-        .select('amount')
-        .eq('status' as any, 'completed' as any)
-      
-      if (!revenueError && revenueData) {
-        const totalRevenue = (revenueData as any[]).reduce((sum, donation) => sum + (donation.amount || 0), 0)
-        stats.revenue = totalRevenue
-        console.log('✅ Revenue calculated:', totalRevenue)
-      } else {
-        console.log('⚠️ Revenue query failed:', revenueError?.message || 'Unknown error')
+        .select('amount, created_at, status')
+
+      if (!donationError && donations) {
+        const completedDonations = donations.filter(d => d.status === 'completed')
+        stats.totalRevenue = completedDonations.reduce((sum, d) => sum + (d.amount || 0), 0)
+        
+        // Calculate this month's revenue
+        const now = new Date()
+        const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        const thisMonthDonations = completedDonations.filter(d => 
+          new Date(d.created_at) >= thisMonth
+        )
+        stats.thisMonthRevenue = thisMonthDonations.reduce((sum, d) => sum + (d.amount || 0), 0)
       }
     } catch (err) {
       console.log('⚠️ Revenue query exception:', err)
     }
 
-    console.log('📊 Final stats:', stats)
+    // Fetch video statistics
+    try {
+      const { data: videos, error: videoError } = await supabase
+        .from('videos')
+        .select('*')
+
+      if (!videoError && videos) {
+        stats.totalVideos = videos.length
+        stats.activeVideos = videos.filter(v => v.status === 'active').length
+      }
+    } catch (err) {
+      console.log('⚠️ Videos query exception:', err)
+    }
+
+    console.log('📊 Enhanced stats:', stats)
 
     return {
       error: null,
@@ -101,10 +138,20 @@ export async function getDashboardStats() {
     return {
       error: error instanceof Error ? error.message : 'Unknown error',
       stats: {
-        users: 0,
-        internships: 0,
-        applications: 0,
-        revenue: 0,
+        totalUsers: 0,
+        students: 0,
+        teachers: 0,
+        parents: 0,
+        admins: 0,
+        activeInternships: 0,
+        totalInternships: 0,
+        pendingApplications: 0,
+        totalApplications: 0,
+        totalRevenue: 0,
+        thisMonthRevenue: 0,
+        totalVideos: 0,
+        activeVideos: 0,
+        recentActivity: [],
       },
     }
   }

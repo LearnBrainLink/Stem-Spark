@@ -8,10 +8,10 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { supabase } from "@/lib/supabase"
 import { Search, Eye, Check, X, Flag, MessageSquare, Video, FileText, AlertTriangle, Clock, Shield } from "lucide-react"
 import Image from "next/image"
 import { motion } from "framer-motion"
+import { getEnhancedVideosData, getEnhancedApplicationsData } from '../enhanced-actions'
 
 interface ContentItem {
   id: string
@@ -42,47 +42,31 @@ export default function ContentModerationPage() {
 
   const fetchContentItems = async () => {
     try {
+      setIsLoading(true)
+      setMessage(null)
       // Fetch videos
-      const { data: videos } = await supabase.from("videos").select(`
-          id,
-          title,
-          description,
-          status,
-          created_at,
-          profiles(full_name)
-        `)
-
-      // Fetch internship applications
-      const { data: applications } = await supabase.from("internship_applications").select(`
-          id,
-          application_text,
-          status,
-          applied_at,
-          profiles(full_name),
-          internships(title)
-        `)
-
+      const videosResult = await getEnhancedVideosData()
+      // Fetch applications
+      const applicationsResult = await getEnhancedApplicationsData()
       // Transform data
-      const videoItems: ContentItem[] = (videos || []).map((video: any) => ({
+      const videoItems: ContentItem[] = (videosResult.videos || []).map((video: any) => ({
         id: video.id,
         type: "video" as const,
         title: video.title,
         content: video.description || "",
-        author: video.profiles?.full_name || "Unknown",
+        author: video.uploader_name || video.uploader_email || "Unknown",
         status: video.status === "active" ? "approved" : "pending",
         created_at: video.created_at,
       }))
-
-      const applicationItems: ContentItem[] = (applications || []).map((app: any) => ({
+      const applicationItems: ContentItem[] = (applicationsResult.applications || []).map((app: any) => ({
         id: app.id,
         type: "application" as const,
-        title: `Application for ${app.internships?.title || "Unknown Position"}`,
+        title: `Application for ${app.internshipTitle || "Unknown Position"}`,
         content: app.application_text,
-        author: app.profiles?.full_name || "Unknown",
+        author: app.studentName || "Unknown",
         status: app.status === "approved" ? "approved" : app.status === "rejected" ? "rejected" : "pending",
         created_at: app.applied_at,
       }))
-
       const allItems = [...videoItems, ...applicationItems]
       setContentItems(allItems)
     } catch (error) {

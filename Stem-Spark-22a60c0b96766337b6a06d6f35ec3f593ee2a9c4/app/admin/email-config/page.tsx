@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Settings, Mail, LinkIcon, CheckCircle, AlertTriangle, Copy, ExternalLink, Globe, Shield, RefreshCw } from "lucide-react"
 import { motion } from "framer-motion"
-import { getConfigurationData } from '../actions'
+import { getEnhancedConfigurationData } from '../enhanced-actions'
 
 export default function EmailConfigPage() {
   const [config, setConfig] = useState<any>(null)
@@ -25,7 +25,7 @@ export default function EmailConfigPage() {
   const fetchConfiguration = async () => {
     try {
       setIsLoading(true)
-      const result = await getConfigurationData()
+      const result = await getEnhancedConfigurationData()
       
       if (result.error) {
         setMessage({ type: "error", text: result.error })

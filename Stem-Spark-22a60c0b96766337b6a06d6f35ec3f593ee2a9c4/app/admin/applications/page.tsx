@@ -7,11 +7,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { supabase } from "@/lib/supabase"
 import { Search, Users, Calendar, Mail, Phone, FileText, CheckCircle, XCircle, Clock, RefreshCw, Eye, Download, Filter } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getApplicationsData } from '../actions'
+import { getEnhancedApplicationsData, updateApplicationStatus, createApplication, updateApplication, deleteApplication } from '../enhanced-actions'
 
 interface Application {
   id: string
@@ -57,11 +56,10 @@ export default function ApplicationsPage() {
       setIsLoading(true)
       setError(null)
       
-      const result = await getApplicationsData()
+      const result = await getEnhancedApplicationsData()
       
       if (result.error) {
         setError(result.error)
-        // Use sample data for demo
         setApplications([])
       } else if (result.applications) {
         setApplications(result.applications)
@@ -90,18 +88,46 @@ export default function ApplicationsPage() {
     setFilteredApplications(filtered)
   }
 
-  const updateApplicationStatus = async (applicationId: string, newStatus: string) => {
+  const updateApplicationStatusHandler = async (applicationId: string, newStatus: string) => {
     try {
-      const { error } = await supabase
-        .from("internship_applications")
-        .update({ status: newStatus })
-        .eq("id", applicationId)
-      
-      if (!error) {
+      const result = await updateApplication(applicationId, { status: newStatus })
+      if (!result.error) {
         fetchApplications()
+      } else {
+        console.error('Error updating application status:', result.error)
       }
     } catch (err) {
       console.error('Error updating application status:', err)
+    }
+  }
+
+  const handleCreateApplication = async (applicationData: any) => {
+    try {
+      const result = await createApplication(applicationData)
+      if (!result.error) {
+        fetchApplications()
+        return { success: true }
+      } else {
+        return { success: false, error: result.error }
+      }
+    } catch (err) {
+      return { success: false, error: 'Failed to create application' }
+    }
+  }
+
+  const handleDeleteApplication = async (applicationId: string) => {
+    if (!confirm("Are you sure you want to delete this application?")) return
+
+    try {
+      const result = await deleteApplication(applicationId)
+      if (!result.error) {
+        fetchApplications()
+        return { success: true }
+      } else {
+        return { success: false, error: result.error }
+      }
+    } catch (err) {
+      return { success: false, error: 'Failed to delete application' }
     }
   }
 
@@ -187,7 +213,7 @@ export default function ApplicationsPage() {
             <>
               <Button 
                 size="sm" 
-                onClick={() => updateApplicationStatus(application.id, 'approved')}
+                onClick={() => updateApplicationStatusHandler(application.id, 'approved')}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 <CheckCircle className="w-4 h-4 mr-1" />
@@ -196,7 +222,7 @@ export default function ApplicationsPage() {
               <Button 
                 size="sm" 
                 variant="destructive"
-                onClick={() => updateApplicationStatus(application.id, 'rejected')}
+                onClick={() => updateApplicationStatusHandler(application.id, 'rejected')}
               >
                 <XCircle className="w-4 h-4 mr-1" />
                 Reject

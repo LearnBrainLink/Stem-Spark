@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getEnhancedSettingsData, updateEnhancedSettingsData } from '../enhanced-actions';
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
@@ -61,6 +62,19 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    setIsLoading(true);
+    const result = await getEnhancedSettingsData();
+    if (result.settings) {
+      setSettings(result.settings);
+    }
+    setIsLoading(false);
+  };
+
   const handleSettingChange = (key: string, value: any) => {
     setSettings(prev => ({
       ...prev,
@@ -71,14 +85,13 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setIsLoading(true);
     setSaveStatus('saving');
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setSaveStatus('success');
+    const result = await updateEnhancedSettingsData(settings);
+    if (!result.error) {
+      setSaveStatus('success');
+    } else {
+      setSaveStatus('error');
+    }
     setIsLoading(false);
-    
-    // Reset success status after 3 seconds
     setTimeout(() => setSaveStatus('idle'), 3000);
   };
 

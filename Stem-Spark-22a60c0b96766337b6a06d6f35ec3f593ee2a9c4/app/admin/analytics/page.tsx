@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid, XAxis, YAxis, Tooltip, Legend, AreaChart, Area } from 'recharts'
 import { Users, TrendingUp, Briefcase, Mail, DollarSign, Eye, Download, Calendar, Target, Award, Activity, BarChart3, RefreshCw } from "lucide-react"
 import { motion } from "framer-motion"
-import { getAnalyticsData } from '../actions'
+import { getEnhancedDashboardStats } from '../enhanced-actions'
 
 const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#06B6D4']
 
@@ -68,21 +68,19 @@ export default function AnalyticsPage() {
       setIsLoading(true)
       setError(null)
       
-      const result = await getAnalyticsData()
+      const result = await getEnhancedDashboardStats()
       
       if (result.error) {
         setError(result.error)
-        // Use sample data for demo
-        setAnalyticsData(sampleAnalyticsData)
-      } else if (result.data) {
-        setAnalyticsData(result.data)
+        setAnalyticsData(null)
+      } else if (result.stats) {
+        setAnalyticsData(result.stats)
       } else {
-        // Use sample data if no real data
-        setAnalyticsData(sampleAnalyticsData)
+        setAnalyticsData(null)
       }
     } catch (err) {
       setError('Failed to load analytics')
-      setAnalyticsData(sampleAnalyticsData)
+      setAnalyticsData(null)
     } finally {
       setIsLoading(false)
     }

@@ -20,9 +20,10 @@ import { Badge } from "@/components/ui/badge"
 import { Plus, Edit, Trash2, Play, Clock, Video as VideoIcon, RefreshCw, Upload, Eye } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import { Video, createVideo, updateVideo, deleteVideo, getVideos } from "@/app/actions"
+import { Video } from "@/app/actions"
 import { motion } from "framer-motion"
 import { Skeleton } from "@/components/ui/skeleton"
+import { getEnhancedVideosData, updateVideoStatus, createVideo, updateVideo, deleteVideo } from '../enhanced-actions'
 
 export default function VideosPage() {
   const [videos, setVideos] = useState<Video[]>([])
@@ -38,16 +39,12 @@ export default function VideosPage() {
 
   const fetchVideos = async () => {
     setIsLoading(true)
-    const result = await getVideos()
+    const result = await getEnhancedVideosData()
     if (result.error) {
       setMessage({ type: "error", text: result.error })
       setVideos([])
     } else if (result.videos) {
-      // Map and filter to ensure only valid Video objects are set
-      const validVideos = (Array.isArray(result.videos)
-        ? result.videos.filter((v: any) => v && typeof v.id === "string" && typeof v.title === "string" && typeof v.video_url === "string")
-        : []) as unknown as Video[];
-      setVideos(validVideos)
+      setVideos(result.videos)
     }
     setIsLoading(false)
   }
@@ -56,7 +53,16 @@ export default function VideosPage() {
     setIsLoading(true)
     setMessage(null)
 
-    const result = await createVideo(formData)
+    const videoData = {
+      title: formData.get("title") as string,
+      description: formData.get("description") as string,
+      video_url: formData.get("videoUrl") as string,
+      duration: formData.get("duration") ? Number(formData.get("duration")) : 0,
+      category: formData.get("category") as string,
+      status: "active",
+    }
+
+    const result = await createVideo(videoData)
 
     if (result.error) {
       setMessage({ type: "error", text: result.error })
@@ -75,7 +81,16 @@ export default function VideosPage() {
     setIsLoading(true)
     setMessage(null)
 
-    const result = await updateVideo(selectedVideo.id, formData)
+    const videoData = {
+      title: formData.get("title") as string,
+      description: formData.get("description") as string,
+      video_url: formData.get("videoUrl") as string,
+      duration: formData.get("duration") ? Number(formData.get("duration")) : 0,
+      category: formData.get("category") as string,
+      status: formData.get("status") as string,
+    }
+
+    const result = await updateVideo(selectedVideo.id, videoData)
 
     if (result.error) {
       setMessage({ type: "error", text: result.error })
