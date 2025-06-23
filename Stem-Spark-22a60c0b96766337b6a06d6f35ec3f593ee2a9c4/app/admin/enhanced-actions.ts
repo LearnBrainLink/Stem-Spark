@@ -571,22 +571,63 @@ export async function createVideo(videoData: any) {
   const supabase = createServerClient(cookieStore);
 
   try {
+    console.log('createVideo: Starting video creation with data:', videoData);
+
+    // Validate required fields
+    if (!videoData.title || !videoData.video_url) {
+      const error = 'Title and video URL are required';
+      console.error('createVideo: Validation error:', error);
+      return { error };
+    }
+
+    // Get current user for created_by field
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData?.user) {
+      console.error('createVideo: User auth error:', userError);
+      return { error: 'Authentication required to create videos' };
+    }
+
+    const videoToInsert = {
+      title: videoData.title.trim(),
+      description: videoData.description?.trim() || '',
+      video_url: videoData.video_url.trim(),
+      duration: videoData.duration || 0,
+      category: videoData.category || 'general',
+      status: videoData.status || 'active',
+      created_by: userData.user.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    console.log('createVideo: Inserting video with data:', videoToInsert);
+
     const { data, error } = await supabase
       .from("videos")
-      .insert({
-        ...videoData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+      .insert(videoToInsert)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('createVideo: Database error:', error);
+      throw error;
+    }
 
+    console.log('createVideo: Video created successfully:', data);
     return { error: null, success: true, video: data };
   } catch (error) {
-    console.error('Error in createVideo:', error);
-    return { error: error instanceof Error ? error.message : 'Failed to create video' };
+    console.error('createVideo: Unexpected error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create video';
+    
+    // Provide more specific error messages
+    if (errorMessage.includes('duplicate key')) {
+      return { error: 'A video with this information already exists' };
+    } else if (errorMessage.includes('permission')) {
+      return { error: 'You do not have permission to create videos' };
+    } else if (errorMessage.includes('network')) {
+      return { error: 'Network error. Please check your connection and try again.' };
+    }
+    
+    return { error: errorMessage };
   }
 }
 
