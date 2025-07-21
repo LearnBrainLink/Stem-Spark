@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { messagingService, ExtendedMessage, ExtendedChannel } from '@/lib/real-time-messaging'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,7 +17,7 @@ import { Send, Plus, Users, Settings, MessageCircle, Hash, Volume2, Lock } from 
 
 
 export default function CommunicationHub() {
-  const supabase = createBrowserClient(
+  const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
