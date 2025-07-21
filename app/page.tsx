@@ -22,11 +22,8 @@ export default function Home() {
               <Link href="/intern-application" className="text-gray-700 hover:text-blue-600">
                 Apply as Intern
               </Link>
-              <Link href="/student-signup" className="text-gray-700 hover:text-blue-600">
-                Student Signup
-              </Link>
-              <Link href="/parent-signup" className="text-gray-700 hover:text-blue-600">
-                Parent Signup
+              <Link href="/signup" className="text-gray-700 hover:text-blue-600">
+                Sign Up
               </Link>
               <Link href="/communication-hub" className="text-gray-700 hover:text-blue-600">
                 Communication Hub
@@ -62,28 +59,28 @@ export default function Home() {
             </div>
             
             <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-semibold mb-4">Student Registration</h3>
+              <h3 className="text-xl font-semibold mb-4">Join Our Community</h3>
               <p className="text-gray-600 mb-4">
-                Register as a student to access our educational programs and resources.
+                Register as a student, parent, or teacher to access our educational programs and resources.
               </p>
               <Link 
-                href="/student-signup"
+                href="/signup"
                 className="inline-block bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700"
               >
-                Register
+                Sign Up
               </Link>
             </div>
             
             <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-semibold mb-4">Parent Portal</h3>
+              <h3 className="text-xl font-semibold mb-4">Communication Hub</h3>
               <p className="text-gray-600 mb-4">
-                Connect with teachers and monitor your child's progress through our parent portal.
+                Connect with teachers, parents, and students through our real-time messaging platform.
               </p>
               <Link 
-                href="/parent-signup"
+                href="/communication-hub"
                 className="inline-block bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700"
               >
-                Sign Up
+                Join Chat
               </Link>
             </div>
           </div>
