@@ -1,275 +1,215 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { BookOpen, Calendar, Clock, Award, Video, Building2, LogOut, TrendingUp, Star, Settings } from "lucide-react"
-import Link from "next/link"
-import { Logo } from "@/components/logo"
-import { simpleSignOut } from "@/lib/simple-auth"
-import WelcomeBackModal from "@/components/WelcomeBackModal"
+'use client'
+
+import { useState, useEffect } from 'react'
+import { createClient } from '@supabase/supabase-js'
+import Link from 'next/link'
+import Image from 'next/image'
+
+interface UserProfile {
+  id: string
+  full_name: string
+  email: string
+  role: string
+  grade?: number
+  school?: string
+}
 
 export default function StudentDashboard() {
-  const userName = "Student" // This should be dynamically set based on the logged-in user
+  const [user, setUser] = useState<UserProfile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  useEffect(() => {
+    checkAuth()
+  }, [])
+
+  const checkAuth = async () => {
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    if (authUser) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single()
+      setUser(profile)
+    }
+    setLoading(false)
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-xl">Loading...</div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Please Sign In</h2>
+          <p className="text-gray-600 mb-4">You need to be signed in to access the Student Dashboard</p>
+          <Link href="/login" className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">
+            Sign In
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (user.role !== 'student') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
+          <p className="text-gray-600 mb-4">This dashboard is only for students</p>
+          <Link href="/" className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">
+            Back to Home
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen hero-gradient px-2 sm:px-6 md:px-10">
-      {/* Enhanced Header with Larger Logo */}
-      <header className="bg-white/90 backdrop-blur-md shadow-brand border-b border-brand-light/30">
-        <div className="max-w-7xl mx-auto px-2 sm:px-8 lg:px-10 py-4 sm:py-6 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0">
-          <div className="flex items-center gap-4 group">
-            <Logo variant="large" className="group-hover:scale-110 transition-transform duration-300 logo-nav w-12 h-12 sm:w-16 sm:h-16" />
-            <div className="hidden md:block">
-              <h1 className="text-2xl sm:text-3xl font-bold brand-text-gradient">NOVAKINETIX</h1>
-              <p className="text-base sm:text-lg font-semibold text-brand-secondary">ACADEMY</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center">
+              <Image
+                src="/images/novakinetix-logo.png"
+                alt="Novakinetix Academy Logo"
+                width={40}
+                height={40}
+                className="mr-3"
+              />
+              <span className="text-xl font-bold text-gray-900">Student Dashboard</span>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2 sm:gap-4 items-center justify-center">
-            <Link href="/videos">
-              <Button className="interactive-button border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white px-4 py-2 rounded-md transition">
-                <Video className="w-5 h-5 mr-2" />
-                Videos
-              </Button>
-            </Link>
-            <Link href="/internships">
-              <Button className="interactive-button border-brand-secondary text-brand-secondary hover:bg-brand-secondary hover:text-white px-4 py-2 rounded-md transition">
-                <Building2 className="w-5 h-5 mr-2" />
-                Internships
-              </Button>
-            </Link>
-            <Link href="/profile">
-              <Button className="interactive-button border-brand-accent text-brand-accent hover:bg-brand-accent hover:text-white px-4 py-2 rounded-md transition">
-                <Settings className="w-5 h-5 mr-2" />
+            <nav className="flex space-x-8">
+              <Link href="/student-dashboard" className="text-blue-600 font-medium">
+                Dashboard
+              </Link>
+              <Link href="/communication-hub" className="text-gray-700 hover:text-blue-600">
+                Communication Hub
+              </Link>
+              <Link href="/profile" className="text-gray-700 hover:text-blue-600">
                 Profile
-              </Button>
-            </Link>
-            <form action={simpleSignOut}>
-              <Button className="interactive-button border-red-300 text-red-600 hover:bg-red-50 px-4 py-2 rounded-md transition">
-                <LogOut className="w-5 h-5 mr-2" />
-                Sign Out
-              </Button>
-            </form>
+              </Link>
+              <Link href="/" className="text-gray-700 hover:text-blue-600">
+                Back to Site
+              </Link>
+            </nav>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-12">
-        {/* Enhanced Welcome Section */}
-        <div className="mb-12 text-center">
-          <h2 className="text-display brand-text-gradient mb-4">Welcome back, Student! 🎓</h2>
-          <p className="text-xl text-brand-secondary font-medium max-w-2xl mx-auto">
-            Continue your exciting STEM learning journey and unlock new possibilities
-          </p>
-        </div>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="space-y-8">
+          {/* Welcome Section */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome, {user.full_name}!</h1>
+            <p className="text-gray-600">Explore STEM education and connect with your learning community</p>
+            {user.grade && user.school && (
+              <div className="mt-4 flex space-x-4 text-sm text-gray-600">
+                <span>Grade {user.grade}</span>
+                <span>•</span>
+                <span>{user.school}</span>
+              </div>
+            )}
+          </div>
 
-        {/* Enhanced Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-          <Card className="stat-card group">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-xl flex items-center text-brand-primary group-hover:text-brand-secondary transition-colors">
-                <div className="p-3 bg-blue-100 rounded-full mr-4 group-hover:bg-blue-200 transition-colors">
-                  <Calendar className="h-6 w-6 text-blue-600" />
+          {/* Quick Actions */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex items-center mb-4">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
                 </div>
-                Upcoming Events
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-brand-primary mb-2">2</div>
-              <p className="text-brand-secondary font-medium flex items-center">
-                <Clock className="w-4 h-4 mr-1 text-blue-500" />
-                Events this week
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="stat-card group">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-xl flex items-center text-brand-primary group-hover:text-brand-secondary transition-colors">
-                <div className="p-3 bg-green-100 rounded-full mr-4 group-hover:bg-green-200 transition-colors">
-                  <BookOpen className="h-6 w-6 text-green-600" />
-                </div>
-                Learning Progress
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-brand-primary mb-2">75%</div>
-              <p className="text-brand-secondary font-medium flex items-center">
-                <TrendingUp className="w-4 h-4 mr-1 text-green-500" />
-                Current courses
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="stat-card group">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-xl flex items-center text-brand-primary group-hover:text-brand-secondary transition-colors">
-                <div className="p-3 bg-yellow-100 rounded-full mr-4 group-hover:bg-yellow-200 transition-colors">
-                  <Award className="h-6 w-6 text-yellow-600" />
-                </div>
-                Achievements
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-brand-primary mb-2">3</div>
-              <p className="text-brand-secondary font-medium flex items-center">
-                <Star className="w-4 h-4 mr-1 text-yellow-500" />
-                New badges earned
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Enhanced Tabs */}
-        <Tabs defaultValue="internships" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-3 h-14 bg-white/80 backdrop-blur-sm border border-brand-light/30 rounded-xl p-2">
-            <TabsTrigger
-              value="internships"
-              className="text-lg font-semibold data-[state=active]:bg-brand-primary data-[state=active]:text-white rounded-lg transition-all duration-300"
-            >
-              Internships
-            </TabsTrigger>
-            <TabsTrigger
-              value="courses"
-              className="text-lg font-semibold data-[state=active]:bg-brand-primary data-[state=active]:text-white rounded-lg transition-all duration-300"
-            >
-              Courses
-            </TabsTrigger>
-            <TabsTrigger
-              value="progress"
-              className="text-lg font-semibold data-[state=active]:bg-brand-primary data-[state=active]:text-white rounded-lg transition-all duration-300"
-            >
-              My Progress
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="internships" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <Card className="admin-card group">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-xl font-bold text-brand-primary group-hover:text-brand-secondary transition-colors">
-                    Summer Engineering Program
-                  </CardTitle>
-                  <CardDescription className="text-lg text-brand-secondary font-medium">
-                    TechCorp Industries
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center text-base font-medium">
-                    <Clock className="h-5 w-5 mr-3 text-blue-500" />
-                    <span>8 weeks (Jun 15 - Aug 10)</span>
-                  </div>
-                  <p className="text-brand-secondary leading-relaxed">
-                    Work on real-world projects with experienced engineers and gain hands-on experience.
-                  </p>
-                  <div className="pt-4">
-                    <Button className="button-primary w-full h-14 text-lg" asChild>
-                      <Link href="/internships">View Details</Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="admin-card group">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-xl font-bold text-brand-primary group-hover:text-brand-secondary transition-colors">
-                    Robotics Workshop
-                  </CardTitle>
-                  <CardDescription className="text-lg text-brand-secondary font-medium">
-                    Innovation Labs
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center text-base font-medium">
-                    <Clock className="h-5 w-5 mr-3 text-green-500" />
-                    <span>6 weeks (Jun 20 - Aug 1)</span>
-                  </div>
-                  <p className="text-brand-secondary leading-relaxed">
-                    Build and program robots with cutting-edge technology and expert mentorship.
-                  </p>
-                  <div className="pt-4">
-                    <Button className="button-primary w-full h-14 text-lg" asChild>
-                      <Link href="/internships">View Details</Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                <h3 className="ml-3 text-lg font-semibold text-gray-900">Communication Hub</h3>
+              </div>
+              <p className="text-gray-600 mb-4">Connect with teachers and other students</p>
+              <Link href="/communication-hub">
+                <button className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                  Open Communication Hub
+                </button>
+              </Link>
             </div>
-          </TabsContent>
 
-          <TabsContent value="courses">
-            <Card className="admin-card">
-              <CardHeader className="pb-6">
-                <CardTitle className="text-2xl font-bold text-brand-primary">My Courses</CardTitle>
-                <CardDescription className="text-lg text-brand-secondary">
-                  Track your enrolled courses and progress
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center gap-4 p-6 bg-gradient-to-r from-blue-50 to-white rounded-xl border border-brand-light/30">
-                  <div className="p-3 bg-blue-100 rounded-full">
-                    <BookOpen className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-brand-primary">Currently enrolled in 3 courses</h3>
-                    <p className="text-brand-secondary">Continue learning with our comprehensive curriculum</p>
-                  </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex items-center mb-4">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
                 </div>
-                <Button className="button-primary w-full h-14 text-lg" asChild>
-                  <Link href="/videos">Browse All Courses</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                <h3 className="ml-3 text-lg font-semibold text-gray-900">Resources</h3>
+              </div>
+              <p className="text-gray-600 mb-4">Access educational resources and learning materials</p>
+              <Link href="/resource-library">
+                <button className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+                  Browse Resources
+                </button>
+              </Link>
+            </div>
 
-          <TabsContent value="progress">
-            <Card className="admin-card">
-              <CardHeader className="pb-6">
-                <CardTitle className="text-2xl font-bold text-brand-primary">Learning Progress</CardTitle>
-                <CardDescription className="text-lg text-brand-secondary">
-                  Track your achievements and growth
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-8">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-semibold text-brand-primary">Introduction to Engineering</span>
-                    <span className="text-lg font-bold text-brand-secondary">75%</span>
-                  </div>
-                  <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-brand-primary to-brand-secondary rounded-full transition-all duration-500"
-                      style={{ width: "75%" }}
-                    ></div>
-                  </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex items-center mb-4">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
                 </div>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-semibold text-brand-primary">Robotics Fundamentals</span>
-                    <span className="text-lg font-bold text-brand-secondary">40%</span>
-                  </div>
-                  <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-brand-primary to-brand-secondary rounded-full transition-all duration-500"
-                      style={{ width: "40%" }}
-                    ></div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-semibold text-brand-primary">Environmental Science</span>
-                    <span className="text-lg font-bold text-brand-secondary">90%</span>
-                  </div>
-                  <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full transition-all duration-500"
-                      style={{ width: "90%" }}
-                    ></div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </main>
-      <WelcomeBackModal userName={userName} />
+                <h3 className="ml-3 text-lg font-semibold text-gray-900">Profile</h3>
+              </div>
+              <p className="text-gray-600 mb-4">Update your profile and manage your account settings</p>
+              <Link href="/profile">
+                <button className="w-full bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors">
+                  Manage Profile
+                </button>
+              </Link>
+            </div>
+          </div>
+
+          {/* Internship Opportunities */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Internship Opportunities</h2>
+            <p className="text-gray-600 mb-4">Interested in gaining real-world experience? Apply for our internship program!</p>
+            <Link href="/intern-application">
+              <button className="bg-orange-600 text-white px-6 py-2 rounded-md hover:bg-orange-700 transition-colors">
+                Apply for Internship
+              </button>
+            </Link>
+          </div>
+
+          {/* Recent Activity */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Activity</h2>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <p className="text-gray-600">Welcome to Novakinetix Academy Student Dashboard</p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <p className="text-gray-600">You can now connect with teachers and other students</p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                <p className="text-gray-600">Explore STEM resources and learning opportunities</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

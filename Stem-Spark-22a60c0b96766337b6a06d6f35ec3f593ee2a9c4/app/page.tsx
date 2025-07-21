@@ -12,6 +12,7 @@ import { VideoModal } from "../components/VideoModal"
 import { Menu, X } from "lucide-react"
 import { createClient } from "@supabase/supabase-js"
 import Link from "next/link"
+import Image from "next/image"
 
 export default function HomePage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -39,7 +40,14 @@ export default function HomePage() {
           <div className="flex justify-between items-center py-4">
             {/* Logo */}
             <div className="flex items-center">
-              <Logo variant="nav" />
+              <Image
+                src="/images/novakinetix-logo.png"
+                alt="Novakinetix Academy Logo"
+                width={40}
+                height={40}
+                className="mr-3"
+              />
+              <span className="text-xl font-bold text-gray-900">Novakinetix Academy</span>
             </div>
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
@@ -54,6 +62,18 @@ export default function HomePage() {
                 className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
               >
                 Internships
+              </a>
+              <Link
+                href="/intern-application"
+                className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+              >
+                Apply as Intern
+              </Link>
+              <a
+                href="/communication-hub"
+                className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+              >
+                Communication Hub
               </a>
               <a
                 href="/about"
@@ -107,6 +127,18 @@ export default function HomePage() {
               >
                 Internships
               </a>
+              <Link
+                href="/intern-application"
+                className="block text-gray-700 hover:text-blue-600 transition-colors font-medium"
+              >
+                Apply as Intern
+              </Link>
+              <a
+                href="/communication-hub"
+                className="block text-gray-700 hover:text-blue-600 transition-colors font-medium"
+              >
+                Communication Hub
+              </a>
               <a
                 href="/about"
                 className="block text-gray-700 hover:text-blue-600 transition-colors font-medium"
@@ -119,14 +151,14 @@ export default function HomePage() {
               >
                 Contact
               </a>
-              <div className="flex gap-3 pt-4">
+              <div className="pt-4 space-y-3">
                 <Link href="/login">
-                  <button className="flex-1 border border-blue-600 text-blue-600 py-3 rounded-full hover:bg-blue-50 transition-colors">
+                  <button className="w-full border border-blue-600 text-blue-600 px-6 py-2 rounded-full hover:bg-blue-50 transition-colors font-medium">
                     Sign In
                   </button>
                 </Link>
                 <Link href={isLoggedIn ? "/dashboard" : "/sign%20up"}>
-                  <button className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium">
+                  <button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg hover:shadow-xl">
                     Get Started
                   </button>
                 </Link>
@@ -135,105 +167,16 @@ export default function HomePage() {
           </div>
         )}
       </nav>
+
       {/* Main Content */}
-      <main>
-        <HeroSection onWatchDemo={() => setIsVideoModalOpen(true)} />
+      <main className="pt-20">
+        <HeroSection />
         <StatsSection />
         <InternshipGallery />
         <FeaturesSection />
         <CTASection />
       </main>
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
-            <div className="col-span-1 md:col-span-2">
-              <div className="flex items-center gap-4 mb-6">
-                <Logo variant="large" className="drop-shadow-xl" />
-                <span className="text-2xl font-bold">STEM Spark Academy</span>
-              </div>
-              <p className="text-gray-300 mb-6 text-lg leading-relaxed">
-                Empowering the next generation of innovators through cutting-edge
-                STEM education and real-world learning experiences.
-              </p>
-              <div className="flex gap-4">
-                <span className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm">
-                  🚀 Innovation
-                </span>
-                <span className="bg-purple-600 text-white px-4 py-2 rounded-full text-sm">
-                  🎓 Education
-                </span>
-                <span className="bg-green-600 text-white px-4 py-2 rounded-full text-sm">
-                  💡 Excellence
-                </span>
-              </div>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-6 text-xl">Quick Links</h3>
-              <div className="space-y-3">
-                <a
-                  href="#"
-                  className="block text-gray-300 hover:text-white transition-colors"
-                >
-                  Videos
-                </a>
-                <a
-                  href="#"
-                  className="block text-gray-300 hover:text-white transition-colors"
-                >
-                  Internships
-                </a>
-                <a
-                  href="#"
-                  className="block text-gray-300 hover:text-white transition-colors"
-                >
-                  Resources
-                </a>
-                <a
-                  href="#"
-                  className="block text-gray-300 hover:text-white transition-colors"
-                >
-                  Calendar
-                </a>
-              </div>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-6 text-xl">Support</h3>
-              <div className="space-y-3">
-                <a
-                  href="#"
-                  className="block text-gray-300 hover:text-white transition-colors"
-                >
-                  Help Center
-                </a>
-                <a
-                  href="#"
-                  className="block text-gray-300 hover:text-white transition-colors"
-                >
-                  Contact Us
-                </a>
-                <a
-                  href="#"
-                  className="block text-gray-300 hover:text-white transition-colors"
-                >
-                  Privacy Policy
-                </a>
-                <a
-                  href="#"
-                  className="block text-gray-300 hover:text-white transition-colors"
-                >
-                  Terms of Service
-                </a>
-              </div>
-            </div>
-          </div>
-          <div className="mt-12 pt-8 border-t border-gray-800 text-center">
-            <p className="text-gray-400">
-              © 2024 Novakinetix Academy. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
+
       {/* Video Modal */}
       <VideoModal
         isOpen={isVideoModalOpen}
