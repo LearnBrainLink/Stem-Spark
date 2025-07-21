@@ -1,0 +1,39 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-supabase"],
+      "env": {
+        "SUPABASE_URL": "https://your-project-ref.supabase.co",
+        "SUPABASE_ANON_KEY": "your-anon-key",
+        "SUPABASE_SERVICE_ROLE_KEY": "your-service-role-key"
+      }
+    }
+  },
+  "project": {
+    "name": "NOVAKINETIX ACADEMY",
+    "description": "NOVAKINETIX ACADEMY - STEM education platform with volunteer hours tracking, tutoring system, and real-time messaging",
+    "database": {
+      "provider": "supabase",
+      "projectRef": "your-project-ref",
+      "region": "us-east-1"
+    }
+  },
+  "migrations": {
+    "directory": "./migrations",
+    "format": "sql",
+    "naming": "timestamp_description"
+  },
+  "bestPractices": {
+    "useRLS": true,
+    "enableAuditLogging": true,
+    "implementRowLevelSecurity": true,
+    "usePreparedStatements": true,
+    "validateInputs": true
+  },
+  "documentation": {
+    "apiDocs": "./docs/api",
+    "databaseSchema": "./docs/schema",
+    "migrationGuide": "./docs/migrations"
+  }
+} 

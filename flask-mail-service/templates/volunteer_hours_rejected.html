@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>📝 Volunteer Hours Update</h2>
+
+<p>Dear {{ intern_name }},</p>
+
+<p>We've reviewed your volunteer hours submission and need to provide some feedback.</p>
+
+<div class="alert alert-warning">
+    <h3>Submission Details</h3>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">{{ hours }}</div>
+            <div class="stat-label">Hours Submitted</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ activity_type|title }}</div>
+            <div class="stat-label">Activity Type</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ submission_date }}</div>
+            <div class="stat-label">Submission Date</div>
+        </div>
+    </div>
+</div>
+
+<div class="highlight">
+    <h3>Activity Summary</h3>
+    <p><strong>Description:</strong> {{ description }}</p>
+    <p><strong>Date:</strong> {{ activity_date }}</p>
+    <p><strong>Reviewed by:</strong> {{ reviewed_by }}</p>
+</div>
+
+<div class="alert alert-error">
+    <h3>Reason for Rejection</h3>
+    <p>{{ rejection_reason }}</p>
+</div>
+
+<h3>How to Resubmit</h3>
+<p>To help you submit a successful volunteer hours entry, please consider the following:</p>
+
+<ul>
+    <li>📝 Provide detailed descriptions of your activities</li>
+    <li>⏰ Ensure accurate time tracking</li>
+    <li>📅 Verify the activity date is correct</li>
+    <li>🎯 Make sure the activity type matches your work</li>
+    <li>📋 Include any relevant documentation if available</li>
+</ul>
+
+<h3>Need Help?</h3>
+<p>If you need assistance with your volunteer hours submission:</p>
+<ul>
+    <li>📧 Contact us at support@novakinetixacademy.com</li>
+    <li>📖 Review our <a href="{{ site_url }}/help/volunteer-hours">volunteer hours guide</a></li>
+    <li>💬 Reach out to your supervisor or mentor</li>
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ site_url }}/intern-dashboard/volunteer-hours" class="button">Submit New Hours</a>
+</div>
+
+<h3>We Value Your Contribution</h3>
+<p>Your dedication to volunteering is important to us. We appreciate your understanding and look forward to your next submission!</p>
+
+<p>Best regards,<br>
+<strong>The Novakinetix Academy Team</strong></p>
+
+<div style="margin-top: 30px; padding: 15px; background-color: #f8f9fa; border-radius: 6px;">
+    <p style="margin: 0; font-size: 12px; color: #6c757d;">
+        <strong>Note:</strong> If you believe this rejection was made in error, please contact us immediately at support@novakinetixacademy.com
+    </p>
+</div>
+{% endblock %} 

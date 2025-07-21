@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Welcome to Novakinetix Academy! 🎉</h2>
+
+<p>Dear {{ user_name }},</p>
+
+<p>Welcome to Novakinetix Academy! We're thrilled to have you join our community of learners, educators, and innovators.</p>
+
+<div class="highlight">
+    <h3>Your Account Details</h3>
+    <p><strong>Role:</strong> {{ user_role|title }}</p>
+    <p><strong>Registration Date:</strong> {{ welcome_date }}</p>
+</div>
+
+<h3>What's Next?</h3>
+
+{% if user_role == 'intern' %}
+<div class="alert alert-success">
+    <h4>🎯 For Interns</h4>
+    <ul>
+        <li>Complete your profile and upload your resume</li>
+        <li>Browse available tutoring opportunities</li>
+        <li>Submit volunteer hours for your activities</li>
+        <li>Join our communication channels</li>
+    </ul>
+</div>
+{% elif user_role == 'student' %}
+<div class="alert alert-success">
+    <h4>📚 For Students</h4>
+    <ul>
+        <li>Explore our educational resources and videos</li>
+        <li>Book tutoring sessions with our interns</li>
+        <li>Track your learning progress</li>
+        <li>Join study groups and discussions</li>
+    </ul>
+</div>
+{% elif user_role == 'admin' %}
+<div class="alert alert-success">
+    <h4>⚙️ For Administrators</h4>
+    <ul>
+        <li>Access the admin dashboard</li>
+        <li>Review volunteer hours and applications</li>
+        <li>Manage users and content</li>
+        <li>Monitor system analytics</li>
+    </ul>
+</div>
+{% endif %}
+
+<h3>Getting Started</h3>
+<p>Here are some quick links to help you get started:</p>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ site_url }}/dashboard" class="button">Go to Dashboard</a>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-number">500+</div>
+        <div class="stat-label">Active Students</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">50+</div>
+        <div class="stat-label">Expert Interns</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">1000+</div>
+        <div class="stat-label">Hours Tutored</div>
+    </div>
+</div>
+
+<h3>Need Help?</h3>
+<p>If you have any questions or need assistance, don't hesitate to reach out:</p>
+<ul>
+    <li><strong>Email:</strong> support@novakinetixacademy.com</li>
+    <li><strong>Help Center:</strong> <a href="{{ site_url }}/help">Visit our help center</a></li>
+    <li><strong>Community:</strong> Join our discussion forums</li>
+</ul>
+
+<p>We're excited to see what you'll accomplish with Novakinetix Academy!</p>
+
+<p>Best regards,<br>
+<strong>The Novakinetix Academy Team</strong></p>
+{% endblock %} 
