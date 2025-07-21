@@ -1,78 +1,68 @@
-import { NextRequest, NextResponse } from 'next/server';
-import RealTimeMessagingService from '@/lib/real-time-messaging';
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { name, description, channel_type, created_by } = body;
-
-    // Validate required fields
-    if (!name || !created_by) {
-      return NextResponse.json(
-        { error: 'Name and created_by are required' },
-        { status: 400 }
-      );
-    }
-
-    const messagingService = new RealTimeMessagingService();
-    const result = await messagingService.createChannel({
-      name,
-      description,
-      channel_type,
-      created_by
-    });
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: result.data
-    });
-  } catch (error) {
-    console.error('Error creating channel:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('user_id');
-    const type = searchParams.get('type'); // 'user' or 'public'
+    const supabase = createClient()
+    
+    const { data: channels, error } = await supabase
+      .from('channels')
+      .select('*')
+      .order('name')
 
-    const messagingService = new RealTimeMessagingService();
+    if (error) throw error
 
-    let result;
-    if (type === 'user' && userId) {
-      result = await messagingService.getUserChannels(userId);
-    } else {
-      result = await messagingService.getPublicChannels();
-    }
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: result.data
-    });
+    return NextResponse.json({ channels })
   } catch (error) {
-    console.error('Error fetching channels:', error);
+    console.error('Error fetching channels:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to fetch channels' },
       { status: 500 }
-    );
+    )
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = createClient()
+    const { name, type, description } = await request.json()
+
+    // Validate admin access
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, is_super_admin')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile || (profile.role !== 'admin' && !profile.is_super_admin)) {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      )
+    }
+
+    const { data: channel, error } = await supabase
+      .from('channels')
+      .insert([{ name, type, description }])
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return NextResponse.json({ channel })
+  } catch (error) {
+    console.error('Error creating channel:', error)
+    return NextResponse.json(
+      { error: 'Failed to create channel' },
+      { status: 500 }
+    )
   }
 } 

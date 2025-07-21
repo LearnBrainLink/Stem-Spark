@@ -137,3 +137,87 @@ This document outlines the comprehensive enhancement requirements for the STEM S
 3. WHEN data flows between features THEN it SHALL maintain consistency and integrity
 4. WHEN users navigate between features THEN the experience SHALL be smooth and intuitive
 5. WHEN features are updated THEN existing integrations SHALL continue to work properly
+
+### Requirement 12: Admin Signup Restrictions
+
+**User Story:** As a system administrator, I want to prevent unauthorized admin account creation, so that admin access remains controlled and secure.
+
+#### Acceptance Criteria
+
+1. WHEN users attempt to sign up THEN they SHALL NOT be able to select "admin" as their role
+2. WHEN the signup form is displayed THEN admin role options SHALL be hidden from regular users
+3. WHEN admin accounts need to be created THEN they SHALL only be created through secure admin processes
+4. WHEN existing users need admin privileges THEN they SHALL be promoted through proper authorization channels
+5. WHEN signup validation occurs THEN it SHALL reject any attempts to create admin accounts through normal signup
+
+### Requirement 13: Intern Application System
+
+**User Story:** As a prospective intern, I want to submit an application through the website, so that I can apply for internship opportunities at Novakinetix Academy.
+
+#### Acceptance Criteria
+
+1. WHEN prospective interns visit the website THEN they SHALL find a clear application submission point
+2. WHEN interns submit applications THEN they SHALL provide required information including qualifications and interests
+3. WHEN applications are submitted THEN they SHALL be stored securely in the database
+4. WHEN applications are received THEN admins SHALL be notified for review
+5. WHEN applications are processed THEN applicants SHALL receive status updates
+
+### Requirement 14: Application Management System
+
+**User Story:** As an admin, I want to review and manage intern applications, so that I can approve or reject candidates efficiently.
+
+#### Acceptance Criteria
+
+1. WHEN admins access the application management tab THEN they SHALL see all submitted applications
+2. WHEN admins review applications THEN they SHALL be able to approve or reject them
+3. WHEN applications are approved THEN applicants SHALL be notified and granted intern access
+4. WHEN applications are rejected THEN applicants SHALL receive feedback on the decision
+5. WHEN application status changes THEN the system SHALL maintain an audit trail
+
+### Requirement 15: Role-Specific Dashboard Functionality
+
+**User Story:** As a user with a specific role, I want my dashboard to function properly with database integration, so that I can access role-appropriate features effectively.
+
+#### Acceptance Criteria
+
+1. WHEN parents access their dashboard THEN they SHALL see child-related information and communication tools
+2. WHEN interns access their dashboard THEN they SHALL see volunteer hours, tutoring opportunities, and application status
+3. WHEN students access their dashboard THEN they SHALL see learning resources and tutoring options
+4. WHEN dashboards load THEN they SHALL properly connect to and display database information
+5. WHEN role-specific features are accessed THEN they SHALL work seamlessly with the database
+
+### Requirement 16: Parent-Teacher Communication System
+
+**User Story:** As a parent, I want to communicate with teachers through the platform, so that I can stay informed about my child's progress and activities.
+
+#### Acceptance Criteria
+
+1. WHEN parents need to contact teachers THEN they SHALL be able to initiate conversations through the messaging system
+2. WHEN teachers receive parent messages THEN they SHALL be notified and able to respond promptly
+3. WHEN parent-teacher conversations occur THEN they SHALL be private and secure
+4. WHEN communication history is needed THEN parents and teachers SHALL be able to access previous conversations
+5. WHEN urgent communications are sent THEN appropriate notification mechanisms SHALL be triggered
+
+### Requirement 17: Admin Messaging Controls and Restrictions
+
+**User Story:** As an admin, I want advanced messaging controls, so that I can manage communications effectively with appropriate restrictions and announcement capabilities.
+
+#### Acceptance Criteria
+
+1. WHEN admins create chat channels THEN they SHALL be able to set participation restrictions (anyone can send vs. admin-only)
+2. WHEN admins create announcement channels THEN only admins SHALL be able to send messages while everyone can view
+3. WHEN admins create role-specific channels THEN only users with specified account types SHALL have access
+4. WHEN admins manage channels THEN they SHALL be able to moderate content and manage membership
+5. WHEN announcement messages are sent THEN they SHALL be clearly distinguished from regular messages
+
+### Requirement 18: Platform Branding Update
+
+**User Story:** As a user of the platform, I want to see consistent "Novakinetix Academy" branding, so that the platform identity is clear and professional.
+
+#### Acceptance Criteria
+
+1. WHEN the platform is deployed on Vercel THEN the development site name SHALL be "Novakinetix Academy"
+2. WHEN users access the website THEN they SHALL see the official Novakinetix Academy logo
+3. WHEN branding elements are displayed THEN they SHALL consistently use "Novakinetix Academy" naming
+4. WHEN the logo is loaded THEN it SHALL be properly integrated and displayed across all pages
+5. WHEN external references are made THEN they SHALL use the correct "Novakinetix Academy" branding

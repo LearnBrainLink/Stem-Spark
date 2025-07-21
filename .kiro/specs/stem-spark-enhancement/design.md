@@ -135,7 +135,7 @@ interface TutoringSession {
 #### Admin Protection Interface
 ```typescript
 interface AdminAction {
-  action_type: 'edit_user' | 'delete_user' | 'change_role' | 'approve_hours'
+  action_type: 'edit_user' | 'delete_user' | 'change_role' | 'approve_hours' | 'approve_application' | 'reject_application'
   target_user_id: string
   performed_by: string
   is_allowed: boolean
@@ -152,7 +152,134 @@ interface RolePermissions {
     can_approve_volunteer_hours: boolean
     can_manage_content: boolean
     can_view_analytics: boolean
+    can_manage_applications: boolean
+    can_create_restricted_channels: boolean
+    can_send_announcements: boolean
   }
+}
+```
+
+### 5. Intern Application System
+
+#### Application Interface
+```typescript
+interface InternApplication {
+  id: string
+  applicant_email: string
+  full_name: string
+  phone_number?: string
+  date_of_birth: string
+  education_level: string
+  school_institution: string
+  areas_of_interest: string[]
+  previous_experience?: string
+  availability: {
+    days_per_week: number
+    hours_per_week: number
+    preferred_schedule: string
+  }
+  motivation_statement: string
+  references?: Reference[]
+  status: 'pending' | 'approved' | 'rejected' | 'interview_scheduled'
+  submitted_at: string
+  reviewed_by?: string
+  reviewed_at?: string
+  rejection_reason?: string
+  interview_notes?: string
+}
+
+interface Reference {
+  name: string
+  relationship: string
+  email: string
+  phone?: string
+}
+
+interface ApplicationReview {
+  application_id: string
+  reviewer_id: string
+  decision: 'approve' | 'reject' | 'request_interview'
+  notes: string
+  feedback_for_applicant?: string
+  created_at: string
+}
+```
+
+### 6. Enhanced Messaging System with Admin Controls
+
+#### Enhanced Channel Interface
+```typescript
+interface Channel {
+  id: string
+  name: string
+  description?: string
+  channel_type: 'public' | 'private' | 'group' | 'announcement' | 'role_restricted'
+  created_by: string
+  created_at: string
+  members: ChannelMember[]
+  restrictions: ChannelRestrictions
+  allowed_roles?: string[]
+}
+
+interface ChannelRestrictions {
+  can_send_messages: 'everyone' | 'admins_only' | 'members_only'
+  can_join: 'everyone' | 'invite_only' | 'role_restricted'
+  is_announcement_channel: boolean
+  moderation_enabled: boolean
+}
+
+interface MessagePermissions {
+  user_id: string
+  channel_id: string
+  can_send: boolean
+  can_moderate: boolean
+  can_invite: boolean
+  is_admin: boolean
+}
+```
+
+### 7. Role-Specific Dashboard Components
+
+#### Dashboard Interface
+```typescript
+interface DashboardConfig {
+  role: 'parent' | 'intern' | 'student' | 'admin'
+  widgets: DashboardWidget[]
+  navigation: NavigationItem[]
+  permissions: DashboardPermissions
+}
+
+interface DashboardWidget {
+  id: string
+  type: 'volunteer_hours' | 'messages' | 'applications' | 'tutoring' | 'children_progress' | 'announcements'
+  title: string
+  data_source: string
+  refresh_interval?: number
+  is_visible: boolean
+  order: number
+}
+
+interface ParentDashboard {
+  children: ChildProgress[]
+  messages: ParentTeacherMessage[]
+  announcements: Announcement[]
+  upcoming_events: Event[]
+}
+
+interface InternDashboard {
+  volunteer_hours: VolunteerHoursSummary
+  application_status: ApplicationStatus
+  tutoring_sessions: TutoringSession[]
+  messages: Message[]
+  available_opportunities: Opportunity[]
+}
+
+interface StudentDashboard {
+  learning_progress: LearningProgress
+  tutoring_sessions: TutoringSession[]
+  resources: LearningResource[]
+  messages: Message[]
+  achievements: Achievement[]
 }
 ```
 
@@ -233,12 +360,74 @@ CREATE TABLE admin_actions_log (
 );
 ```
 
+#### Intern Applications Table
+```sql
+CREATE TABLE intern_applications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  applicant_email VARCHAR(255) NOT NULL UNIQUE,
+  full_name VARCHAR(255) NOT NULL,
+  phone_number VARCHAR(20),
+  date_of_birth DATE NOT NULL,
+  education_level VARCHAR(100) NOT NULL,
+  school_institution VARCHAR(255) NOT NULL,
+  areas_of_interest TEXT[] NOT NULL,
+  previous_experience TEXT,
+  availability JSONB NOT NULL,
+  motivation_statement TEXT NOT NULL,
+  references JSONB,
+  status VARCHAR(30) DEFAULT 'pending',
+  submitted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  reviewed_by UUID REFERENCES profiles(id),
+  reviewed_at TIMESTAMP WITH TIME ZONE,
+  rejection_reason TEXT,
+  interview_notes TEXT
+);
+```
+
+#### Application Reviews Table
+```sql
+CREATE TABLE application_reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  application_id UUID REFERENCES intern_applications(id) ON DELETE CASCADE,
+  reviewer_id UUID REFERENCES profiles(id),
+  decision VARCHAR(20) NOT NULL,
+  notes TEXT NOT NULL,
+  feedback_for_applicant TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+#### Enhanced Channels Table
+```sql
+-- Update existing channels table with new fields
+ALTER TABLE channels ADD COLUMN IF NOT EXISTS channel_restrictions JSONB DEFAULT '{"can_send_messages": "everyone", "can_join": "everyone", "is_announcement_channel": false, "moderation_enabled": false}';
+ALTER TABLE channels ADD COLUMN IF NOT EXISTS allowed_roles TEXT[];
+```
+
+#### Parent-Teacher Communications Table
+```sql
+CREATE TABLE parent_teacher_communications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  parent_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  teacher_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  student_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  subject VARCHAR(255) NOT NULL,
+  message_thread_id UUID REFERENCES channels(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
 ### Updated Profiles Table
 ```sql
 -- Add new columns to existing profiles table
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS total_volunteer_hours DECIMAL(6,2) DEFAULT 0;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN DEFAULT FALSE;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_active TIMESTAMP WITH TIME ZONE;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS application_id UUID REFERENCES intern_applications(id);
+
+-- Ensure role field cannot be set to 'admin' during signup
+ALTER TABLE profiles ADD CONSTRAINT check_role_signup 
+  CHECK (role != 'admin' OR created_at < NOW() - INTERVAL '1 second');
 ```
 
 ## Error Handling
@@ -321,32 +510,43 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_active TIMESTAMP WITH TIME ZO
 
 ## Implementation Phases
 
-### Phase 1: Foundation (Weeks 1-2)
+### Phase 1: Foundation & Security (Weeks 1-2)
 - Set up Flask Mail microservice
-- Implement basic email templates
-- Create database schema extensions
-- Set up development environment
+- Implement admin signup restrictions
+- Create database schema extensions including applications table
+- Set up development environment with Novakinetix Academy branding
 
-### Phase 2: Core Features (Weeks 3-4)
-- Implement messaging system backend
+### Phase 2: Application System & Core Features (Weeks 3-4)
+- Implement intern application submission system
+- Create application management interface for admins
+- Implement messaging system backend with admin controls
 - Create volunteer hour tracking system
 - Enhance admin protection mechanisms
-- Update role terminology throughout system
 
-### Phase 3: User Interface (Weeks 5-6)
-- Build messaging UI components
-- Create volunteer hour submission interface
-- Enhance admin dashboard with new features
-- Implement clear user directions and help system
+### Phase 3: Role-Specific Dashboards & Communication (Weeks 5-6)
+- Build role-specific dashboard components for parents, interns, and students
+- Implement parent-teacher communication system
+- Create enhanced messaging UI with admin restrictions and announcements
+- Build volunteer hour submission interface
+- Implement application review workflow
 
-### Phase 4: Integration & Testing (Weeks 7-8)
-- Integrate all systems
-- Comprehensive testing
-- Performance optimization
-- Documentation and user guides
+### Phase 4: Advanced Features & Integration (Weeks 7-8)
+- Integrate all messaging controls and restrictions
+- Implement announcement channels and role-based access
+- Enhance admin dashboard with application management
+- Create comprehensive user onboarding flows
+- Integrate tutoring system with role-specific features
 
-### Phase 5: Deployment & Monitoring (Week 9)
-- Production deployment
-- Monitoring setup
-- User training
-- Feedback collection and iteration
+### Phase 5: Branding, Testing & Deployment (Week 9-10)
+- Update all branding to Novakinetix Academy
+- Implement logo loading and consistent naming
+- Comprehensive testing of all role-specific features
+- Performance optimization and security hardening
+- Production deployment with proper Vercel configuration
+
+### Phase 6: Monitoring & User Training (Week 11)
+- Set up monitoring for all new features
+- Create user documentation for application system
+- Implement feedback collection mechanisms
+- User training for admin application management
+- Final testing and bug fixes

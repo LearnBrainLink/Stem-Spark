@@ -1,103 +1,130 @@
-import Image from 'next/image'
-import Link from 'next/link'
+"use client"
+
+import { useState } from "react"
+import Image from "next/image"
 
 interface LogoProps {
+  width?: number
+  height?: number
   className?: string
-  showText?: boolean
-  size?: 'sm' | 'md' | 'lg'
+  variant?: "full" | "icon" | "large" | "hero" | "mega" | "nav"
+  priority?: boolean
 }
 
-export default function Logo({ className = '', showText = true, size = 'md' }: LogoProps) {
-  const sizeClasses = {
-    sm: 'h-8 w-8',
-    md: 'h-12 w-12',
-    lg: 'h-16 w-16'
+export function Logo({ width = 80, height = 80, className = "", variant = "full", priority = false }: LogoProps) {
+  const [imageError, setImageError] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Using the reliable Vercel Blob storage URL for the logo
+  const imageUrl = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/git-blob/prj_uSjHMZ5APpAraKF1Lic1G4AGtkSp/JTF_jNyHM1gcyC1s67kbFh/public/images/novakinetix-logo.png"
+
+  // Get dimensions based on variant with increased sizes
+  const getDimensions = () => {
+    switch (variant) {
+      case "mega":
+        return { width: 600, height: 400 } // Slightly smaller mega size
+      case "hero":
+        return { width: 480, height: 480 }
+      case "large":
+        return { width: 250, height:100  }
+      case "nav":
+        return { width: 200, height: 100 } // Fixed nav size
+      case "full":
+        return { width: width || 150, height: height || 150 }
+      case "icon":
+        return { width: width || 75, height: height || 75 }
+      default:
+        return { width, height }
+    }
   }
 
-  const textSizes = {
-    sm: 'text-lg',
-    md: 'text-xl',
-    lg: 'text-2xl'
-  }
+  const dimensions = getDimensions()
 
-  return (
-    <Link href="/" className={`flex items-center space-x-2 ${className}`}>
-      <div className={`relative ${sizeClasses[size]} flex-shrink-0`}>
-        <Image
-          src="/images/novakinetix-logo.png"
-          alt="NOVAKINETIX ACADEMY Logo"
-          fill
-          className="object-contain"
-          priority
+  // Enhanced fallback SVG logo
+  const FallbackLogo = () => (
+    <div className={`relative ${className}`} style={{ width: dimensions.width, height: dimensions.height }}>
+      <svg
+        width={dimensions.width}
+        height={dimensions.height}
+        viewBox="0 0 400 400"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-full h-full"
+      >
+        <path d="M200 80L120 110L200 140L280 110L200 80Z" fill="#2563EB" stroke="#1E40AF" strokeWidth="4" />
+        <rect x="190" y="70" width="20" height="30" fill="#1E40AF" />
+        <circle cx="285" cy="110" r="8" fill="#1E40AF" />
+        <circle cx="200" cy="170" r="30" fill="#3B82F6" />
+        <path d="M200 200L160 240L160 280L180 280L180 330L220 330L220 280L240 280L240 240L200 200Z" fill="#60A5FA" />
+        <path d="M160 240L130 220L140 210L170 230" fill="#60A5FA" />
+        <path d="M240 240L270 220L260 210L230 230" fill="#60A5FA" />
+        <path d="M80 170L84 182L96 182L86 190L90 202L80 194L70 202L74 190L64 182L76 182L80 170Z" fill="#2563EB" />
+        <path
+          d="M320 170L324 182L336 182L326 190L330 202L320 194L310 202L314 190L304 182L316 182L320 170Z"
+          fill="#2563EB"
         />
-      </div>
-      {showText && (
-        <div className="flex flex-col">
-          <span className={`font-bold text-blue-600 ${textSizes[size]}`}>
-            NOVAKINETIX
-          </span>
-          <span className={`font-semibold text-blue-500 ${textSizes[size]}`}>
-            ACADEMY
-          </span>
-        </div>
-      )}
-    </Link>
+        <text
+          x="200"
+          y="360"
+          textAnchor="middle"
+          fill="#2563EB"
+          fontSize="24"
+          fontWeight="bold"
+          fontFamily="Inter, sans-serif"
+        >
+          STEM SPARK
+        </text>
+        <text
+          x="200"
+          y="385"
+          textAnchor="middle"
+          fill="#3B82F6"
+          fontSize="18"
+          fontWeight="600"
+          fontFamily="Inter, sans-serif"
+        >
+          ACADEMY
+        </text>
+      </svg>
+    </div>
   )
-}
 
-// Fallback SVG logo component for when image fails to load
-export function LogoSVG({ className = '', showText = true, size = 'md' }: LogoProps) {
-  const sizeClasses = {
-    sm: 'h-8 w-8',
-    md: 'h-12 w-12',
-    lg: 'h-16 w-16'
+  const handleImageLoad = () => {
+    setIsLoading(false)
+    setImageError(false)
   }
 
-  const textSizes = {
-    sm: 'text-lg',
-    md: 'text-xl',
-    lg: 'text-2xl'
+  const handleImageError = () => {
+    setIsLoading(false)
+    setImageError(true)
+  }
+
+  if (imageError) {
+    return <FallbackLogo />
   }
 
   return (
-    <Link href="/" className={`flex items-center space-x-2 ${className}`}>
-      <div className={`relative ${sizeClasses[size]} flex-shrink-0`}>
-        <svg
-          viewBox="0 0 100 100"
-          className="w-full h-full"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          {/* Person with graduation cap */}
-          <circle cx="50" cy="25" r="8" fill="#2563EB" />
-          <rect x="42" y="33" width="16" height="20" fill="#2563EB" />
-          <rect x="35" y="33" width="30" height="4" fill="#2563EB" />
-          <rect x="40" y="25" width="20" height="2" fill="#2563EB" />
-          <rect x="42" y="23" width="16" height="2" fill="#2563EB" />
-          
-          {/* Raised arms */}
-          <path d="M 35 35 L 25 20 L 30 15 L 40 30 Z" fill="#3B82F6" />
-          <path d="M 65 35 L 75 20 L 70 15 L 60 30 Z" fill="#3B82F6" />
-          
-          {/* Wings/leaves */}
-          <path d="M 30 50 Q 20 60 25 70 Q 35 65 40 55 Z" fill="#60A5FA" />
-          <path d="M 70 50 Q 80 60 75 70 Q 65 65 60 55 Z" fill="#60A5FA" />
-          
-          {/* Stars */}
-          <path d="M 25 15 L 27 20 L 32 20 L 28 24 L 30 29 L 25 26 L 20 29 L 22 24 L 18 20 L 23 20 Z" fill="#FBBF24" />
-          <path d="M 75 15 L 77 20 L 82 20 L 78 24 L 80 29 L 75 26 L 70 29 L 72 24 L 68 20 L 73 20 Z" fill="#FBBF24" />
-        </svg>
-      </div>
-      {showText && (
-        <div className="flex flex-col">
-          <span className={`font-bold text-blue-600 ${textSizes[size]}`}>
-            NOVAKINETIX
-          </span>
-          <span className={`font-semibold text-blue-500 ${textSizes[size]}`}>
-            ACADEMY
-          </span>
+    <div
+      className={`relative ${className} ${variant === 'nav' ? 'header-logo' : ''}`}
+      style={{ width: dimensions.width, height: dimensions.height, zIndex: 10 }}
+    >
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-xl">
+          <div className="w-8 h-8 border-2 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
         </div>
       )}
-    </Link>
+      <Image
+        src={imageUrl || "/placeholder.svg"}
+        alt="STEM Spark Academy"
+        width={dimensions.width}
+        height={dimensions.height}
+        className={`object-contain transition-opacity duration-300 ${
+          isLoading ? "opacity-0" : "opacity-100"
+        } ${variant === 'nav' ? 'header-logo' : ''} drop-shadow-lg`}
+        onLoad={handleImageLoad}
+        onError={handleImageError}
+        priority={priority || variant === 'nav'}
+      />
+    </div>
   )
-} 
+}

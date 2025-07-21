@@ -1,8 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { Toaster } from '@/components/ui/toaster'
-import { Analytics } from '@/components/analytics'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -31,12 +29,6 @@ export const metadata: Metadata = {
       "Join NOVAKINETIX ACADEMY for cutting-edge STEM education, innovative learning experiences, and pathways to technological excellence.",
     creator: "@novakinetix",
   },
-  viewport: "width=device-width, initial-scale=1",
-  icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
-  },
-  manifest: "/site.webmanifest",
 }
 
 export default function RootLayout({
@@ -48,8 +40,6 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         {children}
-        <Toaster />
-        <Analytics />
       </body>
     </html>
   )
