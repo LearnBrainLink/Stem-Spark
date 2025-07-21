@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Logo } from "@/components/logo"
 import { FloatingElements } from "@/components/FloatingElements"
 import { 
-  Flask, 
+  TestTube, 
   Microscope, 
   Atom, 
   Zap, 
@@ -61,7 +61,7 @@ export default function VirtualLabPage() {
       category: "Chemistry",
       difficulty: "intermediate",
       duration: 30,
-      icon: <Flask className="w-6 h-6" />,
+      icon: <TestTube className="w-6 h-6" />,
       status: "available"
     },
     {
@@ -117,12 +117,12 @@ export default function VirtualLabPage() {
   ]
 
   const labEquipment: LabEquipment[] = [
-    { id: "beaker", name: "Beaker", type: "tool", icon: <Flask className="w-4 h-4" />, isSelected: false },
+    { id: "beaker", name: "Beaker", type: "tool", icon: <TestTube className="w-4 h-4" />, isSelected: false },
     { id: "microscope", name: "Microscope", type: "instrument", icon: <Microscope className="w-4 h-4" />, isSelected: false },
     { id: "bunsen-burner", name: "Bunsen Burner", type: "tool", icon: <Zap className="w-4 h-4" />, isSelected: false },
-    { id: "test-tube", name: "Test Tube", type: "tool", icon: <Flask className="w-4 h-4" />, isSelected: false },
+    { id: "test-tube", name: "Test Tube", type: "tool", icon: <TestTube className="w-4 h-4" />, isSelected: false },
     { id: "scale", name: "Digital Scale", type: "instrument", icon: <Target className="w-4 h-4" />, isSelected: false },
-    { id: "ph-indicator", name: "pH Indicator", type: "chemical", icon: <Flask className="w-4 h-4" />, isSelected: false }
+    { id: "ph-indicator", name: "pH Indicator", type: "chemical", icon: <TestTube className="w-4 h-4" />, isSelected: false }
   ]
 
   const startExperiment = () => {
@@ -232,7 +232,7 @@ export default function VirtualLabPage() {
           <div className="text-center mb-8">
             <div className="mb-6">
               <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-green-500 to-blue-600 rounded-full mb-4">
-                <Flask className="w-10 h-10 text-white" />
+                <TestTube className="w-10 h-10 text-white" />
               </div>
               <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
                 Virtual
@@ -293,7 +293,7 @@ export default function VirtualLabPage() {
                 <CardHeader className="pb-4 border-b border-white/20">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-2xl font-bold text-white flex items-center">
-                      <Flask className="w-6 h-6 mr-2" />
+                      <TestTube className="w-6 h-6 mr-2" />
                       Lab Workspace
                     </CardTitle>
                     <div className="flex space-x-2">
@@ -320,7 +320,7 @@ export default function VirtualLabPage() {
                 <CardContent className="p-6">
                   {!selectedExperiment ? (
                     <div className="text-center text-blue-200 py-20">
-                      <Flask className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                      <TestTube className="w-16 h-16 mx-auto mb-4 opacity-50" />
                       <p className="text-lg font-medium">Select an experiment to begin</p>
                       <p className="text-sm opacity-80 mt-2">Choose from the available experiments to start your virtual lab session</p>
                     </div>
