@@ -136,6 +136,9 @@ export default function AdminDashboard() {
     thisMonthRevenue: number;
     totalVideos: number;
     activeVideos: number;
+    totalVolunteerHours: number;
+    pendingHours: number;
+    totalApprovedHours: number;
     recentActivity: any[];
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -155,39 +158,44 @@ export default function AdminDashboard() {
         setError(null);
         setConnectionStatus('loading');
         
-        console.log('🔄 Fetching dashboard stats...');
+        console.log('🔄 Fetching real dashboard stats from database...');
         
-        // Simulate API call for now
-        setTimeout(() => {
-          setStats({
-            totalUsers: 1250,
-            students: 800,
-            teachers: 150,
-            parents: 250,
-            admins: 50,
-            activeInternships: 25,
-            totalInternships: 45,
-            pendingApplications: 12,
-            totalApplications: 89,
-            totalRevenue: 45000,
-            thisMonthRevenue: 8500,
-            totalVideos: 156,
-            activeVideos: 142,
-            recentActivity: [
-              { title: 'New student registration', description: 'John Doe joined the platform', time: '2 hours ago' },
-              { title: 'Application submitted', description: 'Internship application from Jane Smith', time: '4 hours ago' },
-              { title: 'Video uploaded', description: 'New educational content added', time: '6 hours ago' }
-            ]
-          });
-          setConnectionStatus('connected');
-          setIsSampleData(false);
-          setIsLoading(false);
-        }, 1000);
+        const response = await fetch('/api/admin/stats');
+        if (!response.ok) {
+          throw new Error('Failed to fetch statistics');
+        }
+        
+        const realStats = await response.json();
+        
+        setStats({
+          totalUsers: realStats.totalUsers,
+          students: realStats.students,
+          teachers: realStats.teachers,
+          parents: realStats.parents,
+          admins: realStats.admins,
+          activeInternships: realStats.activeInternships,
+          totalInternships: realStats.totalInternships,
+          pendingApplications: realStats.pendingApplications,
+          totalApplications: realStats.totalApplications,
+          totalRevenue: realStats.totalRevenue,
+          thisMonthRevenue: realStats.thisMonthRevenue,
+          totalVideos: realStats.totalVideos,
+          activeVideos: realStats.activeVideos,
+          totalVolunteerHours: realStats.totalVolunteerHours,
+          pendingHours: realStats.pendingHours,
+          totalApprovedHours: realStats.totalApprovedHours,
+          recentActivity: realStats.recentActivity
+        });
+        
+        setConnectionStatus('connected');
+        setIsSampleData(false);
+        setIsLoading(false);
+        console.log('✅ Real database stats loaded successfully');
         
       } catch (err) {
         setError('Failed to load dashboard statistics');
         setConnectionStatus('error');
-        console.error('💥 Error fetching stats:', err);
+        console.error('💥 Error fetching real stats:', err);
         setIsLoading(false);
       }
     }
@@ -325,7 +333,7 @@ export default function AdminDashboard() {
       {/* Stats Grid */}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {Array.from({ length: 8 }).map((_, index) => (
+          {Array.from({ length: 10 }).map((_, index) => (
             <StatCardSkeleton key={index} delay={index * 0.1} />
           ))}
         </div>
@@ -418,6 +426,28 @@ export default function AdminDashboard() {
             delay={0.8}
             trend="+12"
             trendValue="new this week"
+          />
+          <StatCard
+            title="Volunteer Hours"
+            value={stats?.totalApprovedHours?.toLocaleString() || "0"}
+            icon={Activity}
+            description="Total approved hours"
+            color="text-teal-600"
+            bgColor="bg-teal-100"
+            delay={0.9}
+            trend="+25"
+            trendValue="this week"
+          />
+          <StatCard
+            title="Pending Hours"
+            value={stats?.pendingHours?.toLocaleString() || "0"}
+            icon={Clock}
+            description="Awaiting approval"
+            color="text-amber-600"
+            bgColor="bg-amber-100"
+            delay={1.0}
+            trend="+5"
+            trendValue="new today"
           />
         </div>
       )}
