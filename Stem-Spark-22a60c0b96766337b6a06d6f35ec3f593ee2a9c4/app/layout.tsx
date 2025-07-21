@@ -10,7 +10,7 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "Novakinetix Academy",
+  title: "Novakinetix Academy - Empowering Future Innovators",
   description:
     "Join Novakinetix Academy for cutting-edge STEM education, innovative learning experiences, and pathways to technological excellence.",
   keywords: "STEM education, technology, innovation, academy, learning, engineering, science",
@@ -18,23 +18,18 @@ export const metadata: Metadata = {
   creator: "Novakinetix Academy",
   publisher: "Novakinetix Academy",
   robots: "index, follow",
-  icons: {
-    icon: '/favicon.ico',
-    shortcut: '/favicon.ico',
-    apple: '/images/novakinetix-logo.png',
-  },
   openGraph: {
     type: "website",
     locale: "en_US",
     url: "https://novakinetix.academy",
-    title: "Novakinetix Academy",
+    title: "Novakinetix Academy - Empowering Future Innovators",
     description:
       "Join Novakinetix Academy for cutting-edge STEM education, innovative learning experiences, and pathways to technological excellence.",
     siteName: "Novakinetix Academy",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Novakinetix Academy",
+    title: "Novakinetix Academy - Empowering Future Innovators",
     description:
       "Join Novakinetix Academy for cutting-edge STEM education, innovative learning experiences, and pathways to technological excellence.",
     creator: "@novakinetix",
@@ -51,12 +46,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={inter.variable}>
-      <head>
-        <title>Novakinetix Academy</title>
-        <link rel="icon" href="/favicon.ico" />
-        <link rel="shortcut icon" href="/favicon.ico" />
-        <link rel="apple-touch-icon" href="/images/novakinetix-logo.png" />
-      </head>
       <body className={`${inter.className} antialiased`}>
         {children}
       </body>

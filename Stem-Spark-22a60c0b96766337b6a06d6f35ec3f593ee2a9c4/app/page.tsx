@@ -12,7 +12,6 @@ import { VideoModal } from "../components/VideoModal"
 import { Menu, X } from "lucide-react"
 import { createClient } from "@supabase/supabase-js"
 import Link from "next/link"
-import Image from "next/image"
 
 export default function HomePage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -40,14 +39,7 @@ export default function HomePage() {
           <div className="flex justify-between items-center py-4">
             {/* Logo */}
             <div className="flex items-center">
-              <Image
-                src="/images/novakinetix-logo.png"
-                alt="Novakinetix Academy Logo"
-                width={40}
-                height={40}
-                className="mr-3"
-              />
-              <span className="text-xl font-bold text-gray-900">Novakinetix Academy</span>
+              <Logo variant="nav" />
             </div>
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
