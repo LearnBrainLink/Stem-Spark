@@ -1,387 +1,496 @@
-import { createServerClient } from "@/lib/supabase"
-import { redirect } from "next/navigation"
+"use client"
+
+import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { signOut } from "@/lib/enhanced-auth-actions"
-import { BookOpen, Trophy, Users, LogOut, Settings, Video, Building2, TrendingUp, Clock, Star } from "lucide-react"
-import Link from "next/link"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Logo } from "@/components/logo"
+import { FloatingElements } from "@/components/FloatingElements"
+import { 
+  Users, 
+  BookOpen, 
+  Trophy, 
+  TestTube, 
+  Bot, 
+  MessageSquare, 
+  Calendar, 
+  Clock, 
+  Star, 
+  Target, 
+  Award, 
+  TrendingUp, 
+  CheckCircle, 
+  Play,
+  Zap,
+  Brain,
+  Lightbulb,
+  GraduationCap,
+  Video,
+  FileText,
+  Settings,
+  Bell,
+  User,
+  LogOut
+} from "lucide-react"
+import Link from "next/link"
+import { createClient } from "@supabase/supabase-js"
 
-export default async function DashboardPage() {
-  const supabase = createServerClient()
+interface UserStats {
+  totalHours: number
+  completedCourses: number
+  activeCompetitions: number
+  mentorshipSessions: number
+  achievements: number
+  rank: string
+}
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+interface RecentActivity {
+  id: string
+  type: 'course' | 'competition' | 'mentorship' | 'lab' | 'tutoring'
+  title: string
+  description: string
+  timestamp: string
+  status: 'completed' | 'in-progress' | 'upcoming'
+  icon: React.ReactNode
+}
 
-  if (!user) {
-    redirect("/login")
+interface QuickAction {
+  id: string
+  title: string
+  description: string
+  href: string
+  icon: React.ReactNode
+  color: string
+}
+
+export default function DashboardPage() {
+  const [user, setUser] = useState<any>(null)
+  const [userStats, setUserStats] = useState<UserStats>({
+    totalHours: 0,
+    completedCourses: 0,
+    activeCompetitions: 0,
+    mentorshipSessions: 0,
+    achievements: 0,
+    rank: "Beginner"
+  })
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([])
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+      
+      if (user) {
+        // Fetch user stats and activities
+        fetchUserData(user.id)
+      }
+    }
+    checkAuth()
+  }, [])
+
+  const fetchUserData = async (userId: string) => {
+    // Simulate fetching user data
+    setUserStats({
+      totalHours: 45,
+      completedCourses: 3,
+      activeCompetitions: 2,
+      mentorshipSessions: 1,
+      achievements: 8,
+      rank: "Intermediate"
+    })
+
+    setRecentActivities([
+      {
+        id: "1",
+        type: "course",
+        title: "Advanced Python Programming",
+        description: "Completed Module 3: Data Structures",
+        timestamp: "2 hours ago",
+        status: "completed",
+        icon: <BookOpen className="w-4 h-4" />
+      },
+      {
+        id: "2",
+        type: "competition",
+        title: "Robotics Innovation Challenge",
+        description: "Submitted project proposal",
+        timestamp: "1 day ago",
+        status: "in-progress",
+        icon: <Trophy className="w-4 h-4" />
+      },
+      {
+        id: "3",
+        type: "mentorship",
+        title: "Session with Dr. Sarah Chen",
+        description: "Machine Learning guidance",
+        timestamp: "3 days ago",
+        status: "completed",
+        icon: <Users className="w-4 h-4" />
+      },
+      {
+        id: "4",
+        type: "lab",
+        title: "Chemistry Lab: Acid-Base Titration",
+        description: "Experiment completed successfully",
+        timestamp: "1 week ago",
+        status: "completed",
+        icon: <TestTube className="w-4 h-4" />
+      }
+    ])
   }
 
-  // Get user profile
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+  const quickActions: QuickAction[] = [
+    {
+      id: "ai-tutor",
+      title: "AI Tutor",
+      description: "Get personalized help with STEM subjects",
+      href: "/ai-tutor",
+      icon: <Bot className="w-6 h-6" />,
+      color: "from-blue-500 to-purple-600"
+    },
+    {
+      id: "virtual-lab",
+      title: "Virtual Lab",
+      description: "Conduct safe experiments online",
+      href: "/virtual-lab",
+      icon: <TestTube className="w-6 h-6" />,
+      color: "from-green-500 to-blue-600"
+    },
+    {
+      id: "competitions",
+      title: "Competitions",
+      description: "Compete and win prizes",
+      href: "/competitions",
+      icon: <Trophy className="w-6 h-6" />,
+      color: "from-yellow-500 to-orange-600"
+    },
+    {
+      id: "mentorship",
+      title: "Mentorship",
+      description: "Connect with industry experts",
+      href: "/mentorship",
+      icon: <Users className="w-6 h-6" />,
+      color: "from-purple-500 to-pink-600"
+    },
+    {
+      id: "communication",
+      title: "Communication Hub",
+      description: "Chat with peers and mentors",
+      href: "/communication-hub",
+      icon: <MessageSquare className="w-6 h-6" />,
+      color: "from-indigo-500 to-purple-600"
+    },
+    {
+      id: "tutoring",
+      title: "Tutoring Sessions",
+      description: "Book one-on-one tutoring",
+      href: "/tutoring",
+      icon: <GraduationCap className="w-6 h-6" />,
+      color: "from-teal-500 to-cyan-600"
+    }
+  ]
 
-  if (!profile) {
-    redirect("/login")
-  }
-
-  // Get user-specific data based on role
-  let dashboardData = {}
-
-  if (profile.role === "student") {
-    // Get student progress and applications
-    const { data: applications } = await supabase
-      .from("internship_applications")
-      .select("*, internships(title)")
-      .eq("student_id", user.id)
-
-    dashboardData = { applications }
-  } else if (profile.role === "admin") {
-    // Get admin statistics
-    const { data: userStats } = await supabase.from("profiles").select("role")
-    const { data: internshipStats } = await supabase.from("internships").select("status")
-    const { data: videoStats } = await supabase.from("videos").select("status")
-
-    dashboardData = {
-      totalUsers: userStats?.length || 0,
-      activeInternships: internshipStats?.filter((i: { status: string }) => i.status === "active").length || 0,
-      totalVideos: videoStats?.length || 0,
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'text-green-400'
+      case 'in-progress': return 'text-yellow-400'
+      case 'upcoming': return 'text-blue-400'
+      default: return 'text-gray-400'
     }
   }
 
-  return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 px-2 sm:px-6 md:px-12">
-      {/* Enhanced Header with Larger Logo */}
-      <header className="flex flex-col sm:flex-row items-center justify-between py-6 gap-4 sm:gap-0">
-        <div className="flex items-center gap-3">
-          <Logo width={56} height={56} className="w-12 h-12 sm:w-14 sm:h-14" />
-          <span className="text-2xl sm:text-3xl font-bold text-brand-primary">Dashboard</span>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="hidden lg:flex items-center gap-2 bg-brand-accent/20 px-4 py-2 rounded-full">
-            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-sm font-medium text-brand-primary">
-              Welcome, {profile?.full_name?.split(" ")[0] || "User"}!
-            </span>
-          </div>
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return <CheckCircle className="w-4 h-4 text-green-400" />
+      case 'in-progress': return <Clock className="w-4 h-4 text-yellow-400" />
+      case 'upcoming': return <Calendar className="w-4 h-4 text-blue-400" />
+      default: return <Clock className="w-4 h-4 text-gray-400" />
+    }
+  }
 
-          <div className="flex items-center gap-3">
-            <Link href="/videos">
-              <Button className="border border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white px-4 py-2 rounded-md transition">
-                <Video className="w-5 h-5 mr-2" />
-                Videos
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900 relative overflow-x-hidden">
+      <FloatingElements />
+      
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center">
+              <Link href="/">
+                <Logo variant="nav" />
+              </Link>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Button variant="outline" className="text-blue-600 border-blue-600 hover:bg-blue-50">
+                <Bell className="w-4 h-4 mr-2" />
+                Notifications
               </Button>
-            </Link>
-            <Link href="/internships">
-              <Button className="border border-brand-secondary text-brand-secondary hover:bg-brand-secondary hover:text-white px-4 py-2 rounded-md transition">
-                <Building2 className="w-5 h-5 mr-2" />
-                Internships
+              <Button variant="outline" className="text-blue-600 border-blue-600 hover:bg-blue-50">
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
               </Button>
-            </Link>
-            <Link href="/profile">
-              <Button className="border border-brand-accent text-brand-accent hover:bg-brand-accent hover:text-white px-4 py-2 rounded-md transition">
-                <Settings className="w-5 h-5 mr-2" />
+              <Button variant="outline" className="text-blue-600 border-blue-600 hover:bg-blue-50">
+                <User className="w-4 h-4 mr-2" />
                 Profile
               </Button>
-            </Link>
-            {profile?.role === "admin" && (
-              <Link href="/admin">
-                <Button className="button-primary px-4 py-2">
-                  <Users className="w-5 h-5 mr-2" />
-                  Admin
-                </Button>
-              </Link>
-            )}
-            <form onSubmit={async (e) => { e.preventDefault(); await signOut(); }}>
-              <Button className="border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2 rounded-md transition">
-                <LogOut className="w-5 h-5 mr-2" />
+              <Button variant="outline" className="text-red-600 border-red-600 hover:bg-red-50">
+                <LogOut className="w-4 h-4 mr-2" />
                 Sign Out
               </Button>
-            </form>
+            </div>
           </div>
         </div>
-      </header>
+      </nav>
 
-      <main className="flex-1 flex flex-col items-center justify-center text-center py-8 sm:py-16 w-full">
-        {/* Enhanced Welcome Section */}
-        <div className="mb-12 text-center">
-          <h1 className="text-display brand-text-gradient mb-4">
-            Welcome back, {profile?.full_name?.split(" ")[0] || "there"}! 🚀
-          </h1>
-          <p className="text-xl text-brand-secondary font-medium max-w-2xl mx-auto">
-            {profile?.role === "admin"
-              ? "Manage and oversee your NOVAKINETIX ACADEMY platform with powerful admin tools"
-              : "Continue your exciting STEM learning journey and unlock new possibilities"}
-          </p>
-        </div>
-
-        {/* Enhanced Role-specific dashboard content */}
-        {profile?.role === "admin" ? (
-          // Enhanced Admin Dashboard
-          <div className="space-y-8">
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-              <Card className="stat-card group">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                  <CardTitle className="text-lg font-bold text-brand-primary">Total Users</CardTitle>
-                  <div className="p-3 bg-blue-100 rounded-full group-hover:bg-blue-200 transition-colors">
-                    <Users className="h-6 w-6 text-blue-600" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-4xl font-bold text-brand-primary mb-2">{(dashboardData as any).totalUsers}</div>
-                  <p className="text-sm text-brand-secondary font-medium flex items-center">
-                    <TrendingUp className="w-4 h-4 mr-1 text-green-500" />
-                    Registered users
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="stat-card group">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                  <CardTitle className="text-lg font-bold text-brand-primary">Active Internships</CardTitle>
-                  <div className="p-3 bg-green-100 rounded-full group-hover:bg-green-200 transition-colors">
-                    <Building2 className="h-6 w-6 text-green-600" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-4xl font-bold text-brand-primary mb-2">
-                    {(dashboardData as any).activeInternships}
-                  </div>
-                  <p className="text-sm text-brand-secondary font-medium flex items-center">
-                    <Clock className="w-4 h-4 mr-1 text-blue-500" />
-                    Currently available
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="stat-card group">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                  <CardTitle className="text-lg font-bold text-brand-primary">Learning Videos</CardTitle>
-                  <div className="p-3 bg-purple-100 rounded-full group-hover:bg-purple-200 transition-colors">
-                    <Video className="h-6 w-6 text-purple-600" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-4xl font-bold text-brand-primary mb-2">{(dashboardData as any).totalVideos}</div>
-                  <p className="text-sm text-brand-secondary font-medium flex items-center">
-                    <Star className="w-4 h-4 mr-1 text-yellow-500" />
-                    Educational content
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="stat-card group">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                  <CardTitle className="text-lg font-bold text-brand-primary">Platform Health</CardTitle>
-                  <div className="p-3 bg-emerald-100 rounded-full group-hover:bg-emerald-200 transition-colors">
-                    <Trophy className="h-6 w-6 text-emerald-600" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-4xl font-bold text-emerald-600 mb-2">Excellent</div>
-                  <p className="text-sm text-brand-secondary font-medium flex items-center">
-                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                    All systems operational
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
+      {/* Main Content */}
+      <main className="pt-20 pb-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Welcome Section */}
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold text-white mb-2">
+              Welcome back, {user?.user_metadata?.full_name || 'Student'}! 👋
+            </h1>
+            <p className="text-xl text-blue-100">
+              Continue your STEM journey with our latest features and tools.
+            </p>
           </div>
-        ) : (
-          // Enhanced Student/Intern Dashboard
-          <div className="space-y-8">
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              <Card className="stat-card group">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                  <CardTitle className="text-lg font-bold text-brand-primary">Courses Completed</CardTitle>
-                  <div className="p-3 bg-yellow-100 rounded-full group-hover:bg-yellow-200 transition-colors">
-                    <Trophy className="h-6 w-6 text-yellow-600" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-4xl font-bold text-brand-primary mb-2">3</div>
-                  <p className="text-sm text-brand-secondary font-medium flex items-center">
-                    <TrendingUp className="w-4 h-4 mr-1 text-green-500" />
-                    +2 from last month
-                  </p>
-                </CardContent>
-              </Card>
 
-              <Card className="stat-card group">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                  <CardTitle className="text-lg font-bold text-brand-primary">Projects Built</CardTitle>
-                  <div className="p-3 bg-blue-100 rounded-full group-hover:bg-blue-200 transition-colors">
-                    <BookOpen className="h-6 w-6 text-blue-600" />
+          {/* Stats Overview */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-2xl rounded-2xl overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-200 text-sm">Total Hours</p>
+                    <p className="text-3xl font-bold text-white">{userStats.totalHours}</p>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-4xl font-bold text-brand-primary mb-2">12</div>
-                  <p className="text-sm text-brand-secondary font-medium flex items-center">
-                    <Star className="w-4 h-4 mr-1 text-yellow-500" />
-                    +4 this week
-                  </p>
-                </CardContent>
-              </Card>
+                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                    <Clock className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-              <Card className="stat-card group">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                  <CardTitle className="text-lg font-bold text-brand-primary">Community Rank</CardTitle>
-                  <div className="p-3 bg-purple-100 rounded-full group-hover:bg-purple-200 transition-colors">
-                    <Users className="h-6 w-6 text-purple-600" />
+            <Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-2xl rounded-2xl overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-200 text-sm">Completed Courses</p>
+                    <p className="text-3xl font-bold text-white">{userStats.completedCourses}</p>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-4xl font-bold text-brand-primary mb-2">#47</div>
-                  <p className="text-sm text-brand-secondary font-medium flex items-center">
-                    <Trophy className="w-4 h-4 mr-1 text-yellow-500" />
-                    Top 15% of learners
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
+                  <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center">
+                    <BookOpen className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-2xl rounded-2xl overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-200 text-sm">Achievements</p>
+                    <p className="text-3xl font-bold text-white">{userStats.achievements}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-600 rounded-full flex items-center justify-center">
+                    <Award className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-2xl rounded-2xl overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-200 text-sm">Active Competitions</p>
+                    <p className="text-3xl font-bold text-white">{userStats.activeCompetitions}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
+                    <Trophy className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-2xl rounded-2xl overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-200 text-sm">Mentorship Sessions</p>
+                    <p className="text-3xl font-bold text-white">{userStats.mentorshipSessions}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                    <Users className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-2xl rounded-2xl overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-200 text-sm">Current Rank</p>
+                    <p className="text-3xl font-bold text-white">{userStats.rank}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-gradient-to-r from-teal-500 to-cyan-600 rounded-full flex items-center justify-center">
+                    <Target className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        )}
 
-        {/* Enhanced Quick Actions */}
-        <Card className="admin-card mt-12">
-          <CardHeader className="pb-6">
-            <CardTitle className="text-2xl font-bold text-brand-primary">Quick Actions</CardTitle>
-            <CardDescription className="text-lg text-brand-secondary">
-              {profile?.role === "admin"
-                ? "Manage your platform efficiently"
-                : "Continue your learning journey with these tools"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {profile?.role === "admin" ? (
-                <>
-                  <Link href="/admin/videos">
-                    <Button className="w-full h-20 text-lg button-primary group px-4 py-4 sm:px-8 sm:py-6">
-                      <Video className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
-                      Manage Videos
-                    </Button>
-                  </Link>
-                  <Link href="/admin/internships">
-                    <Button className="w-full h-20 text-lg button-secondary group px-4 py-4 sm:px-8 sm:py-6">
-                      <Building2 className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
-                      Manage Internships
-                    </Button>
-                  </Link>
-                  <Link href="/admin/applications">
-                    <Button className="w-full h-20 text-lg button-primary group px-4 py-4 sm:px-8 sm:py-6">
-                      <Users className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
-                      View Applications
-                    </Button>
-                  </Link>
-                  <Link href="/admin/setup">
-                    <Button className="w-full h-20 text-lg button-secondary group px-4 py-4 sm:px-8 sm:py-6">
-                      <Settings className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
-                      Admin Setup
-                    </Button>
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <Link href="/videos">
-                    <Button className="w-full h-20 text-lg button-primary group px-4 py-4 sm:px-8 sm:py-6">
-                      <Video className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
-                      Watch Videos
-                    </Button>
-                  </Link>
-                  <Link href="/internships">
-                    <Button className="w-full h-20 text-lg button-secondary group px-4 py-4 sm:px-8 sm:py-6">
-                      <Building2 className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
-                      Find Internships
-                    </Button>
-                  </Link>
-                  <Link href="/profile">
-                    <Button className="w-full h-20 text-lg button-primary group px-4 py-4 sm:px-8 sm:py-6">
-                      <Settings className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
-                      Update Profile
-                    </Button>
-                  </Link>
-                  <Button className="w-full h-20 text-lg button-secondary group px-4 py-4 sm:px-8 sm:py-6">
-                    <BookOpen className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
-                    Start Project
-                  </Button>
-                </>
-              )}
+          <div className="grid lg:grid-cols-3 gap-8">
+            {/* Quick Actions */}
+            <div className="lg:col-span-2">
+              <Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-2xl rounded-2xl overflow-hidden">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-2xl font-bold text-white flex items-center">
+                    <Zap className="w-6 h-6 mr-2" />
+                    Quick Actions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {quickActions.map((action) => (
+                      <Link key={action.id} href={action.href}>
+                        <Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-xl rounded-xl overflow-hidden hover:bg-white/20 transition-all duration-300 cursor-pointer group">
+                          <CardContent className="p-6">
+                            <div className="flex items-center space-x-4">
+                              <div className={`w-12 h-12 bg-gradient-to-r ${action.color} rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                                {action.icon}
+                              </div>
+                              <div>
+                                <h3 className="text-lg font-semibold text-white group-hover:text-blue-200 transition-colors">
+                                  {action.title}
+                                </h3>
+                                <p className="text-sm text-blue-200">
+                                  {action.description}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Enhanced Recent Activity or Content */}
-        <Card className="admin-card mt-8">
-          <CardHeader className="pb-6">
-            <CardTitle className="text-2xl font-bold text-brand-primary">
-              {profile?.role === "admin" ? "Recent Platform Activity" : "Continue Learning"}
-            </CardTitle>
-            <CardDescription className="text-lg text-brand-secondary">
-              {profile?.role === "admin" ? "Latest activity across the platform" : "Pick up where you left off"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {profile?.role === "admin" ? (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between p-6 border border-brand-light/30 rounded-xl bg-gradient-to-r from-blue-50 to-white hover:shadow-brand transition-all duration-300">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-blue-100 rounded-full">
-                      <Users className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-brand-primary">New User Registration</h3>
-                      <p className="text-brand-secondary font-medium">Student • 2 minutes ago</p>
-                    </div>
-                  </div>
-                  <Button className="interactive-button">View</Button>
-                </div>
-                <div className="flex items-center justify-between p-6 border border-brand-light/30 rounded-xl bg-gradient-to-r from-green-50 to-white hover:shadow-brand transition-all duration-300">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-green-100 rounded-full">
-                      <Building2 className="w-6 h-6 text-green-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-brand-primary">Internship Application</h3>
-                      <p className="text-brand-secondary font-medium">Software Engineering • 15 minutes ago</p>
-                    </div>
-                  </div>
-                  <Button className="interactive-button">Review</Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between p-6 border border-brand-light/30 rounded-xl bg-gradient-to-r from-purple-50 to-white hover:shadow-brand transition-all duration-300">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-purple-100 rounded-full">
-                      <BookOpen className="w-6 h-6 text-purple-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-brand-primary">Build a Robot Arm</h3>
-                      <p className="text-brand-secondary font-medium">Engineering Design • 75% Complete</p>
-                      <div className="w-48 h-2 bg-gray-200 rounded-full mt-2">
-                        <div className="w-3/4 h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full"></div>
+            {/* Recent Activity */}
+            <div className="lg:col-span-1">
+              <Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-2xl rounded-2xl overflow-hidden">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-xl font-bold text-white flex items-center">
+                    <Clock className="w-5 h-5 mr-2" />
+                    Recent Activity
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {recentActivities.map((activity) => (
+                    <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+                      <div className="text-blue-300 mt-1">
+                        {activity.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium text-white truncate">
+                          {activity.title}
+                        </h4>
+                        <p className="text-xs text-blue-200 truncate">
+                          {activity.description}
+                        </p>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-xs text-blue-300">
+                            {activity.timestamp}
+                          </span>
+                          {getStatusIcon(activity.status)}
+                        </div>
                       </div>
                     </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Featured Content */}
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold text-white mb-6">Featured Content</h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-2xl rounded-2xl overflow-hidden">
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
+                    <Brain className="w-6 h-6 text-white" />
                   </div>
-                  <Button className="button-primary">Continue</Button>
-                </div>
-                <div className="flex items-center justify-between p-6 border border-brand-light/30 rounded-xl bg-gradient-to-r from-blue-50 to-white hover:shadow-brand transition-all duration-300">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-blue-100 rounded-full">
-                      <Video className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-brand-primary">Coding with Scratch</h3>
-                      <p className="text-brand-secondary font-medium">Programming • Not Started</p>
-                    </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">AI-Powered Learning</h3>
+                  <p className="text-blue-200 text-sm mb-4">
+                    Get personalized help with our AI tutor for any STEM subject.
+                  </p>
+                  <Link href="/ai-tutor">
+                    <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white">
+                      <Play className="w-4 h-4 mr-2" />
+                      Start Learning
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              <Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-2xl rounded-2xl overflow-hidden">
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center mb-4">
+                    <TestTube className="w-6 h-6 text-white" />
                   </div>
-                  <Button className="button-secondary">Start</Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  <h3 className="text-lg font-semibold text-white mb-2">Virtual Laboratory</h3>
+                  <p className="text-blue-200 text-sm mb-4">
+                    Conduct safe experiments in our virtual lab environment.
+                  </p>
+                  <Link href="/virtual-lab">
+                    <Button className="w-full bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white">
+                      <Play className="w-4 h-4 mr-2" />
+                      Start Experiment
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              <Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-2xl rounded-2xl overflow-hidden">
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-600 rounded-full flex items-center justify-center mb-4">
+                    <Trophy className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">STEM Competitions</h3>
+                  <p className="text-blue-200 text-sm mb-4">
+                    Compete with peers and win exciting prizes.
+                  </p>
+                  <Link href="/competitions">
+                    <Button className="w-full bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white">
+                      <Play className="w-4 h-4 mr-2" />
+                      View Competitions
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   )

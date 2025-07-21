@@ -61,24 +61,54 @@ export default function HomePage() {
               >
                 Apply as Intern
               </Link>
-              <a
-                href="/communication-hub"
-                className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
-              >
-                Communication Hub
-              </a>
-              <a
-                href="/about"
-                className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
-              >
-                About
-              </a>
-              <a
-                href="/contact"
-                className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
-              >
-                Contact
-              </a>
+                          <a
+              href="/communication-hub"
+              className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+            >
+              Communication Hub
+            </a>
+            <Link
+              href="/ai-tutor"
+              className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+            >
+              AI Tutor
+            </Link>
+            <Link
+              href="/virtual-lab"
+              className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+            >
+              Virtual Lab
+            </Link>
+            <Link
+              href="/competitions"
+              className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+            >
+              Competitions
+            </Link>
+            <Link
+              href="/mentorship"
+              className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+            >
+              Mentorship
+            </Link>
+            <Link
+              href="/career-pathway"
+              className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+            >
+              Career Pathway
+            </Link>
+            <Link
+              href="/project-showcase"
+              className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+            >
+              Project Showcase
+            </Link>
+            <Link
+              href="/learning-path"
+              className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+            >
+              Learning Paths
+            </Link>
               <Link href="/login">
                 <button className="border border-blue-600 text-blue-600 px-6 py-2 rounded-full hover:bg-blue-50 transition-colors font-medium">
                   Sign In
@@ -131,18 +161,48 @@ export default function HomePage() {
               >
                 Communication Hub
               </a>
-              <a
-                href="/about"
+              <Link
+                href="/ai-tutor"
                 className="block text-gray-700 hover:text-blue-600 transition-colors font-medium"
               >
-                About
-              </a>
-              <a
-                href="/contact"
+                AI Tutor
+              </Link>
+              <Link
+                href="/virtual-lab"
                 className="block text-gray-700 hover:text-blue-600 transition-colors font-medium"
               >
-                Contact
-              </a>
+                Virtual Lab
+              </Link>
+              <Link
+                href="/competitions"
+                className="block text-gray-700 hover:text-blue-600 transition-colors font-medium"
+              >
+                Competitions
+              </Link>
+              <Link
+                href="/mentorship"
+                className="block text-gray-700 hover:text-blue-600 transition-colors font-medium"
+              >
+                Mentorship
+              </Link>
+              <Link
+                href="/career-pathway"
+                className="block text-gray-700 hover:text-blue-600 transition-colors font-medium"
+              >
+                Career Pathway
+              </Link>
+              <Link
+                href="/project-showcase"
+                className="block text-gray-700 hover:text-blue-600 transition-colors font-medium"
+              >
+                Project Showcase
+              </Link>
+              <Link
+                href="/learning-path"
+                className="block text-gray-700 hover:text-blue-600 transition-colors font-medium"
+              >
+                Learning Paths
+              </Link>
               <div className="pt-4 space-y-3">
                 <Link href="/login">
                   <button className="w-full border border-blue-600 text-blue-600 px-6 py-2 rounded-full hover:bg-blue-50 transition-colors font-medium">
@@ -162,7 +222,7 @@ export default function HomePage() {
 
       {/* Main Content */}
       <main className="pt-20">
-        <HeroSection />
+        <HeroSection onWatchDemo={() => setIsVideoModalOpen(true)} />
         <StatsSection />
         <InternshipGallery />
         <FeaturesSection />
