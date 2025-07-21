@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
 import { emailService } from '@/lib/email-service-integration'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -112,7 +114,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if application already exists for this email
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
     const { data: existingApplication } = await supabase
       .from('intern_applications')
       .select('id')

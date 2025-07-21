@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
 import { messagingService } from '@/lib/real-time-messaging'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -38,7 +40,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -47,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { channelId, content, messageType, fileUrl } = body
+    const { channelId, content, messageType = 'text', fileUrl } = body
 
     // Validate required fields
     if (!channelId || !content) {
@@ -56,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     // Validate message type
     const validMessageTypes = ['text', 'file', 'system']
-    if (messageType && !validMessageTypes.includes(messageType)) {
+    if (!validMessageTypes.includes(messageType)) {
       return NextResponse.json({ error: 'Invalid message type' }, { status: 400 })
     }
 
@@ -65,7 +70,7 @@ export async function POST(request: NextRequest) {
       channelId,
       user.id,
       content,
-      messageType || 'text',
+      messageType,
       fileUrl
     )
 
@@ -82,7 +87,10 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()

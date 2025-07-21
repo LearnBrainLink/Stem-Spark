@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 import { messagingService, ExtendedMessage, ExtendedChannel } from '@/lib/real-time-messaging'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,7 +17,10 @@ import { Send, Plus, Users, Settings, MessageCircle, Hash, Volume2, Lock } from 
 
 
 export default function CommunicationHub() {
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
   const [user, setUser] = useState<any>(null)
   const [channels, setChannels] = useState<ExtendedChannel[]>([])
   const [currentChannel, setCurrentChannel] = useState<ExtendedChannel | null>(null)
