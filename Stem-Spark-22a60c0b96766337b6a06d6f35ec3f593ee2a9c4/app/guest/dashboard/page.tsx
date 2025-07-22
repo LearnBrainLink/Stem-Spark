@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import { 
   BookOpen, 
   Clock, 
@@ -174,7 +173,12 @@ export default function GuestDashboard() {
                     <Badge variant="outline">{course.progress}%</Badge>
                   </div>
                   <p className="text-sm text-gray-500 mb-3">Instructor: {course.instructor}</p>
-                  <Progress value={course.progress} className="mb-3" />
+                  <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                      style={{ width: `${course.progress}%` }}
+                    ></div>
+                  </div>
                   <Button 
                     size="sm" 
                     onClick={() => handleGuestAction(`Continue ${course.name}`)}
