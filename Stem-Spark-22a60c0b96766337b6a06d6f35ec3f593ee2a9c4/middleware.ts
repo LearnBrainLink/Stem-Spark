@@ -1,47 +1,96 @@
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-export function middleware(request: NextRequest) {
-  // Get the pathname of the request (e.g. /, /protected)
-  const path = request.nextUrl.pathname
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next()
+  const supabase = createMiddlewareClient({ req, res })
 
-  // Define public paths that don't require authentication
-  const isPublicPath = path === '/' || 
-                      path === '/login' || 
-                      path === '/sign up' || 
-                      path === '/signup' ||
-                      path.startsWith('/api/') ||
-                      path.includes('_next') ||
-                      path.includes('favicon')
+  // Refresh session if expired
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
-  // Check if user is authenticated (you can implement your own logic here)
-  const isAuthenticated = request.cookies.has('supabase-auth-token') || 
-                         request.cookies.has('sb-access-token')
+  // Define protected routes
+  const protectedRoutes = [
+    '/student-dashboard',
+    '/parent-dashboard', 
+    '/admin',
+    '/profile',
+    '/communication-hub',
+    '/tutoring',
+    '/intern-dashboard'
+  ]
 
-  // Redirect authenticated users away from public paths
-  if (isAuthenticated && (path === '/login' || path === '/sign up' || path === '/signup')) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+  // Define admin-only routes
+  const adminRoutes = ['/admin']
+
+  // Check if current path is protected
+  const isProtectedRoute = protectedRoutes.some(route => 
+    req.nextUrl.pathname.startsWith(route)
+  )
+
+  const isAdminRoute = adminRoutes.some(route => 
+    req.nextUrl.pathname.startsWith(route)
+  )
+
+  // If accessing protected route without session, redirect to login
+  if (isProtectedRoute && !session) {
+    const redirectUrl = new URL('/login', req.url)
+    redirectUrl.searchParams.set('redirect', req.nextUrl.pathname)
+    return NextResponse.redirect(redirectUrl)
   }
 
-  // Allow all requests to public paths
-  if (isPublicPath) {
-    return NextResponse.next()
+  // If accessing admin route, check if user is admin
+  if (isAdminRoute && session) {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single()
+
+      if (profile?.role !== 'admin') {
+        return NextResponse.redirect(new URL('/student-dashboard', req.url))
+      }
+    } catch (error) {
+      console.error('Error checking admin role:', error)
+      return NextResponse.redirect(new URL('/login', req.url))
+    }
   }
 
-  // For protected routes, allow the request to continue
-  // The individual pages/components can handle their own authentication logic
-  return NextResponse.next()
+  // If user is logged in and trying to access login/signup, redirect to dashboard
+  if (session && (req.nextUrl.pathname === '/login' || req.nextUrl.pathname === '/sign%20up')) {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single()
+
+      if (profile?.role) {
+        const dashboardUrl = profile.role === 'admin' ? '/admin' : 
+                           profile.role === 'parent' ? '/parent-dashboard' : 
+                           '/student-dashboard'
+        return NextResponse.redirect(new URL(dashboardUrl, req.url))
+      }
+    } catch (error) {
+      console.error('Error checking user role for redirect:', error)
+    }
+  }
+
+  return res
 }
 
 export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - public folder
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 } 

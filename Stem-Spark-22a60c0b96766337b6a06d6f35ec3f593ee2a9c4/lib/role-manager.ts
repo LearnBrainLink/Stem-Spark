@@ -242,8 +242,6 @@ export class RoleManager {
     switch (role) {
       case "admin":
         return "/admin"
-          case "admin":
-      return "/admin"
       case "student":
         return "/student-dashboard"
       case "parent":
