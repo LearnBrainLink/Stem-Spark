@@ -375,6 +375,57 @@ export type Database = {
           }
         ]
       }
+      intern_applications: {
+        Row: {
+          id: string
+          full_name: string
+          email: string
+          phone: string | null
+          grade: number
+          school: string
+          bio: string
+          specialties: string[] | null
+          experience: string | null
+          motivation: string
+          availability: string
+          status: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          full_name: string
+          email: string
+          phone?: string | null
+          grade: number
+          school: string
+          bio: string
+          specialties?: string[] | null
+          experience?: string | null
+          motivation: string
+          availability: string
+          status?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          full_name?: string
+          email?: string
+          phone?: string | null
+          grade?: number
+          school?: string
+          bio?: string
+          specialties?: string[] | null
+          experience?: string | null
+          motivation?: string
+          availability?: string
+          status?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       // ... other existing tables
     }
     Views: {

@@ -385,6 +385,109 @@ class SecurityUtils {
     
     return { isValid: errors.length === 0, errors }
   }
+
+  /**
+   * Check if admin can edit another user
+   * Prevents admins from editing other admins unless they are super admin
+   */
+  async canAdminEditUser(
+    currentUserId: string,
+    targetUserId: string
+  ): Promise<{ canEdit: boolean; reason?: string }> {
+    const supabase = createClient()
+    
+    try {
+      // Get current user's role
+      const { data: currentUser, error: currentError } = await supabase
+        .from('profiles')
+        .select('role, is_super_admin')
+        .eq('id', currentUserId)
+        .single()
+
+      if (currentError || !currentUser) {
+        return { canEdit: false, reason: 'Current user not found' }
+      }
+
+      // If current user is not admin, they cannot edit anyone
+      if (currentUser.role !== 'admin' && !currentUser.is_super_admin) {
+        return { canEdit: false, reason: 'Insufficient permissions' }
+      }
+
+      // If editing self, always allow
+      if (currentUserId === targetUserId) {
+        return { canEdit: true }
+      }
+
+      // Get target user's role
+      const { data: targetUser, error: targetError } = await supabase
+        .from('profiles')
+        .select('role, is_super_admin')
+        .eq('id', targetUserId)
+        .single()
+
+      if (targetError || !targetUser) {
+        return { canEdit: false, reason: 'Target user not found' }
+      }
+
+      // Super admins can edit anyone
+      if (currentUser.is_super_admin) {
+        return { canEdit: true }
+      }
+
+      // Regular admins cannot edit other admins or super admins
+      if (targetUser.role === 'admin' || targetUser.is_super_admin) {
+        return { canEdit: false, reason: 'Cannot edit other administrators' }
+      }
+
+      // Regular admins can edit non-admin users
+      return { canEdit: true }
+    } catch (error) {
+      console.error('Error checking admin edit permissions:', error)
+      return { canEdit: false, reason: 'Error checking permissions' }
+    }
+  }
+
+  /**
+   * Check if user can perform admin action
+   */
+  async canPerformAdminAction(
+    userId: string,
+    action: string,
+    targetId?: string
+  ): Promise<{ canPerform: boolean; reason?: string }> {
+    const supabase = createClient()
+    
+    try {
+      // Get user's role
+      const { data: user, error } = await supabase
+        .from('profiles')
+        .select('role, is_super_admin')
+        .eq('id', userId)
+        .single()
+
+      if (error || !user) {
+        return { canPerform: false, reason: 'User not found' }
+      }
+
+      // Check if user is admin or super admin
+      if (user.role !== 'admin' && !user.is_super_admin) {
+        return { canPerform: false, reason: 'Insufficient permissions' }
+      }
+
+      // Log the admin action attempt
+      await this.logSecurityEvent(`admin_action_attempt:${action}`, userId, {
+        action,
+        targetId,
+        userRole: user.role,
+        isSuperAdmin: user.is_super_admin
+      })
+
+      return { canPerform: true }
+    } catch (error) {
+      console.error('Error checking admin action permissions:', error)
+      return { canPerform: false, reason: 'Error checking permissions' }
+    }
+  }
 }
 
 // Export singleton instance
@@ -403,4 +506,6 @@ export const checkSuspiciousActivity = securityUtils.checkSuspiciousActivity.bin
 export const getCSPHeaders = securityUtils.getCSPHeaders.bind(securityUtils)
 export const sanitizeSqlParams = securityUtils.sanitizeSqlParams.bind(securityUtils)
 export const isBot = securityUtils.isBot.bind(securityUtils)
-export const validateApiRequest = securityUtils.validateApiRequest.bind(securityUtils) 
+export const validateApiRequest = securityUtils.validateApiRequest.bind(securityUtils)
+export const canAdminEditUser = securityUtils.canAdminEditUser.bind(securityUtils)
+export const canPerformAdminAction = securityUtils.canPerformAdminAction.bind(securityUtils) 

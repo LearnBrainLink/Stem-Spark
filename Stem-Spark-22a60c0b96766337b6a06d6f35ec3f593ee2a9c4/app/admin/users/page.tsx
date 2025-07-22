@@ -1,221 +1,271 @@
-"use client"
+'use client'
 
-import React, { useState, useEffect } from 'react'
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { supabase } from "@/lib/supabase"
-import { Search, Plus, Edit, Trash2, Users, Download, UserCheck, UserX, GraduationCap, Mail, Calendar, Eye, MoreHorizontal, RefreshCw, Shield, AlertTriangle } from "lucide-react"
-import { motion, AnimatePresence } from 'framer-motion'
-import { Skeleton } from "@/components/ui/skeleton"
-import { getEnhancedUsersData, createUser, updateUser, deleteUser } from '../enhanced-actions'
+import { useState, useEffect } from 'react'
+import { createClient } from '@supabase/supabase-js'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { 
+  Users, 
+  Shield, 
+  UserCheck, 
+  UserX, 
+  Edit, 
+  Trash2,
+  Search,
+  Filter,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Mail,
+  Phone,
+  GraduationCap,
+  Calendar,
+  BookOpen
+} from 'lucide-react'
+import { adminProtectionService } from '@/lib/admin-protection'
 
 interface User {
   id: string
   email: string
   full_name: string
-  role: string
-  grade?: number
-  school_name?: string
-  country?: string
-  state?: string
-  email_verified: boolean
+  role: 'admin' | 'super_admin' | 'intern' | 'student' | 'parent'
+  avatar_url: string | null
+  phone_number: string | null
+  date_of_birth: string | null
+  school_institution: string | null
+  grade_level: number | null
+  areas_of_interest: string[] | null
+  bio: string | null
+  total_volunteer_hours: number | null
+  is_super_admin: boolean | null
+  last_active: string | null
   created_at: string
-  last_sign_in_at?: string
-  status: 'active' | 'inactive' | 'pending'
+  updated_at: string
 }
 
-const roleColors = {
-  admin: 'bg-red-100 text-red-800 border-red-200',
-  teacher: 'bg-blue-100 text-blue-800 border-blue-200',
-  student: 'bg-green-100 text-green-800 border-green-200',
-  parent: 'bg-purple-100 text-purple-800 border-purple-200',
-}
-
-const statusColors = {
-  active: 'bg-green-100 text-green-800 border-green-200',
-  inactive: 'bg-gray-100 text-gray-800 border-gray-200',
-  pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-}
-
-export default function UserManagementPage() {
+export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [roleFilter, setRoleFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [isLoading, setIsLoading] = useState(true)
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [userPermissions, setUserPermissions] = useState<any>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editForm, setEditForm] = useState({
+    full_name: '',
+    role: '',
+    phone_number: '',
+    school_institution: '',
+    grade_level: '',
+    bio: ''
+  })
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
   useEffect(() => {
-    fetchUsers()
+    getCurrentUser()
   }, [])
 
   useEffect(() => {
-    filterUsers()
-  }, [users, searchTerm, roleFilter, statusFilter])
+    if (currentUser) {
+      fetchUsers()
+      getUserPermissions()
+    }
+  }, [currentUser])
+
+  const getCurrentUser = async () => {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser()
+      if (error) throw error
+      setCurrentUser(user)
+    } catch (error) {
+      console.error('Error getting current user:', error)
+      setError('Failed to get user information')
+    }
+  }
+
+  const getUserPermissions = async () => {
+    if (!currentUser) return
+    
+    try {
+      const result = await adminProtectionService.getUserPermissions(currentUser.id)
+      if (result.success && result.permissions) {
+        setUserPermissions(result.permissions)
+      }
+    } catch (error) {
+      console.error('Error getting user permissions:', error)
+    }
+  }
 
   const fetchUsers = async () => {
     try {
-      setIsLoading(true)
+      setLoading(true)
       setError(null)
-      
-      const result = await getEnhancedUsersData()
-      
-      if (result.error) {
-        setError(result.error)
-      } else if (result.users) {
-        setUsers(result.users)
-      }
-    } catch (err) {
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setUsers(data || [])
+    } catch (error) {
+      console.error('Error fetching users:', error)
       setError('Failed to load users')
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  const filterUsers = () => {
-    let filtered = users
+  const canEditUser = (targetUser: User) => {
+    if (!currentUser || !userPermissions) return false
+    
+    // Super admins can edit anyone
+    if (userPermissions.role === 'super_admin') return true
+    
+    // Regular admins cannot edit other admins or super admins
+    if (targetUser.role === 'admin' || targetUser.is_super_admin) {
+      return false
+    }
+    
+    // Admins can edit non-admin users
+    return userPermissions.role === 'admin'
+  }
 
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (user) =>
-          user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.school_name?.toLowerCase().includes(searchTerm.toLowerCase()),
+  const canDeleteUser = (targetUser: User) => {
+    if (!currentUser || !userPermissions) return false
+    
+    // Super admins can delete anyone except themselves
+    if (userPermissions.role === 'super_admin' && targetUser.id !== currentUser.id) {
+      return true
+    }
+    
+    // Regular admins cannot delete anyone
+    return false
+  }
+
+  const canChangeRole = (targetUser: User) => {
+    if (!currentUser || !userPermissions) return false
+    
+    // Super admins can change any role
+    if (userPermissions.role === 'super_admin') return true
+    
+    // Regular admins cannot change roles
+    return false
+  }
+
+  const updateUser = async (userId: string, updateData: any) => {
+    if (!currentUser) return
+
+    try {
+      setActionLoading(userId)
+
+      // Check if user can perform this action
+      const canPerform = await adminProtectionService.canPerformAdminAction(
+        currentUser.id,
+        'edit_user',
+        userId
       )
-    }
 
-    if (roleFilter !== "all") {
-      filtered = filtered.filter((user) => user.role === roleFilter)
-    }
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((user) => user.status === statusFilter)
-    }
-
-    setFilteredUsers(filtered)
-  }
-
-  const handleCreateUser = async (formData: FormData) => {
-    try {
-      const userData = {
-        email: formData.get("email") as string,
-        full_name: formData.get("fullName") as string,
-        role: formData.get("role") as string,
-        grade: formData.get("grade") ? Number(formData.get("grade")) : null,
-        school_name: formData.get("schoolName") as string,
-        country: formData.get("country") as string,
-        state: formData.get("state") as string,
-        password: formData.get("password") as string,
+      if (!canPerform.success || !canPerform.allowed) {
+        setError(canPerform.reason || 'You do not have permission to edit this user')
+        return
       }
 
-      const result = await createUser(userData)
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          ...updateData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId)
 
-      if (result.error) {
-        setMessage({ type: "error", text: result.error })
-      } else {
-        setMessage({ type: "success", text: "User created successfully!" })
-        setIsCreateDialogOpen(false)
-        fetchUsers()
-      }
-    } catch (error: any) {
-      setMessage({ type: "error", text: error.message || "Failed to create user" })
+      if (error) throw error
+
+      // Update local state
+      setUsers(prev => 
+        prev.map(user => 
+          user.id === userId ? { ...user, ...updateData } : user
+        )
+      )
+
+      setShowEditModal(false)
+      setSelectedUser(null)
+
+    } catch (error) {
+      console.error('Error updating user:', error)
+      setError('Failed to update user')
+    } finally {
+      setActionLoading(null)
     }
   }
 
-  const handleUpdateUser = async (formData: FormData) => {
-    if (!editingUser) return
+  const deleteUser = async (userId: string) => {
+    if (!currentUser) return
 
     try {
-      const userData = {
-        full_name: formData.get("fullName") as string,
-        role: formData.get("role") as string,
-        grade: formData.get("grade") ? Number(formData.get("grade")) : null,
-        school_name: formData.get("schoolName") as string,
-        country: formData.get("country") as string,
-        state: formData.get("state") as string,
+      setActionLoading(userId)
+
+      // Check if user can perform this action
+      const canPerform = await adminProtectionService.canPerformAdminAction(
+        currentUser.id,
+        'delete_user',
+        userId
+      )
+
+      if (!canPerform.success || !canPerform.allowed) {
+        setError(canPerform.reason || 'You do not have permission to delete this user')
+        return
       }
 
-      const result = await updateUser(editingUser.id, userData)
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId)
 
-      if (result.error) {
-        setMessage({ type: "error", text: result.error })
-      } else {
-        setMessage({ type: "success", text: "User updated successfully!" })
-        setEditingUser(null)
-        fetchUsers()
-      }
-    } catch (error: any) {
-      setMessage({ type: "error", text: error.message || "Failed to update user" })
+      if (error) throw error
+
+      // Update local state
+      setUsers(prev => prev.filter(user => user.id !== userId))
+
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      setError('Failed to delete user')
+    } finally {
+      setActionLoading(null)
     }
   }
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
-      return
-    }
-
-    try {
-      const result = await deleteUser(userId)
-
-      if (result.error) {
-        setMessage({ type: "error", text: result.error })
-      } else {
-        setMessage({ type: "success", text: "User deleted successfully!" })
-        fetchUsers()
-      }
-    } catch (error: any) {
-      setMessage({ type: "error", text: error.message || "Failed to delete user" })
+  const getRoleColor = (role: string, isSuperAdmin: boolean) => {
+    if (isSuperAdmin) return 'bg-purple-100 text-purple-800 border-purple-200'
+    switch (role) {
+      case 'admin': return 'bg-red-100 text-red-800 border-red-200'
+      case 'intern': return 'bg-blue-100 text-blue-800 border-blue-200'
+      case 'student': return 'bg-green-100 text-green-800 border-green-200'
+      case 'parent': return 'bg-orange-100 text-orange-800 border-orange-200'
+      default: return 'bg-gray-100 text-gray-800 border-gray-200'
     }
   }
 
-  const exportUsers = () => {
-    const csvContent = [
-      ['Name', 'Email', 'Role', 'School', 'Country', 'Status', 'Created'],
-      ...filteredUsers.map(user => [
-        user.full_name || '',
-        user.email,
-        user.role,
-        user.school_name || '',
-        user.country || '',
-        user.status,
-        new Date(user.created_at).toLocaleDateString()
-      ])
-    ].map(row => row.join(',')).join('\n')
-
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'users-export.csv'
-    a.click()
-    window.URL.revokeObjectURL(url)
-  }
-
-  const getRoleBadgeColor = (role: string) => {
-    return roleColors[role as keyof typeof roleColors] || 'bg-gray-100 text-gray-800 border-gray-200'
-  }
-
-  const getStatusBadgeColor = (status: string) => {
-    return statusColors[status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800 border-gray-200'
+  const getRoleIcon = (role: string, isSuperAdmin: boolean) => {
+    if (isSuperAdmin) return <Shield className="w-4 h-4" />
+    switch (role) {
+      case 'admin': return <Shield className="w-4 h-4" />
+      case 'intern': return <UserCheck className="w-4 h-4" />
+      case 'student': return <GraduationCap className="w-4 h-4" />
+      case 'parent': return <Users className="w-4 h-4" />
+      default: return <Users className="w-4 h-4" />
+    }
   }
 
   const formatDate = (dateString: string) => {
@@ -226,394 +276,377 @@ export default function UserManagementPage() {
     })
   }
 
-  const UserCard = ({ user, index }: { user: User; index: number }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.05 }}
-      className="user-card bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-    >
-      {/* Header Section with Profile Circle */}
-      <div className="user-card-header p-5 pb-4">
-        <div className="flex items-center gap-4 mb-4">
-          <div className="profile-circle">
-            {user.full_name?.charAt(0)?.toUpperCase() || user.email.charAt(0).toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-gray-900 text-lg leading-tight mb-1 user-info-text" title={user.full_name || 'No Name'}>
-              {user.full_name || 'No Name'}
-            </h3>
-            <p className="text-gray-600 text-sm mb-2 user-info-text" title={user.email}>
-              {user.email}
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              <Badge className={`user-badge ${getRoleBadgeColor(user.role)}`}>
-                {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-              </Badge>
-              <Badge className={`user-badge ${getStatusBadgeColor(user.status)}`}>
-                {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
-              </Badge>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Content Section */}
-      <div className="user-card-content px-5 pb-4">
-        <div className="grid grid-cols-1 gap-3 text-sm">
-          <div className="flex items-center gap-2 min-h-[20px]">
-            <GraduationCap className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <span className="text-gray-600 user-info-text" title={user.school_name || 'No school specified'}>
-              {user.school_name || 'No school specified'}
-            </span>
-          </div>
-          
-          <div className="flex items-center gap-2 min-h-[20px]">
-            <Shield className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <span className="text-gray-600">
-              {user.email_verified ? 'Email Verified' : 'Not Verified'}
-            </span>
-          </div>
-          
-          {user.grade && (
-            <div className="flex items-center gap-2 min-h-[20px]">
-              <div className="w-4 h-4 flex items-center justify-center text-gray-400 flex-shrink-0">
-                <span className="text-xs font-bold">#</span>
-              </div>
-              <span className="text-gray-600">Grade: {user.grade}</span>
-            </div>
-          )}
-          
-          {(user.country || user.state) && (
-            <div className="flex items-center gap-2 min-h-[20px]">
-              <div className="w-4 h-4 flex items-center justify-center text-gray-400 flex-shrink-0">
-                🌍
-              </div>
-              <span className="text-gray-600 user-info-text" title={[user.state, user.country].filter(Boolean).join(', ')}>
-                {[user.state, user.country].filter(Boolean).join(', ') || 'Location not specified'}
-              </span>
-            </div>
-          )}
-          
-          <div className="flex items-center gap-2 min-h-[20px]">
-            <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <span className="text-gray-600 text-xs">
-              Joined: {formatDate(user.created_at)}
-            </span>
-          </div>
-          
-          <div className="flex items-center gap-2 min-h-[20px]">
-            <Eye className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <span className="text-gray-600 text-xs">
-              Last: {user.last_sign_in_at ? formatDate(user.last_sign_in_at) : 'Never'}
-            </span>
-          </div>
-        </div>
-      </div>
-      
-      {/* Action Section */}
-      <div className="user-card-actions bg-gray-50 px-5 py-3 flex justify-end gap-2 border-t border-gray-100">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => setEditingUser(user)} 
-          className="hover:bg-blue-50 hover:text-blue-700 text-gray-600"
-        >
-          <Edit className="w-4 h-4 mr-1" />
-          Edit
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="text-red-600 hover:text-red-700 hover:bg-red-50" 
-          onClick={() => handleDeleteUser(user.id)}
-        >
-          <Trash2 className="w-4 h-4 mr-1" />
-          Delete
-        </Button>
-      </div>
-    </motion.div>
-  );
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesRole = roleFilter === 'all' || user.role === roleFilter
+    return matchesSearch && matchesRole
+  })
 
-  const UserCardSkeleton = ({ index }: { index: number }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.05 }}
-      className="user-card bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden"
-    >
-      {/* Header Section */}
-      <div className="user-card-header p-5 pb-4">
-        <div className="flex items-center gap-4 mb-4">
-          <Skeleton className="w-16 h-16 rounded-full" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-4 w-48" />
-            <div className="flex gap-1.5 mt-2">
-              <Skeleton className="h-6 w-16 rounded-full" />
-              <Skeleton className="h-6 w-16 rounded-full" />
+  const openEditModal = (user: User) => {
+    setSelectedUser(user)
+    setEditForm({
+      full_name: user.full_name,
+      role: user.role,
+      phone_number: user.phone_number || '',
+      school_institution: user.school_institution || '',
+      grade_level: user.grade_level?.toString() || '',
+      bio: user.bio || ''
+    })
+    setShowEditModal(true)
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading users...</p>
             </div>
           </div>
         </div>
       </div>
-      
-      {/* Content Section */}
-      <div className="user-card-content px-5 pb-4">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Skeleton className="w-4 h-4" />
-            <Skeleton className="h-4 w-full" />
-          </div>
-          <div className="flex items-center gap-2">
-            <Skeleton className="w-4 h-4" />
-            <Skeleton className="h-4 w-24" />
-          </div>
-          <div className="flex items-center gap-2">
-            <Skeleton className="w-4 h-4" />
-            <Skeleton className="h-4 w-16" />
-          </div>
-          <div className="flex items-center gap-2">
-            <Skeleton className="w-4 h-4" />
-            <Skeleton className="h-4 w-28" />
-          </div>
-          <div className="flex items-center gap-2">
-            <Skeleton className="w-4 h-4" />
-            <Skeleton className="h-4 w-32" />
-          </div>
-          <div className="flex items-center gap-2">
-            <Skeleton className="w-4 h-4" />
-            <Skeleton className="h-4 w-20" />
-          </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+        <div className="max-w-7xl mx-auto">
+          <Card className="shadow-lg border-0 bg-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                  <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Users</h3>
+                  <p className="text-gray-600 mb-4">{error}</p>
+                  <Button onClick={fetchUsers} variant="outline">
+                    Try Again
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
-      
-      {/* Action Section */}
-      <div className="user-card-actions bg-gray-50 px-5 py-3 flex justify-end gap-2 border-t border-gray-100">
-        <Skeleton className="h-8 w-16" />
-        <Skeleton className="h-8 w-20" />
-      </div>
-    </motion.div>
-  );
+    )
+  }
 
   return (
-    <div className="admin-page-content space-y-6 p-0 m-0">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-600 mt-1">Manage all users, roles, and permissions</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">User Management</h1>
+              <p className="text-gray-600">Manage user accounts and permissions</p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <div className="text-2xl font-bold text-blue-600">{users.length}</div>
+                <div className="text-sm text-gray-500">Total Users</div>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-green-600">
+                  {users.filter(user => user.last_active && new Date(user.last_active) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length}
+                </div>
+                <div className="text-sm text-gray-500">Active This Week</div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto">
-                <Plus className="w-4 h-4 mr-2" />
-                Add User
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Create New User</DialogTitle>
-                <DialogDescription>
-                  Add a new user to the system with appropriate role and permissions.
-                </DialogDescription>
-              </DialogHeader>
-              <form action={handleCreateUser} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" name="email" type="email" required />
+
+        {/* Filters */}
+        <Card className="shadow-lg border-0 bg-white mb-6">
+          <CardContent className="p-4">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search users by name or email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name</Label>
-                  <Input id="fullName" name="fullName" required />
+              </div>
+              <div className="w-full md:w-48">
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Roles</SelectItem>
+                    <SelectItem value="super_admin">Super Admin</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="intern">Intern</SelectItem>
+                    <SelectItem value="student">Student</SelectItem>
+                    <SelectItem value="parent">Parent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Users Grid */}
+        <div className="grid gap-6">
+          {filteredUsers.map((user) => (
+            <Card key={user.id} className="shadow-lg border-0 bg-white hover:shadow-xl transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-1">
+                          {user.full_name}
+                        </h3>
+                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <Mail className="w-4 h-4 mr-1" />
+                            {user.email}
+                          </div>
+                          {user.phone_number && (
+                            <div className="flex items-center">
+                              <Phone className="w-4 h-4 mr-1" />
+                              {user.phone_number}
+                            </div>
+                          )}
+                          <div className="flex items-center">
+                            <Calendar className="w-4 h-4 mr-1" />
+                            Joined: {formatDate(user.created_at)}
+                          </div>
+                        </div>
+                      </div>
+                      <Badge className={`flex items-center space-x-1 ${getRoleColor(user.role, user.is_super_admin || false)}`}>
+                        {getRoleIcon(user.role, user.is_super_admin || false)}
+                        <span className="capitalize">
+                          {user.is_super_admin ? 'Super Admin' : user.role.replace('_', ' ')}
+                        </span>
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      {user.school_institution && (
+                        <div>
+                          <div className="flex items-center mb-2">
+                            <GraduationCap className="w-4 h-4 mr-2 text-blue-600" />
+                            <span className="font-medium text-gray-700">School/Institution</span>
+                          </div>
+                          <p className="text-sm text-gray-600">{user.school_institution}</p>
+                          {user.grade_level && (
+                            <p className="text-sm text-gray-600">Grade {user.grade_level}</p>
+                          )}
+                        </div>
+                      )}
+
+                      {user.areas_of_interest && user.areas_of_interest.length > 0 && (
+                        <div>
+                          <div className="flex items-center mb-2">
+                            <BookOpen className="w-4 h-4 mr-2 text-green-600" />
+                            <span className="font-medium text-gray-700">Areas of Interest</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {user.areas_of_interest.slice(0, 3).map((area, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs">
+                                {area}
+                              </Badge>
+                            ))}
+                            {user.areas_of_interest.length > 3 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{user.areas_of_interest.length - 3} more
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm text-gray-500">
+                      <span>Last Active: {user.last_active ? formatDate(user.last_active) : 'Never'}</span>
+                      {user.total_volunteer_hours && (
+                        <span>Volunteer Hours: {user.total_volunteer_hours}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="ml-6 flex flex-col space-y-2">
+                    {canEditUser(user) ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEditModal(user)}
+                        disabled={actionLoading === user.id}
+                      >
+                        {actionLoading === user.id ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        ) : (
+                          <>
+                            <Edit className="w-4 h-4 mr-1" />
+                            Edit
+                          </>
+                        )}
+                      </Button>
+                    ) : (
+                      <div className="text-xs text-gray-500 text-center px-2 py-1 bg-gray-100 rounded">
+                        Cannot Edit
+                      </div>
+                    )}
+
+                    {canDeleteUser(user) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-red-300 text-red-600 hover:bg-red-50"
+                        disabled={actionLoading === user.id}
+                        onClick={() => {
+                          if (confirm(`Are you sure you want to delete ${user.full_name}?`)) {
+                            deleteUser(user.id)
+                          }
+                        }}
+                      >
+                        {actionLoading === user.id ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                        ) : (
+                          <>
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input id="password" name="password" type="password" required placeholder="Enter user password" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {filteredUsers.length === 0 && (
+          <Card className="shadow-lg border-0 bg-white">
+            <CardContent className="p-12">
+              <div className="text-center">
+                <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Users Found</h3>
+                <p className="text-gray-600">No users match your current search criteria.</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Edit User Modal */}
+      {showEditModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Edit User</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowEditModal(false)}
+                >
+                  Close
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Full Name</label>
+                  <Input
+                    value={editForm.full_name}
+                    onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                    className="mt-1"
+                  />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Select name="role" required>
-                    <SelectTrigger>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Role</label>
+                  <Select 
+                    value={editForm.role} 
+                    onValueChange={(value) => setEditForm({ ...editForm, role: value })}
+                    disabled={!canChangeRole(selectedUser)}
+                  >
+                    <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="student">Student</SelectItem>
-                      <SelectItem value="teacher">Teacher</SelectItem>
+                      <SelectItem value="intern">Intern</SelectItem>
                       <SelectItem value="parent">Parent</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="super_admin">Super Admin</SelectItem>
                     </SelectContent>
                   </Select>
+                  {!canChangeRole(selectedUser) && (
+                    <p className="text-xs text-gray-500 mt-1">You cannot change this user's role</p>
+                  )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="schoolName">School Name</Label>
-                  <Input id="schoolName" name="schoolName" />
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Phone Number</label>
+                  <Input
+                    value={editForm.phone_number}
+                    onChange={(e) => setEditForm({ ...editForm, phone_number: e.target.value })}
+                    className="mt-1"
+                  />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="country">Country</Label>
-                    <Input id="country" name="country" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="state">State</Label>
-                    <Input id="state" name="state" />
-                  </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">School/Institution</label>
+                  <Input
+                    value={editForm.school_institution}
+                    onChange={(e) => setEditForm({ ...editForm, school_institution: e.target.value })}
+                    className="mt-1"
+                  />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="grade">Grade (for students)</Label>
-                  <Input id="grade" name="grade" type="number" min="1" max="12" />
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Grade Level</label>
+                  <Input
+                    type="number"
+                    value={editForm.grade_level}
+                    onChange={(e) => setEditForm({ ...editForm, grade_level: e.target.value })}
+                    className="mt-1"
+                  />
                 </div>
-                <div className="flex gap-3 pt-4">
-                  <Button type="submit" className="flex-1">Create User</Button>
-                  <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Bio</label>
+                  <Input
+                    value={editForm.bio}
+                    onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowEditModal(false)}
+                  >
                     Cancel
                   </Button>
+                  <Button
+                    onClick={() => updateUser(selectedUser.id, editForm)}
+                    disabled={actionLoading === selectedUser.id}
+                  >
+                    {actionLoading === selectedUser.id ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      'Save Changes'
+                    )}
+                  </Button>
                 </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-          
-          <Button variant="outline" onClick={exportUsers} className="w-full sm:w-auto">
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
-        </div>
-      </div>
-
-      {/* Filters and Search */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="md:col-span-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Search users..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+              </div>
+            </div>
           </div>
         </div>
-        <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger>
-            <SelectValue placeholder="Filter by role" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Roles</SelectItem>
-            <SelectItem value="student">Students</SelectItem>
-            <SelectItem value="teacher">Teachers</SelectItem>
-            <SelectItem value="parent">Parents</SelectItem>
-            <SelectItem value="admin">Admins</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger>
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Message Display */}
-      {message && (
-        <Alert className={message.type === "success" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
-          <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
-            {message.text}
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Error Display */}
-      {error && (
-        <Alert className="border-red-200 bg-red-50">
-          <AlertTriangle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800">{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Users Grid */}
-      {isLoading ? (
-        <div className="user-card-grid">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <UserCardSkeleton key={index} index={index} />
-          ))}
-        </div>
-      ) : filteredUsers.length > 0 ? (
-        <div className="user-card-grid">
-          {filteredUsers.map((user, index) => (
-            <UserCard key={user.id} user={user} index={index} />
-          ))}
-        </div>
-      ) : (
-        <Card className="text-center py-12">
-          <CardContent>
-            <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No users found</h3>
-            <p className="text-gray-600">Try adjusting your search or filters to find users.</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Edit User Dialog */}
-      {editingUser && (
-        <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Edit User</DialogTitle>
-              <DialogDescription>
-                Update user information and permissions.
-              </DialogDescription>
-            </DialogHeader>
-            <form action={handleUpdateUser} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-fullName">Full Name</Label>
-                <Input id="edit-fullName" name="fullName" defaultValue={editingUser.full_name} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-role">Role</Label>
-                <Select name="role" defaultValue={editingUser.role} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="student">Student</SelectItem>
-                    <SelectItem value="teacher">Teacher</SelectItem>
-                    <SelectItem value="parent">Parent</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-schoolName">School Name</Label>
-                <Input id="edit-schoolName" name="schoolName" defaultValue={editingUser.school_name || ''} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-country">Country</Label>
-                  <Input id="edit-country" name="country" defaultValue={editingUser.country || ''} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-state">State</Label>
-                  <Input id="edit-state" name="state" defaultValue={editingUser.state || ''} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-grade">Grade (for students)</Label>
-                <Input id="edit-grade" name="grade" type="number" min="1" max="12" defaultValue={editingUser.grade || ''} />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <Button type="submit" className="flex-1">Update User</Button>
-                <Button type="button" variant="outline" onClick={() => setEditingUser(null)}>
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
       )}
     </div>
   )
