@@ -89,29 +89,22 @@ export default function SecureLoginPage() {
 
     try {
       if (isLogin) {
-        // Create FormData with the current form values
-        const loginFormData = new FormData();
-        loginFormData.append('email', formData.email);
-        loginFormData.append('password', formData.password);
-        
-        const result = await secureSignInWithEmail(loginFormData);
+        // Use client-side authentication directly
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password
+        });
 
-        if (result.error) {
+        if (error) {
           setMessage({
             type: "error",
-            text: result.error,
-            requiresVerification: result.requiresVerification,
-          })
-
-          // Store email for verification resend
-          if (result.requiresVerification) {
-            setEmail(formData.email)
-          }
-        } else if (result.success) {
+            text: error.message,
+          });
+        } else if (data.user) {
           setMessage({
             type: "success",
             text: "Login successful! Redirecting...",
-          })
+          });
 
           // Simple redirect to dashboard - let the dashboard handle role checking
           setTimeout(() => {
