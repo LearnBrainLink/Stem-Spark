@@ -50,6 +50,7 @@ export default function StudentDashboard() {
   const [messages, setMessages] = useState<any[]>([])
   const [videos, setVideos] = useState<any[]>([])
   const [enrollments, setEnrollments] = useState<any[]>([])
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0)
 
   useEffect(() => {
     checkAuth()
@@ -163,10 +164,40 @@ export default function StudentDashboard() {
         setVideos(videoData)
       }
 
+      // Load unread message count
+      await loadUnreadMessageCount(userId)
+
       setLoading(false)
     } catch (error) {
       console.error('Error in loadDashboardData:', error)
       setLoading(false)
+    }
+  }
+
+  const loadUnreadMessageCount = async (userId: string) => {
+    try {
+      // Get all messages not sent by current user
+      const { data: allMessages, error: messagesError } = await supabase
+        .from('chat_messages')
+        .select('id')
+        .neq('sender_id', userId)
+
+      if (!messagesError && allMessages) {
+        // Get messages that user has read
+        const { data: readMessages, error: readError } = await supabase
+          .from('message_reads')
+          .select('message_id')
+          .eq('user_id', userId)
+          .in('message_id', allMessages.map(m => m.id))
+
+        if (!readError) {
+          const readMessageIds = readMessages?.map(m => m.message_id) || []
+          const unreadCount = allMessages.length - readMessageIds.length
+          setUnreadMessageCount(Math.max(0, unreadCount))
+        }
+      }
+    } catch (error) {
+      console.error('Error loading unread message count:', error)
     }
   }
 
@@ -283,7 +314,7 @@ export default function StudentDashboard() {
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">2</div>
+              <div className="text-2xl font-bold">{unreadMessageCount}</div>
               <p className="text-xs text-muted-foreground">
                 New messages waiting
               </p>

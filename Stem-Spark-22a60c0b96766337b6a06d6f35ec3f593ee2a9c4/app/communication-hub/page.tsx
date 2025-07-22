@@ -2,10 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import Link from 'next/link'
+import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
 import { 
   MessageSquare, 
   Send,
@@ -13,7 +17,10 @@ import {
   Hash,
   Bell,
   Search,
-  Plus
+  Plus,
+  ArrowRight,
+  X,
+  CheckCircle
 } from 'lucide-react'
 
 const supabase = createClient(
@@ -29,6 +36,12 @@ export default function CommunicationHub() {
   const [selectedChannel, setSelectedChannel] = useState<any>(null)
   const [newMessage, setNewMessage] = useState('')
   const [users, setUsers] = useState<any[]>([])
+  const [unreadCounts, setUnreadCounts] = useState<{[key: string]: number}>({})
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [newChannelName, setNewChannelName] = useState('')
+  const [newChannelDescription, setNewChannelDescription] = useState('')
+  const [newChannelType, setNewChannelType] = useState('public')
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([])
 
   useEffect(() => {
     checkAuth()
@@ -95,10 +108,47 @@ export default function CommunicationHub() {
         setUsers(userData)
       }
 
+      // Load unread message counts for each channel
+      await loadUnreadCounts(userId)
+
       setLoading(false)
     } catch (error) {
       console.error('Error in loadCommunicationData:', error)
       setLoading(false)
+    }
+  }
+
+  const loadUnreadCounts = async (userId: string) => {
+    try {
+      const counts: {[key: string]: number} = {}
+      
+      for (const channel of channels) {
+        // Get total messages in channel
+        const { data: totalMessages, error: totalError } = await supabase
+          .from('chat_messages')
+          .select('id')
+          .eq('channel_id', channel.id)
+          .neq('sender_id', userId)
+
+        if (!totalError && totalMessages) {
+          // Get read messages by user
+          const { data: readMessages, error: readError } = await supabase
+            .from('message_reads')
+            .select('message_id')
+            .eq('user_id', userId)
+            .in('message_id', totalMessages.map(m => m.id))
+
+          if (!readError) {
+            const readMessageIds = readMessages?.map(m => m.message_id) || []
+            const unreadCount = totalMessages.length - readMessageIds.length
+            counts[channel.id] = Math.max(0, unreadCount)
+          }
+        }
+      }
+      
+      setUnreadCounts(counts)
+    } catch (error) {
+      console.error('Error loading unread counts:', error)
     }
   }
 
@@ -115,9 +165,47 @@ export default function CommunicationHub() {
 
       if (!messageError && messageData) {
         setMessages(messageData)
+        
+        // Mark messages as read
+        if (user) {
+          await markMessagesAsRead(messageData.map(m => m.id))
+        }
       }
     } catch (error) {
       console.error('Error in loadMessages:', error)
+    }
+  }
+
+  const markMessagesAsRead = async (messageIds: string[]) => {
+    if (!user || messageIds.length === 0) return
+
+    try {
+      // Insert read records for messages not sent by current user
+      const messagesToMark = messageIds.filter(id => {
+        const message = messages.find(m => m.id === id)
+        return message && message.sender_id !== user.id
+      })
+
+      if (messagesToMark.length > 0) {
+        const readRecords = messagesToMark.map(messageId => ({
+          user_id: user.id,
+          message_id: messageId
+        }))
+
+        const { error } = await supabase
+          .from('message_reads')
+          .upsert(readRecords, { onConflict: 'user_id,message_id' })
+
+        if (!error) {
+          // Update unread count for current channel
+          setUnreadCounts(prev => ({
+            ...prev,
+            [selectedChannel.id]: 0
+          }))
+        }
+      }
+    } catch (error) {
+      console.error('Error marking messages as read:', error)
     }
   }
 
@@ -151,6 +239,76 @@ export default function CommunicationHub() {
     await loadMessages(channel.id)
   }
 
+  const handleCreateChannel = async () => {
+    if (!newChannelName.trim() || !user) return
+
+    try {
+      // Create the channel
+      const { data: channelData, error: channelError } = await supabase
+        .from('chat_channels')
+        .insert({
+          name: newChannelName.trim(),
+          description: newChannelDescription.trim(),
+          channel_type: newChannelType,
+          created_by: user.id
+        })
+        .select()
+        .single()
+
+      if (channelError) {
+        console.error('Error creating channel:', channelError)
+        alert('Failed to create channel')
+        return
+      }
+
+      // Add current user as member
+      await supabase
+        .from('chat_channel_members')
+        .insert({
+          user_id: user.id,
+          channel_id: channelData.id,
+          role: 'admin'
+        })
+
+      // Add selected users as members
+      if (selectedUsers.length > 0) {
+        const memberRecords = selectedUsers.map(userId => ({
+          user_id: userId,
+          channel_id: channelData.id,
+          role: 'member'
+        }))
+
+        await supabase
+          .from('chat_channel_members')
+          .insert(memberRecords)
+      }
+
+      // Reset form and reload data
+      setNewChannelName('')
+      setNewChannelDescription('')
+      setNewChannelType('public')
+      setSelectedUsers([])
+      setShowCreateDialog(false)
+      
+      await loadCommunicationData(user.id)
+      setSelectedChannel(channelData)
+      await loadMessages(channelData.id)
+      
+      alert('Channel created successfully!')
+    } catch (error) {
+      console.error('Error in handleCreateChannel:', error)
+      alert('Failed to create channel')
+    }
+  }
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUsers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    )
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -164,12 +322,33 @@ export default function CommunicationHub() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Communication Hub</h1>
-          <p className="text-gray-600 mt-2">Connect with students, tutors, and mentors</p>
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <Image
+                  src="/images/novakinetix-logo.png"
+                  alt="NovaKinetix Academy"
+                  width={40}
+                  height={40}
+                  className="h-10 w-auto"
+                />
+                <h1 className="text-2xl font-bold text-gray-900">Communication Hub</h1>
+              </div>
+            </div>
+            <Button variant="outline" asChild>
+              <Link href="/student-dashboard">
+                <ArrowRight className="h-4 w-4 mr-2" />
+                Back to Dashboard
+              </Link>
+            </Button>
+          </div>
         </div>
+      </header>
 
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[600px]">
           {/* Channels Sidebar */}
           <Card className="lg:col-span-1">
@@ -179,9 +358,91 @@ export default function CommunicationHub() {
                   <Hash className="h-4 w-4 mr-2" />
                   Channels
                 </span>
-                <Button size="sm" variant="outline">
-                  <Plus className="h-4 w-4" />
-                </Button>
+                <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Create New Channel</DialogTitle>
+                      <DialogDescription>
+                        Create a new channel for group discussions
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">
+                          Name
+                        </Label>
+                        <Input
+                          id="name"
+                          value={newChannelName}
+                          onChange={(e) => setNewChannelName(e.target.value)}
+                          className="col-span-3"
+                          placeholder="Channel name"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="description" className="text-right">
+                          Description
+                        </Label>
+                        <Input
+                          id="description"
+                          value={newChannelDescription}
+                          onChange={(e) => setNewChannelDescription(e.target.value)}
+                          className="col-span-3"
+                          placeholder="Channel description"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="type" className="text-right">
+                          Type
+                        </Label>
+                        <select
+                          id="type"
+                          value={newChannelType}
+                          onChange={(e) => setNewChannelType(e.target.value)}
+                          className="col-span-3 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="public">Public</option>
+                          <option value="private">Private</option>
+                          <option value="group">Group</option>
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-4 items-start gap-4">
+                        <Label className="text-right pt-2">
+                          Add Members
+                        </Label>
+                        <div className="col-span-3 max-h-32 overflow-y-auto space-y-2">
+                          {users.filter(u => u.id !== user?.id).map((userItem) => (
+                            <div key={userItem.id} className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id={userItem.id}
+                                checked={selectedUsers.includes(userItem.id)}
+                                onChange={() => toggleUserSelection(userItem.id)}
+                                className="rounded"
+                              />
+                              <Label htmlFor={userItem.id} className="text-sm">
+                                {userItem.full_name} ({userItem.role})
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-end space-x-2">
+                      <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleCreateChannel}>
+                        Create Channel
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -196,9 +457,16 @@ export default function CommunicationHub() {
                         : 'hover:bg-gray-100'
                     }`}
                   >
-                    <div className="flex items-center">
-                      <Hash className="h-4 w-4 mr-2" />
-                      <span className="font-medium">{channel.name}</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <Hash className="h-4 w-4 mr-2" />
+                        <span className="font-medium">{channel.name}</span>
+                      </div>
+                      {unreadCounts[channel.id] > 0 && (
+                        <Badge variant="destructive" className="text-xs">
+                          {unreadCounts[channel.id]}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-xs text-gray-500 truncate">{channel.description}</p>
                   </button>
@@ -239,6 +507,9 @@ export default function CommunicationHub() {
                             <span className="text-xs text-gray-500">
                               {new Date(message.created_at).toLocaleTimeString()}
                             </span>
+                            {message.sender_id === user?.id && (
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                            )}
                           </div>
                           <p className="text-sm text-gray-700 mt-1">{message.content}</p>
                         </div>
@@ -284,16 +555,16 @@ export default function CommunicationHub() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {users.slice(0, 8).map((user) => (
-                <div key={user.id} className="flex items-center space-x-3 p-3 border rounded-lg">
+              {users.slice(0, 8).map((userItem) => (
+                <div key={userItem.id} className="flex items-center space-x-3 p-3 border rounded-lg">
                   <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
                     <span className="text-xs font-medium text-green-600">
-                      {user.full_name?.charAt(0) || 'U'}
+                      {userItem.full_name?.charAt(0) || 'U'}
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm font-medium">{user.full_name}</p>
-                    <p className="text-xs text-gray-500">{user.role}</p>
+                    <p className="text-sm font-medium">{userItem.full_name}</p>
+                    <p className="text-xs text-gray-500">{userItem.role}</p>
                   </div>
                 </div>
               ))}
