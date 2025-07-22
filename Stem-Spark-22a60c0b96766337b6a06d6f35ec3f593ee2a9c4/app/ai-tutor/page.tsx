@@ -143,35 +143,6 @@ export default function AITutorPage() {
       setIsLoading(false)
     }
   }
-  }
-
-  const generateAIResponse = (userMessage: string, subject: string): string => {
-    const responses = {
-      math: [
-        "Let me help you with that math problem! First, let's break it down step by step...",
-        "Great question! In mathematics, we can approach this using several methods...",
-        "I'd be happy to explain this mathematical concept. Let's start with the fundamentals..."
-      ],
-      science: [
-        "That's an interesting scientific question! Let me explain the underlying principles...",
-        "In science, we observe, hypothesize, and test. Let's explore this together...",
-        "Great scientific thinking! Let me help you understand the concepts involved..."
-      ],
-      programming: [
-        "Excellent programming question! Let me show you how to approach this...",
-        "In programming, there are often multiple ways to solve a problem. Here's one approach...",
-        "Let's break down this programming concept step by step..."
-      ],
-      engineering: [
-        "Engineering is all about solving problems! Let me help you understand this concept...",
-        "Great engineering question! Let's explore the principles and applications...",
-        "In engineering, we often use systematic approaches. Let me show you how..."
-      ]
-    }
-
-    const subjectResponses = responses[subject as keyof typeof responses] || responses.math
-    return subjectResponses[Math.floor(Math.random() * subjectResponses.length)]
-  }
 
   const startNewConversation = () => {
     setMessages([])
