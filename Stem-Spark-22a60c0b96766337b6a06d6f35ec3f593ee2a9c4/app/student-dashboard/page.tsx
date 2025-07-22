@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import Link from 'next/link'
+import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -15,9 +17,12 @@ import {
   ArrowRight,
   LogOut,
   Bell,
-  GraduationCap,
   Award,
-  Video
+  Video,
+  Home,
+  GraduationCap,
+  MessageCircle,
+  Clock
 } from 'lucide-react'
 
 const supabase = createClient(
@@ -25,12 +30,26 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+interface Course {
+  id: string
+  title: string
+  description: string
+  category: string
+  difficulty_level: string
+  duration_hours: number
+  instructor_id: string
+  instructor_name?: string
+  progress?: number
+}
+
 export default function StudentDashboard() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [courses, setCourses] = useState<Course[]>([])
   const [tutoringSessions, setTutoringSessions] = useState<any[]>([])
   const [messages, setMessages] = useState<any[]>([])
   const [videos, setVideos] = useState<any[]>([])
+  const [enrollments, setEnrollments] = useState<any[]>([])
 
   useEffect(() => {
     checkAuth()
@@ -73,6 +92,37 @@ export default function StudentDashboard() {
 
   const loadDashboardData = async (userId: string) => {
     try {
+      // Load user's course enrollments with course details
+      const { data: enrollmentData, error: enrollmentError } = await supabase
+        .from('enrollments')
+        .select(`
+          *,
+          course:courses(
+            *,
+            instructor:profiles!courses_instructor_id_fkey(full_name)
+          )
+        `)
+        .eq('student_id', userId)
+        .eq('status', 'active')
+
+      if (!enrollmentError && enrollmentData) {
+        setEnrollments(enrollmentData)
+        
+        // Transform enrollments to courses with progress
+        const coursesWithProgress = enrollmentData.map((enrollment: any) => ({
+          id: enrollment.course.id,
+          title: enrollment.course.title,
+          description: enrollment.course.description,
+          category: enrollment.course.category,
+          difficulty_level: enrollment.course.difficulty_level,
+          duration_hours: enrollment.course.duration_hours,
+          instructor_id: enrollment.course.instructor_id,
+          instructor_name: enrollment.course.instructor?.full_name || 'Unknown Instructor',
+          progress: enrollment.progress_percentage || 0
+        }))
+        setCourses(coursesWithProgress)
+      }
+
       // Load tutoring sessions
       const { data: sessions, error: sessionsError } = await supabase
         .from('tutoring_sessions')
@@ -148,7 +198,13 @@ export default function StudentDashboard() {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <GraduationCap className="h-8 w-8 text-blue-600" />
+                <Image
+                  src="/images/novakinetix-logo.png"
+                  alt="NovaKinetix Academy"
+                  width={40}
+                  height={40}
+                  className="h-10 w-auto"
+                />
                 <h1 className="text-2xl font-bold text-gray-900">Student Dashboard</h1>
               </div>
               {user && (
@@ -158,9 +214,17 @@ export default function StudentDashboard() {
               )}
             </div>
             <div className="flex items-center space-x-4">
-              <Button variant="outline" size="sm">
-                <Bell className="h-4 w-4 mr-2" />
-                Notifications
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/communication-hub">
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Messages
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/tutoring">
+                  <Users className="h-4 w-4 mr-2" />
+                  Tutoring
+                </Link>
               </Button>
               <Button variant="outline" size="sm" onClick={handleSignOut}>
                 <LogOut className="h-4 w-4 mr-2" />
@@ -180,9 +244,9 @@ export default function StudentDashboard() {
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">3</div>
+              <div className="text-2xl font-bold">{courses.filter(c => c.progress && c.progress > 0 && c.progress < 100).length}</div>
               <p className="text-xs text-muted-foreground">
-                1 completed
+                {courses.filter(c => c.progress === 100).length} completed
               </p>
             </CardContent>
           </Card>
@@ -202,13 +266,13 @@ export default function StudentDashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Achievements</CardTitle>
-              <Trophy className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">5</div>
+              <div className="text-2xl font-bold">{user?.total_volunteer_hours || 0}</div>
               <p className="text-xs text-muted-foreground">
-                Keep up the great work!
+                Volunteer hours logged
               </p>
             </CardContent>
           </Card>
@@ -233,9 +297,17 @@ export default function StudentDashboard() {
             {/* Current Courses */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <BookOpen className="h-5 w-5 mr-2" />
-                  Current Courses
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center">
+                    <BookOpen className="h-5 w-5 mr-2" />
+                    My Courses
+                  </span>
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href="/learning-path">
+                      <ArrowRight className="h-4 w-4 mr-1" />
+                      View All
+                    </Link>
+                  </Button>
                 </CardTitle>
                 <CardDescription>
                   Continue your learning journey
@@ -243,28 +315,48 @@ export default function StudentDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex-1">
-                      <h3 className="font-medium">Introduction to STEM</h3>
-                      <p className="text-sm text-gray-600">Learn the fundamentals of Science, Technology, Engineering, and Mathematics</p>
-                      <div className="flex items-center mt-2 space-x-4 text-sm text-gray-500">
-                        <span>Dr. Sarah Johnson</span>
-                        <span>8 hours</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="text-right">
-                        <div className="text-sm font-medium">75%</div>
-                        <div className="w-24 bg-gray-200 rounded-full h-2">
-                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: '75%' }}></div>
+                  {courses.length > 0 ? (
+                    courses.map((course) => (
+                      <div key={course.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex-1">
+                          <h3 className="font-medium">{course.title}</h3>
+                          <p className="text-sm text-gray-600">{course.description}</p>
+                          <div className="flex items-center mt-2 space-x-4 text-sm text-gray-500">
+                            <span>{course.instructor_name}</span>
+                            <span>{course.duration_hours} hours</span>
+                            <Badge variant="outline">{course.difficulty_level}</Badge>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                          <div className="text-right">
+                            <div className="text-sm font-medium">{course.progress}%</div>
+                            <div className="w-24 bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-blue-600 h-2 rounded-full" 
+                                style={{ width: `${course.progress}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                          <Button size="sm" asChild>
+                            <Link href={`/learning-path?course=${course.id}`}>
+                              <Play className="h-4 w-4 mr-1" />
+                              Continue
+                            </Link>
+                          </Button>
                         </div>
                       </div>
-                      <Button size="sm">
-                        <Play className="h-4 w-4 mr-1" />
-                        Continue
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600">No courses enrolled yet</p>
+                      <Button className="mt-2" asChild>
+                        <Link href="/learning-path">
+                          Browse Courses
+                        </Link>
                       </Button>
                     </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -272,9 +364,17 @@ export default function StudentDashboard() {
             {/* Recent Videos */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Video className="h-5 w-5 mr-2" />
-                  Recent Videos
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center">
+                    <Video className="h-5 w-5 mr-2" />
+                    Recent Videos
+                  </span>
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href="/videos">
+                      <ArrowRight className="h-4 w-4 mr-1" />
+                      View All
+                    </Link>
+                  </Button>
                 </CardTitle>
                 <CardDescription>
                   Continue watching where you left off
@@ -307,6 +407,47 @@ export default function StudentDashboard() {
 
           {/* Right Column */}
           <div className="space-y-8">
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <GraduationCap className="h-5 w-5 mr-2" />
+                  Quick Actions
+                </CardTitle>
+                <CardDescription>
+                  Access your most used features
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <Button className="w-full justify-start" variant="outline" asChild>
+                    <Link href="/tutoring">
+                      <Users className="h-4 w-4 mr-2" />
+                      Book Tutoring Session
+                    </Link>
+                  </Button>
+                  <Button className="w-full justify-start" variant="outline" asChild>
+                    <Link href="/communication-hub">
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      Send Message
+                    </Link>
+                  </Button>
+                  <Button className="w-full justify-start" variant="outline" asChild>
+                    <Link href="/learning-path">
+                      <BookOpen className="h-4 w-4 mr-2" />
+                      Browse Courses
+                    </Link>
+                  </Button>
+                  <Button className="w-full justify-start" variant="outline" asChild>
+                    <Link href="/videos">
+                      <Video className="h-4 w-4 mr-2" />
+                      Watch Videos
+                    </Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Upcoming Tutoring Sessions */}
             <Card>
               <CardHeader>
@@ -345,9 +486,11 @@ export default function StudentDashboard() {
                     <div className="text-center py-4">
                       <Calendar className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                       <p className="text-sm text-gray-600">No upcoming sessions</p>
-                      <Button size="sm" className="mt-2">
-                        <ArrowRight className="h-4 w-4 mr-1" />
-                        Book Session
+                      <Button size="sm" className="mt-2" asChild>
+                        <Link href="/tutoring">
+                          <ArrowRight className="h-4 w-4 mr-1" />
+                          Book Session
+                        </Link>
                       </Button>
                     </div>
                   )}

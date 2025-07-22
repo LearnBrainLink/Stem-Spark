@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import Link from 'next/link'
+import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +17,9 @@ import {
   Star,
   CheckCircle,
   Plus,
-  Search
+  Search,
+  ArrowRight,
+  MessageCircle
 } from 'lucide-react'
 
 const supabase = createClient(
