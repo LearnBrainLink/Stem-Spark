@@ -9,7 +9,7 @@ import { InternshipGallery } from "../components/InternshipGallery"
 import { FeaturesSection } from "../components/FeaturesSection"
 import { CTASection } from "../components/CTASection"
 import { VideoModal } from "../components/VideoModal"
-import { Menu, X, Lock, Star, User, LogIn, BookOpen, Users, Award } from "lucide-react"
+import { Menu, X, Lock, Star, User, LogIn, BookOpen, Users, Award, Play, GraduationCap, MessageSquare, Calendar, Trophy, Briefcase } from "lucide-react"
 import { createClient } from "@supabase/supabase-js"
 import Link from "next/link"
 
@@ -29,6 +29,10 @@ export default function HomePage() {
       setIsLoggedIn(!!user)
     }
     checkAuth()
+    
+    // Check if guest mode is active
+    const guestModeActive = sessionStorage.getItem('guestMode') === 'true'
+    setGuestMode(guestModeActive)
   }, [])
 
   const handleGuestMode = () => {
@@ -42,11 +46,19 @@ export default function HomePage() {
     sessionStorage.removeItem('guestMode')
   }
 
+  const handleGuestFeature = (feature: string) => {
+    if (!guestMode) {
+      handleGuestMode()
+    }
+    // Navigate to guest version of the feature
+    window.location.href = `/guest/${feature}`
+  }
+
   return (
     <div className="min-h-screen bg-white relative overflow-x-hidden">
       <FloatingElements />
       
-      {/* Simplified Navigation Bar */}
+      {/* Enhanced Navigation Bar with Guest Features */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
@@ -57,10 +69,10 @@ export default function HomePage() {
               </Link>
             </div>
             
-            {/* Desktop Navigation - Simplified */}
-            <div className="hidden lg:flex items-center space-x-8">
+            {/* Desktop Navigation - Enhanced for Guest Features */}
+            <div className="hidden lg:flex items-center space-x-6">
               {/* Core Navigation Links */}
-              <div className="flex items-center space-x-8">
+              <div className="flex items-center space-x-6">
                 <Link
                   href="/videos"
                   className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
@@ -93,11 +105,68 @@ export default function HomePage() {
                 </Link>
               </div>
 
+              {/* Guest Features Dropdown */}
+              {guestMode && (
+                <div className="relative group">
+                  <button className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 transition-colors font-medium text-sm">
+                    <Play className="w-4 h-4" />
+                    <span>Try Features</span>
+                  </button>
+                  <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    <div className="p-3 space-y-2">
+                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Student Features</div>
+                      <button 
+                        onClick={() => handleGuestFeature('dashboard')}
+                        className="w-full flex items-center space-x-3 p-2 text-left text-gray-700 hover:bg-blue-50 rounded transition-colors"
+                      >
+                        <GraduationCap className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm">Student Dashboard</span>
+                      </button>
+                      <button 
+                        onClick={() => handleGuestFeature('tutoring')}
+                        className="w-full flex items-center space-x-3 p-2 text-left text-gray-700 hover:bg-blue-50 rounded transition-colors"
+                      >
+                        <Users className="w-4 h-4 text-green-600" />
+                        <span className="text-sm">Tutoring Sessions</span>
+                      </button>
+                      <button 
+                        onClick={() => handleGuestFeature('messaging')}
+                        className="w-full flex items-center space-x-3 p-2 text-left text-gray-700 hover:bg-blue-50 rounded transition-colors"
+                      >
+                        <MessageSquare className="w-4 h-4 text-purple-600" />
+                        <span className="text-sm">Messaging System</span>
+                      </button>
+                      <button 
+                        onClick={() => handleGuestFeature('calendar')}
+                        className="w-full flex items-center space-x-3 p-2 text-left text-gray-700 hover:bg-blue-50 rounded transition-colors"
+                      >
+                        <Calendar className="w-4 h-4 text-orange-600" />
+                        <span className="text-sm">Calendar & Events</span>
+                      </button>
+                      <button 
+                        onClick={() => handleGuestFeature('competitions')}
+                        className="w-full flex items-center space-x-3 p-2 text-left text-gray-700 hover:bg-blue-50 rounded transition-colors"
+                      >
+                        <Trophy className="w-4 h-4 text-yellow-600" />
+                        <span className="text-sm">Competitions</span>
+                      </button>
+                      <button 
+                        onClick={() => handleGuestFeature('internships')}
+                        className="w-full flex items-center space-x-3 p-2 text-left text-gray-700 hover:bg-blue-50 rounded transition-colors"
+                      >
+                        <Briefcase className="w-4 h-4 text-indigo-600" />
+                        <span className="text-sm">Internship Portal</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Auth Buttons */}
-              <div className="flex items-center space-x-4 ml-8 pl-8 border-l border-gray-200">
+              <div className="flex items-center space-x-4 ml-6 pl-6 border-l border-gray-200">
                 {guestMode ? (
                   <div className="flex items-center space-x-3">
-                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Guest Mode</span>
+                    <span className="text-xs text-gray-500 bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Guest Mode</span>
                     <button 
                       onClick={handleGuestLogout}
                       className="text-gray-600 hover:text-red-600 transition-colors font-medium text-sm"
@@ -143,7 +212,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Mobile Navigation - Simplified */}
+        {/* Mobile Navigation - Enhanced for Guest Features */}
         {isMenuOpen && (
           <div className="lg:hidden bg-white border-t border-gray-200 max-h-[80vh] overflow-y-auto">
             <div className="px-4 py-6 space-y-4">
@@ -182,12 +251,61 @@ export default function HomePage() {
                 </Link>
               </div>
 
+              {/* Guest Features Section */}
+              {guestMode && (
+                <div className="space-y-3 pt-4 border-t border-gray-200">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Try Student Features</h3>
+                  <button 
+                    onClick={() => handleGuestFeature('dashboard')}
+                    className="w-full flex items-center space-x-3 p-3 text-left text-gray-700 hover:bg-blue-50 rounded-lg transition-colors border border-gray-200"
+                  >
+                    <GraduationCap className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm">Student Dashboard</span>
+                  </button>
+                  <button 
+                    onClick={() => handleGuestFeature('tutoring')}
+                    className="w-full flex items-center space-x-3 p-3 text-left text-gray-700 hover:bg-blue-50 rounded-lg transition-colors border border-gray-200"
+                  >
+                    <Users className="w-4 h-4 text-green-600" />
+                    <span className="text-sm">Tutoring Sessions</span>
+                  </button>
+                  <button 
+                    onClick={() => handleGuestFeature('messaging')}
+                    className="w-full flex items-center space-x-3 p-3 text-left text-gray-700 hover:bg-blue-50 rounded-lg transition-colors border border-gray-200"
+                  >
+                    <MessageSquare className="w-4 h-4 text-purple-600" />
+                    <span className="text-sm">Messaging System</span>
+                  </button>
+                  <button 
+                    onClick={() => handleGuestFeature('calendar')}
+                    className="w-full flex items-center space-x-3 p-3 text-left text-gray-700 hover:bg-blue-50 rounded-lg transition-colors border border-gray-200"
+                  >
+                    <Calendar className="w-4 h-4 text-orange-600" />
+                    <span className="text-sm">Calendar & Events</span>
+                  </button>
+                  <button 
+                    onClick={() => handleGuestFeature('competitions')}
+                    className="w-full flex items-center space-x-3 p-3 text-left text-gray-700 hover:bg-blue-50 rounded-lg transition-colors border border-gray-200"
+                  >
+                    <Trophy className="w-4 h-4 text-yellow-600" />
+                    <span className="text-sm">Competitions</span>
+                  </button>
+                  <button 
+                    onClick={() => handleGuestFeature('internships')}
+                    className="w-full flex items-center space-x-3 p-3 text-left text-gray-700 hover:bg-blue-50 rounded-lg transition-colors border border-gray-200"
+                  >
+                    <Briefcase className="w-4 h-4 text-indigo-600" />
+                    <span className="text-sm">Internship Portal</span>
+                  </button>
+                </div>
+              )}
+
               {/* Mobile Auth Buttons */}
               <div className="pt-4 border-t border-gray-200 space-y-3">
                 {guestMode ? (
                   <div className="space-y-3">
                     <div className="text-center">
-                      <span className="text-xs text-gray-500 bg-gray-100 px-3 py-2 rounded-full">Guest Mode Active</span>
+                      <span className="text-xs text-blue-700 bg-blue-100 px-3 py-2 rounded-full">Guest Mode Active</span>
                     </div>
                     <button 
                       onClick={handleGuestLogout}
