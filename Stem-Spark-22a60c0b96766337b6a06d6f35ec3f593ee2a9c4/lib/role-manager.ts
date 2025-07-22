@@ -1,7 +1,7 @@
 import { createServerClient } from "./supabase-simple"
 import type { User } from "@supabase/supabase-js"
 
-export type UserRole = "admin" | "student" | "parent"
+export type UserRole = "admin" | "student" | "parent" | "intern"
 
 export interface UserProfile {
   id: string
@@ -246,6 +246,8 @@ export class RoleManager {
         return "/student-dashboard"
       case "parent":
         return "/parent-dashboard"
+      case "intern":
+        return "/intern-dashboard"
       default:
         return "/student-dashboard"
     }
@@ -313,7 +315,7 @@ export class RoleManager {
   }
 
   private isValidRole(role: any): boolean {
-    return ["admin", "teacher", "student", "parent"].includes(role)
+    return ["admin", "teacher", "student", "parent", "intern"].includes(role)
   }
 }
 

@@ -12,6 +12,7 @@ import Link from "next/link";
 import { secureSignInWithEmail, secureSignInWithGoogle, secureSignInWithGitHub, secureForgotPassword, resendVerificationEmail } from "@/lib/secure-auth-actions"
 import { enhancedSignUp } from "@/lib/enhanced-auth-actions"
 import { Eye, EyeOff, Mail, Lock, Github, Loader2, AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
+import { createClient } from '@supabase/supabase-js'
 
 interface AuthMessage {
   type: "success" | "error" | "info"
@@ -44,6 +45,12 @@ export default function SecureLoginPage() {
     role: '',
   })
   const router = useRouter()
+  
+  // Create Supabase client
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
   // Clear messages after 10 seconds
   useEffect(() => {
@@ -82,7 +89,12 @@ export default function SecureLoginPage() {
 
     try {
       if (isLogin) {
-        const result = await secureSignInWithEmail(new FormData(e.target as HTMLFormElement));
+        // Create FormData with the current form values
+        const loginFormData = new FormData();
+        loginFormData.append('email', formData.email);
+        loginFormData.append('password', formData.password);
+        
+        const result = await secureSignInWithEmail(loginFormData);
 
         if (result.error) {
           setMessage({
@@ -96,16 +108,48 @@ export default function SecureLoginPage() {
             setEmail(formData.email)
           }
         } else if (result.success) {
+          console.log('Login successful, result:', result)
           setMessage({
             type: "success",
             text: result.message || "Login successful!",
           })
 
-          // Redirect after short delay
+          // Redirect based on role
           if (result.redirectUrl) {
+            console.log('Redirecting to role-specific dashboard:', result.redirectUrl)
             setTimeout(() => {
-              router.push(result.redirectUrl!)
-            }, 1500)
+              console.log('Executing redirect to:', result.redirectUrl)
+              router.push(result.redirectUrl)
+            }, 100)
+          } else {
+            console.log('No redirect URL provided, checking user role...')
+            // Get user role and redirect accordingly
+            const { data: { user: authUser } } = await supabase.auth.getUser()
+            if (authUser) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', authUser.id)
+                .single()
+              
+              let dashboardUrl = '/student-dashboard' // default
+              if (profile?.role === 'admin') {
+                dashboardUrl = '/admin'
+              } else if (profile?.role === 'parent') {
+                dashboardUrl = '/parent-dashboard'
+              } else if (profile?.role === 'intern') {
+                dashboardUrl = '/intern-dashboard'
+              }
+              
+              console.log(`User role: ${profile?.role}, redirecting to: ${dashboardUrl}`)
+              setTimeout(() => {
+                console.log('Executing role-based redirect to:', dashboardUrl)
+                router.push(dashboardUrl)
+              }, 100)
+            } else {
+              console.log('No authenticated user found, redirecting to home')
+              router.push('/')
+            }
           }
         }
       } else {

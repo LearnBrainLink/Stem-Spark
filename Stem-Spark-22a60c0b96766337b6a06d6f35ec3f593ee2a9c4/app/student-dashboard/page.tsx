@@ -91,13 +91,24 @@ export default function StudentDashboard() {
 
   const checkAuth = async () => {
     try {
+      console.log('Checking authentication...')
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
       
-      if (authError || !authUser) {
+      console.log('Auth result:', { authUser: !!authUser, error: authError })
+      
+      if (authError) {
         console.error('Auth error:', authError)
         setLoading(false)
         return
       }
+
+      if (!authUser) {
+        console.log('No authenticated user found')
+        setLoading(false)
+        return
+      }
+
+      console.log('User authenticated:', authUser.email)
 
       // Get user profile
       const { data: profile, error: profileError } = await supabase
@@ -105,6 +116,8 @@ export default function StudentDashboard() {
         .select('*')
         .eq('id', authUser.id)
         .single()
+
+      console.log('Profile result:', { profile: !!profile, error: profileError })
 
       if (profileError) {
         console.error('Profile error:', profileError)
@@ -118,6 +131,7 @@ export default function StudentDashboard() {
         return
       }
 
+      console.log('Profile loaded:', profile)
       setUser(profile)
 
       // Load dashboard data

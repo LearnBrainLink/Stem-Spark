@@ -30,14 +30,17 @@ export async function middleware(req: NextRequest) {
     '/student-dashboard',
     '/parent-dashboard', 
     '/admin',
+    '/intern-dashboard',
     '/profile',
     '/communication-hub',
-    '/tutoring',
-    '/intern-dashboard'
+    '/tutoring'
   ]
 
-  // Define admin-only routes
+  // Define role-specific routes
   const adminRoutes = ['/admin']
+  const studentRoutes = ['/student-dashboard']
+  const parentRoutes = ['/parent-dashboard']
+  const internRoutes = ['/intern-dashboard']
 
   // Check if current path is protected
   const isProtectedRoute = protectedRoutes.some(route => 
@@ -48,6 +51,18 @@ export async function middleware(req: NextRequest) {
     req.nextUrl.pathname.startsWith(route)
   )
 
+  const isStudentRoute = studentRoutes.some(route => 
+    req.nextUrl.pathname.startsWith(route)
+  )
+
+  const isParentRoute = parentRoutes.some(route => 
+    req.nextUrl.pathname.startsWith(route)
+  )
+
+  const isInternRoute = internRoutes.some(route => 
+    req.nextUrl.pathname.startsWith(route)
+  )
+
   // If accessing protected route without session, redirect to login
   if (isProtectedRoute && !session) {
     const redirectUrl = new URL('/login', req.url)
@@ -55,8 +70,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-  // If accessing admin route, check if user is admin
-  if (isAdminRoute && session) {
+  // If accessing role-specific routes, check permissions
+  if (session) {
     try {
       const { data: profile } = await supabase
         .from('profiles')
@@ -64,16 +79,35 @@ export async function middleware(req: NextRequest) {
         .eq('id', session.user.id)
         .single()
 
-      if (profile?.role !== 'admin') {
+      const userRole = profile?.role || 'student'
+
+      // Admin routes - only admins can access
+      if (isAdminRoute && userRole !== 'admin') {
         return NextResponse.redirect(new URL('/student-dashboard', req.url))
       }
+
+      // Student routes - students and admins can access
+      if (isStudentRoute && !['student', 'admin'].includes(userRole)) {
+        return NextResponse.redirect(new URL('/student-dashboard', req.url))
+      }
+
+      // Parent routes - only parents and admins can access
+      if (isParentRoute && !['parent', 'admin'].includes(userRole)) {
+        return NextResponse.redirect(new URL('/student-dashboard', req.url))
+      }
+
+      // Intern routes - only interns and admins can access
+      if (isInternRoute && !['intern', 'admin'].includes(userRole)) {
+        return NextResponse.redirect(new URL('/student-dashboard', req.url))
+      }
+
     } catch (error) {
-      console.error('Error checking admin role:', error)
+      console.error('Error checking user role in middleware:', error)
       return NextResponse.redirect(new URL('/login', req.url))
     }
   }
 
-  // If user is logged in and trying to access login/signup, redirect to dashboard
+  // If user is logged in and trying to access login/signup, redirect to appropriate dashboard
   if (session && (req.nextUrl.pathname === '/login' || req.nextUrl.pathname === '/sign%20up')) {
     try {
       const { data: profile } = await supabase
@@ -82,12 +116,26 @@ export async function middleware(req: NextRequest) {
         .eq('id', session.user.id)
         .single()
 
-      if (profile?.role) {
-        const dashboardUrl = profile.role === 'admin' ? '/admin' : 
-                           profile.role === 'parent' ? '/parent-dashboard' : 
-                           '/student-dashboard'
-        return NextResponse.redirect(new URL(dashboardUrl, req.url))
+      const userRole = profile?.role || 'student'
+      let dashboardUrl = '/student-dashboard' // default
+
+      switch (userRole) {
+        case 'admin':
+          dashboardUrl = '/admin'
+          break
+        case 'parent':
+          dashboardUrl = '/parent-dashboard'
+          break
+        case 'intern':
+          dashboardUrl = '/intern-dashboard'
+          break
+        case 'student':
+        default:
+          dashboardUrl = '/student-dashboard'
+          break
       }
+
+      return NextResponse.redirect(new URL(dashboardUrl, req.url))
     } catch (error) {
       console.error('Error checking user role for redirect:', error)
     }
