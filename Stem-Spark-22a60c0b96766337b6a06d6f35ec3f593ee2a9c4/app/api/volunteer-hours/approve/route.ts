@@ -1,63 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-import { volunteerHoursService } from '@/lib/volunteer-hours-service'
-import { adminProtectionService } from '@/lib/admin-protection'
-
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json({ error: 'Supabase configuration missing' }, { status: 500 })
     }
 
-    // Check if user can approve volunteer hours
-    const { success: canApprove, allowed } = await adminProtectionService.canPerformAdminAction(
-      user.id,
-      'approve_hours'
-    )
-
-    if (!canApprove || !allowed) {
-      return NextResponse.json({ error: 'You do not have permission to approve volunteer hours' }, { status: 403 })
-    }
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
     const body = await request.json()
-    const { hours_id, approved, rejection_reason } = body
+    const { hoursId, approvedBy } = body
 
-    // Validate required fields
-    if (!hours_id || typeof approved !== 'boolean') {
-      return NextResponse.json({ error: 'Hours ID and approval status are required' }, { status: 400 })
+    if (!hoursId || !approvedBy) {
+      return NextResponse.json({ error: 'Hours ID and approved by are required' }, { status: 400 })
     }
 
-    // Validate rejection reason if rejecting
-    if (!approved && !rejection_reason) {
-      return NextResponse.json({ error: 'Rejection reason is required when rejecting hours' }, { status: 400 })
+    // Update volunteer hours status
+    const { data, error } = await supabase
+      .from('volunteer_hours')
+      .update({
+        status: 'approved',
+        approved_by: approvedBy,
+        approved_at: new Date().toISOString()
+      })
+      .eq('id', hoursId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error approving volunteer hours:', error)
+      return NextResponse.json({ error: 'Failed to approve volunteer hours' }, { status: 500 })
     }
 
-    // Review volunteer hours
-    const result = await volunteerHoursService.reviewVolunteerHours({
-      hours_id,
-      approved_by: user.id,
-      approved,
-      rejection_reason: rejection_reason?.trim()
-    })
-
-    if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 })
-    }
-
-    return NextResponse.json({ 
-      success: true, 
-      message: approved ? 'Volunteer hours approved successfully' : 'Volunteer hours rejected successfully'
-    })
+    return NextResponse.json({ success: true, data })
   } catch (error) {
-    console.error('Error reviewing volunteer hours:', error)
+    console.error('Error in approve volunteer hours:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 

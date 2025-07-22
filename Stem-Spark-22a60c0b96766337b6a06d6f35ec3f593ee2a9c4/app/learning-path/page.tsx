@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+
 import { Logo } from "@/components/logo"
 import { FloatingElements } from "@/components/FloatingElements"
 import AuthGuard from "@/components/auth-guard"
@@ -21,7 +22,17 @@ import {
   AlertCircle,
   Users,
   GraduationCap,
-  TrendingUp
+  TrendingUp,
+  Code2,
+  Wifi,
+  Cpu,
+  BarChart3,
+  Smartphone,
+  User,
+  Building2,
+  Trophy,
+  Bookmark,
+  Share2
 } from "lucide-react"
 import Link from "next/link"
 
@@ -90,11 +101,11 @@ export default function LearningPathPage() {
       category: "Programming",
       difficulty: "beginner",
       duration: 40,
-      modules: 8,
+      moduleCount: 8,
       rating: 4.8,
       enrolledStudents: 1247,
       completionRate: 78,
-      icon: <Code className="w-6 h-6" />,
+      icon: <Code2 className="w-6 h-6" />,
       color: "from-blue-500 to-cyan-600",
       isEnrolled: true,
       progress: 65,
@@ -104,12 +115,12 @@ export default function LearningPathPage() {
           title: "Introduction to Python",
           description: "Learn the basics of Python syntax and programming concepts",
           duration: 5,
-          lessons: 6,
+          lessonCount: 6,
           completed: true,
           lessons: [
             { id: "l1", title: "What is Python?", type: "video", duration: 15, completed: true, icon: <Play className="w-4 h-4" /> },
             { id: "l2", title: "Setting up your environment", type: "reading", duration: 10, completed: true, icon: <BookOpen className="w-4 h-4" /> },
-            { id: "l3", title: "Your first Python program", type: "project", duration: 30, completed: true, icon: <Code className="w-4 h-4" /> },
+            { id: "l3", title: "Your first Python program", type: "project", duration: 30, completed: true, icon: <Code2 className="w-4 h-4" /> },
             { id: "l4", title: "Variables and data types", type: "video", duration: 20, completed: true, icon: <Play className="w-4 h-4" /> },
             { id: "l5", title: "Basic operations", type: "reading", duration: 15, completed: true, icon: <BookOpen className="w-4 h-4" /> },
             { id: "l6", title: "Module 1 Quiz", type: "quiz", duration: 20, completed: true, icon: <Target className="w-4 h-4" /> }
@@ -120,13 +131,13 @@ export default function LearningPathPage() {
           title: "Control Flow and Functions",
           description: "Master conditional statements, loops, and function definitions",
           duration: 6,
-          lessons: 5,
+          lessonCount: 5,
           completed: false,
           lessons: [
             { id: "l7", title: "If statements and conditionals", type: "video", duration: 25, completed: true, icon: <Play className="w-4 h-4" /> },
             { id: "l8", title: "Loops and iterations", type: "video", duration: 30, completed: true, icon: <Play className="w-4 h-4" /> },
             { id: "l9", title: "Function basics", type: "reading", duration: 20, completed: false, icon: <BookOpen className="w-4 h-4" /> },
-            { id: "l10", title: "Building a calculator", type: "project", duration: 45, completed: false, icon: <Code className="w-4 h-4" /> },
+            { id: "l10", title: "Building a calculator", type: "project", duration: 45, completed: false, icon: <Code2 className="w-4 h-4" /> },
             { id: "l11", title: "Module 2 Quiz", type: "quiz", duration: 25, completed: false, icon: <Target className="w-4 h-4" /> }
           ]
         }
@@ -152,7 +163,7 @@ export default function LearningPathPage() {
       category: "AI/ML",
       difficulty: "intermediate",
       duration: 60,
-      modules: 10,
+      moduleCount: 10,
       rating: 4.9,
       enrolledStudents: 892,
       completionRate: 65,
@@ -182,7 +193,7 @@ export default function LearningPathPage() {
       category: "Web Development",
       difficulty: "beginner",
       duration: 50,
-      modules: 12,
+      moduleCount: 12,
       rating: 4.7,
       enrolledStudents: 2156,
       completionRate: 72,
@@ -212,7 +223,7 @@ export default function LearningPathPage() {
       category: "Robotics",
       difficulty: "intermediate",
       duration: 45,
-      modules: 9,
+      moduleCount: 9,
       rating: 4.6,
       enrolledStudents: 567,
       completionRate: 58,
@@ -242,7 +253,7 @@ export default function LearningPathPage() {
       category: "Science",
       difficulty: "intermediate",
       duration: 55,
-      modules: 11,
+      moduleCount: 11,
       rating: 4.8,
       enrolledStudents: 1345,
       completionRate: 69,
@@ -272,7 +283,7 @@ export default function LearningPathPage() {
       category: "Mobile Development",
       difficulty: "intermediate",
       duration: 48,
-      modules: 10,
+      moduleCount: 10,
       rating: 4.5,
       enrolledStudents: 789,
       completionRate: 61,
@@ -518,7 +529,12 @@ export default function LearningPathPage() {
                                   <span>Progress</span>
                                   <span>{path.progress}%</span>
                                 </div>
-                                <Progress value={path.progress} className="h-2" />
+                                <div className="w-full bg-white/20 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${path.progress}%` }}
+                      />
+                    </div>
                               </div>
                             )}
                           </div>
@@ -597,7 +613,12 @@ export default function LearningPathPage() {
                             </div>
                           </div>
                         </div>
-                        <Progress value={path.progress} className="h-1 mt-2" />
+                        <div className="w-full bg-white/20 rounded-full h-1 mt-2">
+                      <div 
+                        className="bg-gradient-to-r from-blue-500 to-purple-600 h-1 rounded-full transition-all duration-300" 
+                        style={{ width: `${path.progress}%` }}
+                      />
+                    </div>
                       </div>
                     ))}
                   </CardContent>

@@ -46,35 +46,35 @@ export default function HomePage() {
             <div className="hidden lg:flex items-center space-x-4">
               {/* Public Pages */}
               <div className="flex items-center space-x-4 mr-6">
-                <a
-                  href="/videos"
+              <a
+                href="/videos"
                   className="px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all font-medium text-sm"
                   title="Browse educational videos"
-                >
+              >
                   📹 Videos
-                </a>
-                <a
-                  href="/internships"
+              </a>
+              <a
+                href="/internships"
                   className="px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all font-medium text-sm"
                   title="Find internship opportunities"
-                >
+              >
                   💼 Internships
-                </a>
-                <Link
-                  href="/intern-application"
+              </a>
+              <Link
+                href="/intern-application"
                   className="px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all font-medium text-sm"
                   title="Apply to become an intern"
-                >
+              >
                   📝 Apply as Intern
-                </Link>
-                <a
-                  href="/communication-hub"
+              </Link>
+              <a
+                href="/communication-hub"
                   className="px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all font-medium text-sm"
                   title="Join community discussions"
-                >
+              >
                   💬 Communication Hub
-                </a>
-                <a
+              </a>
+              <a
                   href="/discussion-board"
                   className="px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all font-medium text-sm"
                   title="Community discussion board"
@@ -235,17 +235,17 @@ export default function HomePage() {
 
               {/* Auth Buttons */}
               <div className="flex items-center space-x-4">
-                <Link href="/login">
+              <Link href="/login">
                   <button className="border border-blue-600 text-blue-600 px-6 py-2 rounded-full hover:bg-blue-50 transition-colors font-medium text-sm">
-                    Sign In
-                  </button>
-                </Link>
-                <Link href={isLoggedIn ? "/dashboard" : "/sign%20up"}>
+                  Sign In
+                </button>
+              </Link>
+              <Link href={isLoggedIn ? "/dashboard" : "/sign%20up"}>
                   <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg hover:shadow-xl text-sm">
-                    Get Started
-                  </button>
-                </Link>
-              </div>
+                  Get Started
+                </button>
+              </Link>
+            </div>
             </div>
 
             {/* Mobile menu button */}
@@ -269,30 +269,30 @@ export default function HomePage() {
               {/* Public Pages */}
               <div className="space-y-3">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Public Features</h3>
-                <a
-                  href="/videos"
+              <a
+                href="/videos"
                   className="block text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm"
-                >
-                  Videos
-                </a>
-                <a
-                  href="/internships"
+              >
+                Videos
+              </a>
+              <a
+                href="/internships"
                   className="block text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm"
-                >
-                  Internships
-                </a>
-                <Link
-                  href="/intern-application"
+              >
+                Internships
+              </a>
+              <Link
+                href="/intern-application"
                   className="block text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm"
-                >
-                  Apply as Intern
-                </Link>
-                <a
-                  href="/communication-hub"
+              >
+                Apply as Intern
+              </Link>
+              <a
+                href="/communication-hub"
                   className="block text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm"
-                >
-                  Communication Hub
-                </a>
+              >
+                Communication Hub
+              </a>
               </div>
 
               {/* Protected Pages */}

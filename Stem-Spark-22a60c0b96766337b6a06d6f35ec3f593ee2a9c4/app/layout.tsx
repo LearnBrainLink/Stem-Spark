@@ -1,5 +1,5 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 
@@ -34,9 +34,13 @@ export const metadata: Metadata = {
       "Join Novakinetix Academy for cutting-edge STEM education, innovative learning experiences, and pathways to technological excellence.",
     creator: "@novakinetix",
   },
-  viewport: "width=device-width, initial-scale=1",
-  themeColor: "#2563EB",
   generator: 'v0.dev'
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#2563EB",
 }
 
 export default function RootLayout({

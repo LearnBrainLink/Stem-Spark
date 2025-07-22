@@ -1,117 +1,96 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
 export async function GET() {
   try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json({ error: 'Supabase configuration missing' }, { status: 500 })
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
     // Get volunteer hours statistics
     const { data: volunteerHours } = await supabase
       .from('volunteer_hours')
       .select('hours, status, activity_type, created_at, intern_id')
 
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, full_name, role')
-      .eq('role', 'intern')
+    // Get volunteer hours by status
+    const statusDistribution = volunteerHours?.reduce((acc: { [key: string]: number }, record) => {
+      acc[record.status] = (acc[record.status] || 0) + 1
+      return acc
+    }, {}) || {}
 
     // Get volunteer hours by activity type
     const activityTypeDistribution = volunteerHours?.reduce((acc: { [key: string]: number }, record) => {
-      acc[record.activity_type] = (acc[record.activity_type] || 0) + parseFloat(record.hours)
+      acc[record.activity_type] = (acc[record.activity_type] || 0) + 1
       return acc
     }, {}) || {}
 
-    // Get volunteer hours by status
-    const statusDistribution = volunteerHours?.reduce((acc: { [key: string]: number }, record) => {
-      acc[record.status] = (acc[record.status] || 0) + parseFloat(record.hours)
-      return acc
-    }, {}) || {}
-
-    // Get top volunteers
-    const volunteerTotals: { [key: string]: number } = {}
-    volunteerHours?.forEach(record => {
-      if (record.status === 'approved') {
-        volunteerTotals[record.intern_id] = (volunteerTotals[record.intern_id] || 0) + parseFloat(record.hours)
-      }
-    })
-
-    // Get top 10 volunteers
-    const topVolunteers = Object.entries(volunteerTotals)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 10)
-      .map(([internId, hours]) => {
-        const profile = profiles?.find(p => p.id === internId)
-        return {
-          name: profile?.full_name || 'Unknown',
-          hours: Math.round(hours * 10) / 10,
-          internId
-        }
-      })
-
-    // Get volunteer hours trends (last 12 months)
+    // Get volunteer hours by month (last 12 months)
     const twelveMonthsAgo = new Date()
     twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
     
-    const { data: monthlyVolunteerHours } = await supabase
+    const { data: recentVolunteerHours } = await supabase
       .from('volunteer_hours')
       .select('hours, status, created_at')
       .gte('created_at', twelveMonthsAgo.toISOString())
       .order('created_at', { ascending: true })
 
-    // Process monthly data
+    // Process monthly volunteer hours data
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    const monthlyVolunteerData: { [key: string]: { approved: number; pending: number; total: number } } = {}
+    const monthlyVolunteerHours: { [key: string]: { total: number; approved: number; pending: number } } = {}
     
     // Initialize last 12 months
     for (let i = 11; i >= 0; i--) {
       const date = new Date()
       date.setMonth(date.getMonth() - i)
       const monthKey = monthNames[date.getMonth()]
-      monthlyVolunteerData[monthKey] = { approved: 0, pending: 0, total: 0 }
+      monthlyVolunteerHours[monthKey] = { total: 0, approved: 0, pending: 0 }
     }
 
     // Count volunteer hours by month and status
-    monthlyVolunteerHours?.forEach(record => {
+    recentVolunteerHours?.forEach(record => {
       const date = new Date(record.created_at)
       const monthKey = monthNames[date.getMonth()]
-      if (monthlyVolunteerData[monthKey]) {
-        const hours = parseFloat(record.hours) || 0
-        monthlyVolunteerData[monthKey].total += hours
+      if (monthlyVolunteerHours[monthKey]) {
+        monthlyVolunteerHours[monthKey].total += record.hours || 0
         if (record.status === 'approved') {
-          monthlyVolunteerData[monthKey].approved += hours
+          monthlyVolunteerHours[monthKey].approved += record.hours || 0
         } else if (record.status === 'pending') {
-          monthlyVolunteerData[monthKey].pending += hours
+          monthlyVolunteerHours[monthKey].pending += record.hours || 0
         }
       }
     })
 
     // Convert to chart format
-    const monthlyVolunteerChart = Object.entries(monthlyVolunteerData).map(([name, data]) => ({
+    const monthlyVolunteerHoursChart = Object.entries(monthlyVolunteerHours).map(([name, data]) => ({
       name,
+      total: Math.round(data.total * 10) / 10,
       approved: Math.round(data.approved * 10) / 10,
-      pending: Math.round(data.pending * 10) / 10,
-      total: Math.round(data.total * 10) / 10
+      pending: Math.round(data.pending * 10) / 10
     }))
 
-    // Calculate summary statistics
-    const totalHours = volunteerHours?.reduce((sum, record) => sum + parseFloat(record.hours), 0) || 0
-    const approvedHours = volunteerHours?.filter(r => r.status === 'approved').reduce((sum, record) => sum + parseFloat(record.hours), 0) || 0
-    const pendingHours = volunteerHours?.filter(r => r.status === 'pending').reduce((sum, record) => sum + parseFloat(record.hours), 0) || 0
-    const avgHoursPerVolunteer = (profiles?.length || 0) > 0 ? Math.round((approvedHours / (profiles?.length || 1)) * 10) / 10 : 0
+    // Calculate metrics
+    const totalHours = volunteerHours?.reduce((sum, record) => sum + (record.hours || 0), 0) || 0
+    const approvedHours = volunteerHours?.filter(record => record.status === 'approved')
+      .reduce((sum, record) => sum + (record.hours || 0), 0) || 0
+    const pendingHours = volunteerHours?.filter(record => record.status === 'pending')
+      .reduce((sum, record) => sum + (record.hours || 0), 0) || 0
+    const totalRecords = volunteerHours?.length || 0
+    const approvalRate = totalRecords > 0 ? Math.round((volunteerHours?.filter(r => r.status === 'approved').length || 0) / totalRecords * 100) : 0
 
     const stats = {
-      activityTypeDistribution,
+      monthlyVolunteerHoursChart,
       statusDistribution,
-      topVolunteers,
-      monthlyVolunteerChart,
-      totalHours: Math.round(totalHours * 10) / 10,
-      approvedHours: Math.round(approvedHours * 10) / 10,
-      pendingHours: Math.round(pendingHours * 10) / 10,
-      avgHoursPerVolunteer,
-      totalVolunteers: profiles?.length || 0
+      activityTypeDistribution,
+      totalHours,
+      approvedHours,
+      pendingHours,
+      totalRecords,
+      approvalRate
     }
 
     return NextResponse.json(stats)

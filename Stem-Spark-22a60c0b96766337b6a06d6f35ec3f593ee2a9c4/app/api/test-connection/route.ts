@@ -1,11 +1,33 @@
 import { NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase"
+import { createClient } from "@supabase/supabase-js"
 
 export async function GET() {
   try {
     console.log("🔍 Testing database connection...")
 
-    const supabase = createServerClient()
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing Supabase environment variables",
+          details: "NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are required",
+        },
+        { status: 500 },
+      )
+    }
+
+    const supabase = supabaseServiceKey 
+      ? createClient(supabaseUrl, supabaseServiceKey, {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        })
+      : createClient(supabaseUrl, supabaseAnonKey)
 
     // Test 1: Basic connection
     const { data: connectionTest, error: connectionError } = await supabase.from("profiles").select("count").limit(1)

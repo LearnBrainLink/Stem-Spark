@@ -4,10 +4,14 @@ import { messagingService } from '@/lib/real-time-messaging'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json({ error: 'Supabase configuration missing' }, { status: 500 })
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -40,10 +44,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json({ error: 'Supabase configuration missing' }, { status: 500 })
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -87,10 +95,14 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json({ error: 'Supabase configuration missing' }, { status: 500 })
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()

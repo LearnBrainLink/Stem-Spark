@@ -1,24 +1,28 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
 export async function GET() {
   try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json({ error: 'Supabase configuration missing' }, { status: 500 })
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
     // Get messaging statistics
     const { data: messages } = await supabase
-      .from('messages')
+      .from('chat_messages')
       .select('created_at, message_type, channel_id')
 
     const { data: channels } = await supabase
-      .from('channels')
+      .from('chat_channels')
       .select('channel_type, created_at')
 
     const { data: channelMembers } = await supabase
-      .from('channel_members')
+      .from('chat_channel_members')
       .select('channel_id, user_id')
 
     // Get messaging trends (last 30 days)
@@ -26,7 +30,7 @@ export async function GET() {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
     
     const { data: recentMessages } = await supabase
-      .from('messages')
+      .from('chat_messages')
       .select('created_at')
       .gte('created_at', thirtyDaysAgo.toISOString())
       .order('created_at', { ascending: true })

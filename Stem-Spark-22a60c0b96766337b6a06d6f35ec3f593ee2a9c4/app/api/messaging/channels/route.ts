@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-
 import { messagingService } from '@/lib/real-time-messaging'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json({ error: 'Supabase configuration missing' }, { status: 500 })
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -32,10 +35,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json({ error: 'Supabase configuration missing' }, { status: 500 })
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -44,28 +51,21 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, description, channelType, restrictions, allowedRoles } = body
+    const { name, description, channelType = 'public' } = body
 
     // Validate required fields
-    if (!name || !channelType) {
-      return NextResponse.json({ error: 'Name and channel type are required' }, { status: 400 })
+    if (!name) {
+      return NextResponse.json({ error: 'Channel name is required' }, { status: 400 })
     }
 
     // Validate channel type
-    const validChannelTypes = ['public', 'private', 'group', 'announcement', 'role_restricted']
+    const validChannelTypes = ['public', 'private', 'group', 'announcement']
     if (!validChannelTypes.includes(channelType)) {
       return NextResponse.json({ error: 'Invalid channel type' }, { status: 400 })
     }
 
     // Create channel
-    const result = await messagingService.createChannel(
-      name,
-      description || '',
-      channelType,
-      user.id,
-      restrictions,
-      allowedRoles
-    )
+    const result = await messagingService.createChannel(name, description, channelType, user.id)
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 500 })
