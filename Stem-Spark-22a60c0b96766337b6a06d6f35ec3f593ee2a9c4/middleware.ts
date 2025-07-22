@@ -1,15 +1,29 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req, res })
+  
+  // Create Supabase client for middleware
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
-  // Refresh session if expired
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  // Get session from cookies
+  const authCookie = req.cookies.get('sb-access-token')?.value
+  const refreshCookie = req.cookies.get('sb-refresh-token')?.value
+
+  let session = null
+  if (authCookie && refreshCookie) {
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      session = currentSession
+    } catch (error) {
+      console.error('Error getting session in middleware:', error)
+    }
+  }
 
   // Define protected routes
   const protectedRoutes = [
@@ -90,7 +104,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
+     * - api routes (to avoid conflicts)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 } 
