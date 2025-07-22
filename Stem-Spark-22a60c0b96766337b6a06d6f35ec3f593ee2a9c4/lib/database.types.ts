@@ -68,39 +68,33 @@ export interface Database {
           updated_at?: string
         }
       }
-      channels: {
+      chat_channels: {
         Row: {
           id: string
           name: string
           description: string | null
-          channel_type: 'public' | 'private' | 'group' | 'announcement' | 'role_restricted'
+          channel_type: 'public' | 'private' | 'group' | 'announcement'
           created_by: string
           created_at: string
-          channel_restrictions: Json | null
-          allowed_roles: string[] | null
         }
         Insert: {
           id?: string
           name: string
           description?: string | null
-          channel_type?: 'public' | 'private' | 'group' | 'announcement' | 'role_restricted'
+          channel_type?: 'public' | 'private' | 'group' | 'announcement'
           created_by: string
           created_at?: string
-          channel_restrictions?: Json | null
-          allowed_roles?: string[] | null
         }
         Update: {
           id?: string
           name?: string
           description?: string | null
-          channel_type?: 'public' | 'private' | 'group' | 'announcement' | 'role_restricted'
+          channel_type?: 'public' | 'private' | 'group' | 'announcement'
           created_by?: string
           created_at?: string
-          channel_restrictions?: Json | null
-          allowed_roles?: string[] | null
         }
       }
-      channel_members: {
+      chat_channel_members: {
         Row: {
           id: string
           user_id: string
@@ -123,7 +117,7 @@ export interface Database {
           joined_at?: string
         }
       }
-      messages: {
+      chat_messages: {
         Row: {
           id: string
           channel_id: string
@@ -451,6 +445,117 @@ export interface Database {
           activity_description?: string
           metadata?: Json | null
           created_at?: string
+        }
+      }
+      discussion_boards: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          category: string
+          created_by: string
+          is_pinned: boolean
+          is_locked: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          category: string
+          created_by: string
+          is_pinned?: boolean
+          is_locked?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          category?: string
+          created_by?: string
+          is_pinned?: boolean
+          is_locked?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      discussion_posts: {
+        Row: {
+          id: string
+          board_id: string
+          title: string
+          content: string
+          author_id: string
+          is_pinned: boolean
+          is_locked: boolean
+          upvotes: number
+          downvotes: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          board_id: string
+          title: string
+          content: string
+          author_id: string
+          is_pinned?: boolean
+          is_locked?: boolean
+          upvotes?: number
+          downvotes?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          board_id?: string
+          title?: string
+          content?: string
+          author_id?: string
+          is_pinned?: boolean
+          is_locked?: boolean
+          upvotes?: number
+          downvotes?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      discussion_comments: {
+        Row: {
+          id: string
+          post_id: string
+          content: string
+          author_id: string
+          parent_comment_id: string | null
+          upvotes: number
+          downvotes: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          content: string
+          author_id: string
+          parent_comment_id?: string | null
+          upvotes?: number
+          downvotes?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          content?: string
+          author_id?: string
+          parent_comment_id?: string | null
+          upvotes?: number
+          downvotes?: number
+          created_at?: string
+          updated_at?: string
         }
       }
     }

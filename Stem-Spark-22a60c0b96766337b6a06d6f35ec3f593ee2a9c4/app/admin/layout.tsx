@@ -69,12 +69,6 @@ const navigationItems = [
     description: "View detailed analytics",
   },
   {
-    title: "Email Configuration",
-    href: "/admin/email-config",
-    icon: Mail,
-    description: "Configure email settings",
-  },
-  {
     title: "Admin Setup",
     href: "/admin/setup",
     icon: Shield,

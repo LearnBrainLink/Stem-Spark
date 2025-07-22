@@ -255,7 +255,7 @@ export default function ApplicationsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
+      {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
@@ -279,7 +279,7 @@ export default function ApplicationsPage() {
 
         {/* Applications Grid */}
         <div className="grid gap-6">
-          {applications.map((application) => (
+                {applications.map((application) => (
             <Card key={application.id} className="shadow-lg border-0 bg-white hover:shadow-xl transition-shadow">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
@@ -327,7 +327,7 @@ export default function ApplicationsPage() {
                           <BookOpen className="w-4 h-4 mr-2 text-green-600" />
                           <span className="font-medium text-gray-700">Areas of Interest</span>
                         </div>
-                        <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1">
                           {application.areas_of_interest.map((area, index) => (
                             <Badge key={index} variant="secondary" className="text-xs">
                               {area}
@@ -374,14 +374,14 @@ export default function ApplicationsPage() {
                           size="sm"
                           className="bg-green-600 hover:bg-green-700"
                           disabled={actionLoading === application.id}
-                          onClick={() => updateApplicationStatus(application.id, 'approved')}
-                        >
+                            onClick={() => updateApplicationStatus(application.id, 'approved')}
+                          >
                           {actionLoading === application.id ? (
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                           ) : (
                             <>
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              Approve
+                            Approve
                             </>
                           )}
                         </Button>
@@ -390,14 +390,14 @@ export default function ApplicationsPage() {
                           variant="outline"
                           className="border-red-300 text-red-600 hover:bg-red-50"
                           disabled={actionLoading === application.id}
-                          onClick={() => updateApplicationStatus(application.id, 'rejected')}
-                        >
+                            onClick={() => updateApplicationStatus(application.id, 'rejected')}
+                          >
                           {actionLoading === application.id ? (
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
                           ) : (
                             <>
                               <XCircle className="w-4 h-4 mr-1" />
-                              Reject
+                            Reject
                             </>
                           )}
                         </Button>
@@ -417,16 +417,16 @@ export default function ApplicationsPage() {
                             </>
                           )}
                         </Button>
-                      </div>
-                    )}
+                        </div>
+                      )}
                   </div>
                 </div>
               </CardContent>
             </Card>
           ))}
-        </div>
+          </div>
 
-        {applications.length === 0 && (
+          {applications.length === 0 && (
           <Card className="shadow-lg border-0 bg-white">
             <CardContent className="p-12">
               <div className="text-center">
@@ -618,10 +618,10 @@ export default function ApplicationsPage() {
                       <div className="md:col-span-2">
                         <label className="text-sm font-medium text-gray-500">Interview Notes</label>
                         <p className="text-gray-900">{selectedApplication.interview_notes}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+            </div>
+          )}
+        </div>
+      </div>
               </div>
             </div>
           </div>

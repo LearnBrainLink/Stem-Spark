@@ -31,13 +31,7 @@ export default function CommunicationHub() {
   const [newChannelData, setNewChannelData] = useState({
     name: '',
     description: '',
-    channelType: 'public',
-    restrictions: {
-      can_send_messages: 'everyone',
-      can_join: 'everyone',
-      is_announcement_channel: false,
-      moderation_enabled: false
-    }
+    channelType: 'public' as 'public' | 'private' | 'group' | 'announcement'
   })
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [userPermissions, setUserPermissions] = useState<any>(null)
@@ -141,9 +135,8 @@ export default function CommunicationHub() {
     const result = await messagingService.createChannel(
       newChannelData.name.trim(),
       newChannelData.description.trim(),
-      newChannelData.channelType as any,
-      user.id,
-      newChannelData.restrictions
+      newChannelData.channelType,
+      user.id
     )
 
     if (result.success && result.channel) {
@@ -153,13 +146,7 @@ export default function CommunicationHub() {
       setNewChannelData({
         name: '',
         description: '',
-        channelType: 'public',
-        restrictions: {
-          can_send_messages: 'everyone',
-          can_join: 'everyone',
-          is_announcement_channel: false,
-          moderation_enabled: false
-        }
+        channelType: 'public'
       })
       alert('Channel created successfully')
     } else {
@@ -187,10 +174,12 @@ export default function CommunicationHub() {
 
   const getChannelIcon = (channelType: string) => {
     switch (channelType) {
-      case 'announcement':
-        return <Volume2 className="w-4 h-4" />
       case 'private':
         return <Lock className="w-4 h-4" />
+      case 'group':
+        return <Users className="w-4 h-4" />
+      case 'announcement':
+        return <Volume2 className="w-4 h-4" />
       default:
         return <Hash className="w-4 h-4" />
     }
@@ -260,11 +249,7 @@ export default function CommunicationHub() {
                           value={newChannelData.channelType}
                           onValueChange={(value) => setNewChannelData(prev => ({ 
                             ...prev, 
-                            channelType: value,
-                            restrictions: {
-                              ...prev.restrictions,
-                              is_announcement_channel: value === 'announcement'
-                            }
+                            channelType: value as 'public' | 'private' | 'group' | 'announcement'
                           }))}
                         >
                           <SelectTrigger>
@@ -274,8 +259,8 @@ export default function CommunicationHub() {
                             <SelectItem value="public">Public</SelectItem>
                             <SelectItem value="private">Private</SelectItem>
                             <SelectItem value="group">Group</SelectItem>
-                            <SelectItem value="announcement">Announcement</SelectItem>
-                            <SelectItem value="role_restricted">Role Restricted</SelectItem>
+                            <SelectItem value="announcement">Announcement (Admin Only)</SelectItem>
+
                           </SelectContent>
                         </Select>
                       </div>
@@ -304,9 +289,7 @@ export default function CommunicationHub() {
                   >
                     {getChannelIcon(channel.channel_type)}
                     <span className="flex-1 truncate">{channel.name}</span>
-                    {channel.channel_type === 'announcement' && (
-                      <Badge variant="secondary" className="text-xs">Announcement</Badge>
-                    )}
+
                   </div>
                 ))}
                 {channels.length === 0 && (
@@ -339,9 +322,7 @@ export default function CommunicationHub() {
                       <Users className="w-3 h-3 mr-1" />
                       {currentChannel.members.length}
                     </Badge>
-                    {currentChannel.restrictions.is_announcement_channel && (
-                      <Badge variant="secondary">Announcement Only</Badge>
-                    )}
+
                   </div>
                 </div>
               </CardHeader>
@@ -381,11 +362,11 @@ export default function CommunicationHub() {
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                       placeholder={
-                        currentChannel.restrictions.is_announcement_channel
+                        currentChannel.channel_type === 'announcement'
                           ? "Only admins can send messages in announcement channels"
                           : "Type your message..."
                       }
-                      disabled={currentChannel.restrictions.is_announcement_channel && 
+                      disabled={currentChannel.channel_type === 'announcement' && 
                         userPermissions?.role !== 'admin' && !userPermissions?.is_super_admin}
                     />
                     <Button onClick={sendMessage} disabled={!newMessage.trim()}>

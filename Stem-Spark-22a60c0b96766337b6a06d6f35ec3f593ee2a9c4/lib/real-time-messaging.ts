@@ -3,9 +3,9 @@ import { Database } from './database.types'
 import { RealtimeChannel } from '@supabase/supabase-js'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
-type Message = Database['public']['Tables']['messages']['Row']
-type Channel = Database['public']['Tables']['channels']['Row']
-type ChannelMember = Database['public']['Tables']['channel_members']['Row']
+type Message = Database['public']['Tables']['chat_messages']['Row']
+type Channel = Database['public']['Tables']['chat_channels']['Row']
+type ChannelMember = Database['public']['Tables']['chat_channel_members']['Row']
 
 export interface ExtendedMessage extends Message {
   sender: {
@@ -15,15 +15,8 @@ export interface ExtendedMessage extends Message {
   }
 }
 
-export interface ExtendedChannel extends Omit<Channel, 'allowed_roles'> {
+export interface ExtendedChannel extends Channel {
   members: ChannelMember[]
-  restrictions: {
-    can_send_messages: 'everyone' | 'admins_only' | 'members_only'
-    can_join: 'everyone' | 'invite_only' | 'role_restricted'
-    is_announcement_channel: boolean
-    moderation_enabled: boolean
-  }
-  allowed_roles?: string[]
 }
 
 export interface MessagePermissions {
@@ -50,26 +43,17 @@ class RealTimeMessagingService {
   async createChannel(
     name: string,
     description: string,
-    channelType: 'public' | 'private' | 'group' | 'announcement' | 'role_restricted',
-    createdBy: string,
-    restrictions?: any,
-    allowedRoles?: string[]
+    channelType: 'public' | 'private' | 'group' | 'announcement',
+    createdBy: string
   ): Promise<{ success: boolean; channel?: ExtendedChannel; error?: string }> {
     try {
       const { data: channel, error } = await this.supabase
-        .from('channels')
+        .from('chat_channels')
         .insert({
           name,
           description,
           channel_type: channelType,
-          created_by: createdBy,
-          channel_restrictions: restrictions || {
-            can_send_messages: 'everyone',
-            can_join: 'everyone',
-            is_announcement_channel: channelType === 'announcement',
-            moderation_enabled: false
-          },
-          allowed_roles: allowedRoles
+          created_by: createdBy
         })
         .select()
         .single()
@@ -90,12 +74,12 @@ class RealTimeMessagingService {
     try {
       // Get channels where user is a member or public channels
       const { data: channels, error } = await this.supabase
-        .from('channels')
+        .from('chat_channels')
         .select(`
           *,
-          channel_members!inner(user_id)
+          chat_channel_members!inner(user_id)
         `)
-        .or(`channel_type.eq.public,channel_members.user_id.eq.${userId}`)
+        .or(`channel_type.eq.public,chat_channel_members.user_id.eq.${userId}`)
 
       if (error) throw error
 
@@ -134,7 +118,7 @@ class RealTimeMessagingService {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const { error } = await this.supabase
-        .from('channel_members')
+        .from('chat_channel_members')
         .insert({
           channel_id: channelId,
           user_id: userId,
@@ -156,7 +140,7 @@ class RealTimeMessagingService {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const { error } = await this.supabase
-        .from('channel_members')
+        .from('chat_channel_members')
         .delete()
         .eq('channel_id', channelId)
         .eq('user_id', userId)
@@ -186,7 +170,7 @@ class RealTimeMessagingService {
       }
 
       const { data: message, error } = await this.supabase
-        .from('messages')
+        .from('chat_messages')
         .insert({
           channel_id: channelId,
           sender_id: senderId,
@@ -229,10 +213,10 @@ class RealTimeMessagingService {
   ): Promise<{ success: boolean; messages?: ExtendedMessage[]; error?: string }> {
     try {
       const { data: messages, error } = await this.supabase
-        .from('messages')
+        .from('chat_messages')
         .select(`
           *,
-          profiles!messages_sender_id_fkey(full_name, role, avatar_url)
+          profiles!chat_messages_sender_id_fkey(full_name, role, avatar_url)
         `)
         .eq('channel_id', channelId)
         .order('created_at', { ascending: false })
@@ -278,7 +262,7 @@ class RealTimeMessagingService {
       }
 
       const { error } = await this.supabase
-        .from('messages')
+        .from('chat_messages')
         .delete()
         .eq('id', messageId)
 
@@ -307,7 +291,7 @@ class RealTimeMessagingService {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'messages',
+          table: 'chat_messages',
           filter: `channel_id=eq.${channelId}`
         },
         async (payload) => {
@@ -337,7 +321,7 @@ class RealTimeMessagingService {
         {
           event: 'DELETE',
           schema: 'public',
-          table: 'messages',
+          table: 'chat_messages',
           filter: `channel_id=eq.${channelId}`
         },
         (payload) => {
@@ -366,7 +350,7 @@ class RealTimeMessagingService {
     try {
       // Get channel details
       const { data: channel } = await this.supabase
-        .from('channels')
+        .from('chat_channels')
         .select('*')
         .eq('id', channelId)
         .single()
@@ -384,36 +368,29 @@ class RealTimeMessagingService {
 
       // Get user's role in the channel
       const { data: member } = await this.supabase
-        .from('channel_members')
+        .from('chat_channel_members')
         .select('role')
         .eq('channel_id', channelId)
         .eq('user_id', userId)
         .single()
 
-      const restrictions = channel.channel_restrictions || {
-        can_send_messages: 'everyone',
-        can_join: 'everyone',
-        is_announcement_channel: false,
-        moderation_enabled: false
-      }
-
       const isAdmin = member?.role === 'admin'
-      const isAnnouncementChannel = restrictions.is_announcement_channel
+      const isMember = !!member
 
+      // Permission logic based on channel type and user role
       let canSend = true
-      if (isAnnouncementChannel) {
+      if (channel.channel_type === 'private' && !isMember) {
+        canSend = false
+      } else if (channel.channel_type === 'announcement') {
+        // Only admins can send messages in announcement channels
         canSend = isAdmin
-      } else if (restrictions.can_send_messages === 'admins_only') {
-        canSend = isAdmin
-      } else if (restrictions.can_send_messages === 'members_only') {
-        canSend = !!member
       }
 
       return {
         user_id: userId,
         channel_id: channelId,
         can_send: canSend,
-        can_moderate: isAdmin || restrictions.moderation_enabled,
+        can_moderate: isAdmin,
         can_invite: isAdmin,
         is_admin: isAdmin
       }

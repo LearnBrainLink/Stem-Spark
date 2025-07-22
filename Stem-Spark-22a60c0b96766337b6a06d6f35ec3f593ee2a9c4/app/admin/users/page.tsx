@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { 
+import {
   Users, 
   Shield, 
   UserCheck, 
@@ -111,7 +111,7 @@ export default function UsersPage() {
     try {
       setLoading(true)
       setError(null)
-
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -330,7 +330,7 @@ export default function UsersPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
+          </div>
     )
   }
 
@@ -352,7 +352,7 @@ export default function UsersPage() {
               <div className="text-right">
                 <div className="text-2xl font-bold text-green-600">
                   {users.filter(user => user.last_active && new Date(user.last_active) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length}
-                </div>
+          </div>
                 <div className="text-sm text-gray-500">Active This Week</div>
               </div>
             </div>
@@ -414,11 +414,11 @@ export default function UsersPage() {
                             <div className="flex items-center">
                               <Phone className="w-4 h-4 mr-1" />
                               {user.phone_number}
-                            </div>
-                          )}
+            </div>
+          )}
                           <div className="flex items-center">
                             <Calendar className="w-4 h-4 mr-1" />
-                            Joined: {formatDate(user.created_at)}
+              Joined: {formatDate(user.created_at)}
                           </div>
                         </div>
                       </div>
@@ -426,10 +426,10 @@ export default function UsersPage() {
                         {getRoleIcon(user.role, user.is_super_admin || false)}
                         <span className="capitalize">
                           {user.is_super_admin ? 'Super Admin' : user.role.replace('_', ' ')}
-                        </span>
+            </span>
                       </Badge>
-                    </div>
-
+          </div>
+          
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       {user.school_institution && (
                         <div>
@@ -461,7 +461,7 @@ export default function UsersPage() {
                                 +{user.areas_of_interest.length - 3} more
                               </Badge>
                             )}
-                          </div>
+          </div>
                         </div>
                       )}
                     </div>
@@ -471,26 +471,26 @@ export default function UsersPage() {
                       {user.total_volunteer_hours && (
                         <span>Volunteer Hours: {user.total_volunteer_hours}</span>
                       )}
-                    </div>
-                  </div>
-
+        </div>
+      </div>
+      
                   <div className="ml-6 flex flex-col space-y-2">
                     {canEditUser(user) ? (
-                      <Button
+        <Button 
                         variant="outline"
-                        size="sm"
+          size="sm" 
                         onClick={() => openEditModal(user)}
                         disabled={actionLoading === user.id}
-                      >
+        >
                         {actionLoading === user.id ? (
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                         ) : (
                           <>
-                            <Edit className="w-4 h-4 mr-1" />
-                            Edit
+          <Edit className="w-4 h-4 mr-1" />
+          Edit
                           </>
                         )}
-                      </Button>
+        </Button>
                     ) : (
                       <div className="text-xs text-gray-500 text-center px-2 py-1 bg-gray-100 rounded">
                         Cannot Edit
@@ -498,8 +498,8 @@ export default function UsersPage() {
                     )}
 
                     {canDeleteUser(user) && (
-                      <Button
-                        size="sm"
+        <Button 
+          size="sm" 
                         variant="outline"
                         className="border-red-300 text-red-600 hover:bg-red-50"
                         disabled={actionLoading === user.id}
@@ -513,19 +513,19 @@ export default function UsersPage() {
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
                         ) : (
                           <>
-                            <Trash2 className="w-4 h-4 mr-1" />
-                            Delete
+          <Trash2 className="w-4 h-4 mr-1" />
+          Delete
                           </>
                         )}
-                      </Button>
+        </Button>
                     )}
-                  </div>
-                </div>
+            </div>
+          </div>
               </CardContent>
             </Card>
           ))}
-        </div>
-
+      </div>
+      
         {filteredUsers.length === 0 && (
           <Card className="shadow-lg border-0 bg-white">
             <CardContent className="p-12">
@@ -533,12 +533,12 @@ export default function UsersPage() {
                 <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">No Users Found</h3>
                 <p className="text-gray-600">No users match your current search criteria.</p>
-              </div>
+          </div>
             </CardContent>
           </Card>
         )}
       </div>
-
+      
       {/* Edit User Modal */}
       {showEditModal && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -553,10 +553,10 @@ export default function UsersPage() {
                 >
                   Close
                 </Button>
-              </div>
+      </div>
 
               <div className="space-y-4">
-                <div>
+        <div>
                   <label className="text-sm font-medium text-gray-500">Full Name</label>
                   <Input
                     value={editForm.full_name}
@@ -604,7 +604,7 @@ export default function UsersPage() {
                     onChange={(e) => setEditForm({ ...editForm, school_institution: e.target.value })}
                     className="mt-1"
                   />
-                </div>
+                  </div>
 
                 <div>
                   <label className="text-sm font-medium text-gray-500">Grade Level</label>
@@ -643,8 +643,8 @@ export default function UsersPage() {
                     )}
                   </Button>
                 </div>
-              </div>
-            </div>
+        </div>
+      </div>
           </div>
         </div>
       )}
