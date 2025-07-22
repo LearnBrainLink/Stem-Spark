@@ -212,13 +212,13 @@ export default function DashboardPage() {
   }
 
   if (!user) {
-    return (
+  return (
       <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900 flex items-center justify-center">
         <div className="text-center text-white">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <p>Loading dashboard...</p>
         </div>
-      </div>
+          </div>
     )
   }
 
@@ -264,11 +264,11 @@ export default function DashboardPage() {
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-white mb-2">
               Welcome back, {user?.user_metadata?.full_name || 'Student'}! 👋
-            </h1>
+          </h1>
             <p className="text-xl text-blue-100">
               Continue your STEM journey with our latest features and tools.
-            </p>
-          </div>
+          </p>
+        </div>
 
           {/* Stats Overview */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -325,8 +325,8 @@ export default function DashboardPage() {
                     <Trophy className="w-6 h-6 text-white" />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
             <Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-2xl rounded-2xl overflow-hidden">
               <CardContent className="p-6">
@@ -339,8 +339,8 @@ export default function DashboardPage() {
                     <Users className="w-6 h-6 text-white" />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
             <Card className="backdrop-blur-md bg-white/10 border-white/20 shadow-2xl rounded-2xl overflow-hidden">
               <CardContent className="p-6">
@@ -393,7 +393,7 @@ export default function DashboardPage() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
+                  </div>
 
             {/* Recent Activity */}
             <div className="lg:col-span-1">
@@ -489,8 +489,8 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             </div>
-          </div>
-        </div>
+                </div>
+              </div>
       </main>
     </div>
   )

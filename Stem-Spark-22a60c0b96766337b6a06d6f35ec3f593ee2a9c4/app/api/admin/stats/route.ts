@@ -81,6 +81,145 @@ export async function GET() {
       time: new Date(activity.created_at).toLocaleString()
     })) || []
 
+    // Get user growth data (last 6 months)
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+    
+    const { data: userGrowthData } = await supabase
+      .from('profiles')
+      .select('created_at, role')
+      .gte('created_at', sixMonthsAgo.toISOString())
+      .order('created_at', { ascending: true })
+
+    // Process user growth data by month
+    const userGrowthByMonth: { [key: string]: { users: number; interns: number; applications: number } } = {}
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    
+    // Initialize last 6 months
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date()
+      date.setMonth(date.getMonth() - i)
+      const monthKey = monthNames[date.getMonth()]
+      userGrowthByMonth[monthKey] = { users: 0, interns: 0, applications: 0 }
+    }
+
+    // Count users by month
+    userGrowthData?.forEach(user => {
+      const date = new Date(user.created_at)
+      const monthKey = monthNames[date.getMonth()]
+      if (userGrowthByMonth[monthKey]) {
+        userGrowthByMonth[monthKey].users++
+        if (user.role === 'intern') {
+          userGrowthByMonth[monthKey].interns++
+        }
+      }
+    })
+
+    // Get application data by month
+    const { data: applicationData } = await supabase
+      .from('intern_applications')
+      .select('created_at')
+      .gte('created_at', sixMonthsAgo.toISOString())
+
+    applicationData?.forEach(app => {
+      const date = new Date(app.created_at)
+      const monthKey = monthNames[date.getMonth()]
+      if (userGrowthByMonth[monthKey]) {
+        userGrowthByMonth[monthKey].applications++
+      }
+    })
+
+    // Convert to chart format
+    const userGrowthChart = Object.entries(userGrowthByMonth).map(([name, data]) => ({
+      name,
+      users: data.users,
+      interns: data.interns,
+      applications: data.applications
+    }))
+
+    // Create user distribution pie chart data
+    const userDistributionData = [
+      { name: 'Students', value: students, color: '#3B82F6' },
+      { name: 'Admins', value: admins, color: '#10B981' },
+      { name: 'Parents', value: parents, color: '#F59E0B' },
+      { name: 'Interns', value: interns, color: '#8B5CF6' }
+    ].filter(item => item.value > 0) // Only show categories with data
+
+    // Get volunteer hours trends (last 6 months)
+    const { data: volunteerTrendsData } = await supabase
+      .from('volunteer_hours')
+      .select('hours, status, created_at')
+      .gte('created_at', sixMonthsAgo.toISOString())
+      .order('created_at', { ascending: true })
+
+    // Process volunteer hours by month
+    const volunteerHoursByMonth: { [key: string]: { approved: number; pending: number; total: number } } = {}
+    
+    // Initialize last 6 months for volunteer hours
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date()
+      date.setMonth(date.getMonth() - i)
+      const monthKey = monthNames[date.getMonth()]
+      volunteerHoursByMonth[monthKey] = { approved: 0, pending: 0, total: 0 }
+    }
+
+    // Count volunteer hours by month and status
+    volunteerTrendsData?.forEach(record => {
+      const date = new Date(record.created_at)
+      const monthKey = monthNames[date.getMonth()]
+      if (volunteerHoursByMonth[monthKey]) {
+        volunteerHoursByMonth[monthKey].total += parseFloat(record.hours) || 0
+        if (record.status === 'approved') {
+          volunteerHoursByMonth[monthKey].approved += parseFloat(record.hours) || 0
+        } else if (record.status === 'pending') {
+          volunteerHoursByMonth[monthKey].pending += parseFloat(record.hours) || 0
+        }
+      }
+    })
+
+    // Convert to chart format
+    const volunteerHoursChart = Object.entries(volunteerHoursByMonth).map(([name, data]) => ({
+      name,
+      approved: Math.round(data.approved * 10) / 10,
+      pending: Math.round(data.pending * 10) / 10,
+      total: Math.round(data.total * 10) / 10
+    }))
+
+    // Get activity trends (last 30 days)
+    const activityThirtyDaysAgo = new Date()
+    activityThirtyDaysAgo.setDate(activityThirtyDaysAgo.getDate() - 30)
+    
+    const { data: activityTrendsData } = await supabase
+      .from('user_activities')
+      .select('activity_type, created_at')
+      .gte('created_at', activityThirtyDaysAgo.toISOString())
+      .order('created_at', { ascending: true })
+
+    // Process activity by day
+    const activityByDay: { [key: string]: number } = {}
+    
+    // Initialize last 30 days
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date()
+      date.setDate(date.getDate() - i)
+      const dayKey = date.toISOString().split('T')[0]
+      activityByDay[dayKey] = 0
+    }
+
+    // Count activities by day
+    activityTrendsData?.forEach(activity => {
+      const dayKey = activity.created_at.split('T')[0]
+      if (activityByDay[dayKey] !== undefined) {
+        activityByDay[dayKey]++
+      }
+    })
+
+    // Convert to chart format
+    const activityTrendsChart = Object.entries(activityByDay).map(([date, count]) => ({
+      date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      activities: count
+    }))
+
     const stats = {
       totalUsers,
       students,
@@ -98,7 +237,11 @@ export async function GET() {
       totalVolunteerHours,
       pendingHours,
       totalApprovedHours,
-      recentActivity: recentActivityFormatted
+      recentActivity: recentActivityFormatted,
+      userGrowthChart,
+      userDistributionData,
+      volunteerHoursChart,
+      activityTrendsChart
     }
 
     return NextResponse.json(stats)

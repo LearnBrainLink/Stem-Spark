@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area } from 'recharts';
 import { Users, Briefcase, Mail, DollarSign, TrendingUp, Shield, AlertCircle, CheckCircle, Clock, UserCheck, BarChart3, Download, FileText, RefreshCw, Activity, GraduationCap, Video } from "lucide-react";
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
@@ -105,21 +105,7 @@ const StatCardSkeleton = ({ delay = 0 }: { delay?: number }) => (
   </motion.div>
 );
 
-const sampleChartData = [
-  { name: 'Jan', users: 4200, interns: 2400, applications: 1800 },
-  { name: 'Feb', users: 3800, interns: 1398, applications: 2200 },
-  { name: 'Mar', users: 5200, interns: 9800, applications: 3400 },
-  { name: 'Apr', users: 4780, interns: 3908, applications: 2800 },
-  { name: 'May', users: 5890, interns: 4800, applications: 4200 },
-  { name: 'Jun', users: 6390, interns: 3800, applications: 3800 },
-  { name: 'Jul', users: 7490, interns: 4300, applications: 5200 },
-];
-
-const samplePieData = [
-  { name: 'Students', value: 65, color: '#3B82F6' },
-  { name: 'Teachers', value: 20, color: '#8B5CF6' },
-  { name: 'Admins', value: 15, color: '#10B981' },
-];
+// Sample data removed - now using real database data
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<{
@@ -140,6 +126,10 @@ export default function AdminDashboard() {
     pendingHours: number;
     totalApprovedHours: number;
     recentActivity: any[];
+    userGrowthChart: any[];
+    userDistributionData: any[];
+    volunteerHoursChart: any[];
+    activityTrendsChart: any[];
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -184,7 +174,11 @@ export default function AdminDashboard() {
           totalVolunteerHours: realStats.totalVolunteerHours,
           pendingHours: realStats.pendingHours,
           totalApprovedHours: realStats.totalApprovedHours,
-          recentActivity: realStats.recentActivity
+          recentActivity: realStats.recentActivity,
+          userGrowthChart: realStats.userGrowthChart,
+          userDistributionData: realStats.userDistributionData,
+          volunteerHoursChart: realStats.volunteerHoursChart,
+          activityTrendsChart: realStats.activityTrendsChart
         });
         
         setConnectionStatus('connected');
@@ -463,7 +457,7 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={sampleChartData}>
+                <LineChart data={stats?.userGrowthChart || []}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="name" stroke="#6b7280" />
                   <YAxis stroke="#6b7280" />
@@ -506,7 +500,7 @@ export default function AdminDashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={samplePieData}
+                    data={stats?.userDistributionData || []}
                     cx="50%"
                     cy="50%"
                     outerRadius={80}
@@ -514,7 +508,7 @@ export default function AdminDashboard() {
                     dataKey="value"
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   >
-                    {samplePieData.map((entry: any, index: number) => (
+                    {(stats?.userDistributionData || []).map((entry: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -526,6 +520,72 @@ export default function AdminDashboard() {
                     }} 
                   />
                 </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Additional Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        {/* Volunteer Hours Trend Chart */}
+        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-gray-900">Volunteer Hours Trends</CardTitle>
+            <CardDescription>Monthly volunteer hours by status</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats?.volunteerHoursChart || []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="name" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px'
+                    }} 
+                  />
+                  <Legend />
+                  <Bar dataKey="approved" fill="#10b981" name="Approved Hours" />
+                  <Bar dataKey="pending" fill="#f59e0b" name="Pending Hours" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Activity Trends Chart */}
+        <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-gray-900">Platform Activity</CardTitle>
+            <CardDescription>Daily user activity trends</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={stats?.activityTrendsChart || []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="date" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px'
+                    }} 
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="activities" 
+                    stroke="#8b5cf6" 
+                    fill="#8b5cf6" 
+                    fillOpacity={0.3}
+                    strokeWidth={2}
+                  />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
