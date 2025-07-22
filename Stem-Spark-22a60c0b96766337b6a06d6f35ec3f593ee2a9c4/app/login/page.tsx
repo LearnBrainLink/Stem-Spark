@@ -108,49 +108,15 @@ export default function SecureLoginPage() {
             setEmail(formData.email)
           }
         } else if (result.success) {
-          console.log('Login successful, result:', result)
           setMessage({
             type: "success",
-            text: result.message || "Login successful!",
+            text: "Login successful! Redirecting...",
           })
 
-          // Redirect based on role
-          if (result.redirectUrl) {
-            console.log('Redirecting to role-specific dashboard:', result.redirectUrl)
-            setTimeout(() => {
-              console.log('Executing redirect to:', result.redirectUrl)
-              router.push(result.redirectUrl)
-            }, 100)
-          } else {
-            console.log('No redirect URL provided, checking user role...')
-            // Get user role and redirect accordingly
-            const { data: { user: authUser } } = await supabase.auth.getUser()
-            if (authUser) {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('role')
-                .eq('id', authUser.id)
-                .single()
-              
-              let dashboardUrl = '/student-dashboard' // default
-              if (profile?.role === 'admin') {
-                dashboardUrl = '/admin'
-              } else if (profile?.role === 'parent') {
-                dashboardUrl = '/parent-dashboard'
-              } else if (profile?.role === 'intern') {
-                dashboardUrl = '/intern-dashboard'
-              }
-              
-              console.log(`User role: ${profile?.role}, redirecting to: ${dashboardUrl}`)
-              setTimeout(() => {
-                console.log('Executing role-based redirect to:', dashboardUrl)
-                router.push(dashboardUrl)
-              }, 100)
-            } else {
-              console.log('No authenticated user found, redirecting to home')
-              router.push('/')
-            }
-          }
+          // Simple redirect to dashboard - let the dashboard handle role checking
+          setTimeout(() => {
+            router.push('/dashboard')
+          }, 1000)
         }
       } else {
         // Create FormData for enhancedSignUp

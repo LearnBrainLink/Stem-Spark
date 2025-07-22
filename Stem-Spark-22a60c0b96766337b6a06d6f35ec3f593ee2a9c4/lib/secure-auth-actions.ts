@@ -100,13 +100,9 @@ export async function secureSignInWithEmail(formData: FormData): Promise<AuthRes
     // Revalidate paths
     revalidatePath("/")
 
-    // Determine redirect URL based on role
-    const redirectUrl = roleManager.getDashboardUrl(userRole)
-
     return {
       success: true,
       message: "Login successful! Redirecting to your dashboard...",
-      redirectUrl,
     }
   } catch (error) {
     console.error("💥 Unexpected login error:", error)
