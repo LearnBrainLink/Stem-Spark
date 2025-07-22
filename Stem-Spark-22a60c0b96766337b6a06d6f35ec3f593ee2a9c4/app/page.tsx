@@ -46,87 +46,87 @@ export default function HomePage() {
             </div>
             
             {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center space-x-6">
+            <div className="hidden lg:flex items-center space-x-4">
               {/* Main Navigation Links */}
-              <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-4">
                 <Link
                   href="/videos"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm"
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
                 >
                   Videos
                 </Link>
                 <Link
                   href="/internships"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm"
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
                 >
                   Internships
                 </Link>
                 <Link
                   href="/intern-application"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm"
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
                 >
                   Apply as Intern
                 </Link>
                 <Link
                   href="/communication-hub"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm"
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
                 >
                   Community
                 </Link>
                 <Link
                   href="/ai-tutor"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm"
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
                 >
                   AI Tutor
                 </Link>
                 <Link
                   href="/virtual-lab"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm"
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
                 >
                   Virtual Lab
                 </Link>
                 <Link
                   href="/competitions"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm"
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
                 >
                   Competitions
                 </Link>
                 <Link
                   href="/mentorship"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm"
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
                 >
                   Mentorship
                 </Link>
                 <Link
                   href="/career-pathway"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm"
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
                 >
                   Career Path
                 </Link>
                 <Link
                   href="/project-showcase"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm"
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
                 >
                   Projects
                 </Link>
                 <Link
                   href="/learning-path"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm"
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
                 >
                   Learning
                 </Link>
               </div>
 
               {/* Auth Buttons */}
-              <div className="flex items-center space-x-3 ml-6 pl-6 border-l border-gray-200">
+              <div className="flex items-center space-x-3 ml-4 pl-4 border-l border-gray-200">
                 <Link href="/login">
-                  <button className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm">
+                  <button className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap">
                     <LogIn className="w-4 h-4" />
                     <span>Sign In</span>
                   </button>
                 </Link>
                 <Link href={isLoggedIn ? "/dashboard" : "/sign%20up"}>
-                  <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg hover:shadow-xl text-sm">
+                  <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg hover:shadow-xl text-sm whitespace-nowrap">
                     Get Started
                   </button>
                 </Link>
