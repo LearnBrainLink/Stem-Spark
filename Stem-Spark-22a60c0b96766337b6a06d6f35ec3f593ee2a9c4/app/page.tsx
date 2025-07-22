@@ -9,7 +9,7 @@ import { InternshipGallery } from "../components/InternshipGallery"
 import { FeaturesSection } from "../components/FeaturesSection"
 import { CTASection } from "../components/CTASection"
 import { VideoModal } from "../components/VideoModal"
-import { Menu, X, Lock, Star, User, LogIn } from "lucide-react"
+import { Menu, X, Lock, Star, User, LogIn, BookOpen, Users, Award } from "lucide-react"
 import { createClient } from "@supabase/supabase-js"
 import Link from "next/link"
 
@@ -17,6 +17,7 @@ export default function HomePage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [guestMode, setGuestMode] = useState(false)
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -30,14 +31,25 @@ export default function HomePage() {
     checkAuth()
   }, [])
 
+  const handleGuestMode = () => {
+    setGuestMode(true)
+    // Guest mode - no data storage, session only
+    sessionStorage.setItem('guestMode', 'true')
+  }
+
+  const handleGuestLogout = () => {
+    setGuestMode(false)
+    sessionStorage.removeItem('guestMode')
+  }
+
   return (
     <div className="min-h-screen bg-white relative overflow-x-hidden">
       <FloatingElements />
       
-      {/* Professional Navigation Bar */}
+      {/* Simplified Navigation Bar */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-3">
+          <div className="flex justify-between items-center py-4">
             {/* Logo */}
             <div className="flex items-center">
               <Link href="/">
@@ -45,10 +57,10 @@ export default function HomePage() {
               </Link>
             </div>
             
-            {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center space-x-4">
-              {/* Main Navigation Links */}
-              <div className="flex items-center space-x-4">
+            {/* Desktop Navigation - Simplified */}
+            <div className="hidden lg:flex items-center space-x-8">
+              {/* Core Navigation Links */}
+              <div className="flex items-center space-x-8">
                 <Link
                   href="/videos"
                   className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
@@ -62,52 +74,10 @@ export default function HomePage() {
                   Internships
                 </Link>
                 <Link
-                  href="/intern-application"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
-                >
-                  Apply as Intern
-                </Link>
-                <Link
                   href="/communication-hub"
                   className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
                 >
                   Community
-                </Link>
-                <Link
-                  href="/ai-tutor"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
-                >
-                  AI Tutor
-                </Link>
-                <Link
-                  href="/virtual-lab"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
-                >
-                  Virtual Lab
-                </Link>
-                <Link
-                  href="/competitions"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
-                >
-                  Competitions
-                </Link>
-                <Link
-                  href="/mentorship"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
-                >
-                  Mentorship
-                </Link>
-                <Link
-                  href="/career-pathway"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
-                >
-                  Career Path
-                </Link>
-                <Link
-                  href="/project-showcase"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
-                >
-                  Projects
                 </Link>
                 <Link
                   href="/learning-path"
@@ -115,21 +85,47 @@ export default function HomePage() {
                 >
                   Learning
                 </Link>
+                <Link
+                  href="/ai-tutor"
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
+                >
+                  AI Tutor
+                </Link>
               </div>
 
               {/* Auth Buttons */}
-              <div className="flex items-center space-x-3 ml-4 pl-4 border-l border-gray-200">
-                <Link href="/login">
-                  <button className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap">
-                    <LogIn className="w-4 h-4" />
-                    <span>Sign In</span>
-                  </button>
-                </Link>
-                <Link href={isLoggedIn ? "/dashboard" : "/sign%20up"}>
-                  <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg hover:shadow-xl text-sm whitespace-nowrap">
-                    Get Started
-                  </button>
-                </Link>
+              <div className="flex items-center space-x-4 ml-8 pl-8 border-l border-gray-200">
+                {guestMode ? (
+                  <div className="flex items-center space-x-3">
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Guest Mode</span>
+                    <button 
+                      onClick={handleGuestLogout}
+                      className="text-gray-600 hover:text-red-600 transition-colors font-medium text-sm"
+                    >
+                      Exit Guest
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Link href="/login">
+                      <button className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap">
+                        <LogIn className="w-4 h-4" />
+                        <span>Sign In</span>
+                      </button>
+                    </Link>
+                    <button 
+                      onClick={handleGuestMode}
+                      className="px-4 py-2 text-gray-600 hover:text-blue-600 transition-colors font-medium text-sm whitespace-nowrap"
+                    >
+                      Try as Guest
+                    </button>
+                    <Link href={isLoggedIn ? "/dashboard" : "/sign%20up"}>
+                      <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg hover:shadow-xl text-sm whitespace-nowrap">
+                        Get Started
+                      </button>
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
 
@@ -147,11 +143,11 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Mobile Navigation */}
+        {/* Mobile Navigation - Simplified */}
         {isMenuOpen && (
           <div className="lg:hidden bg-white border-t border-gray-200 max-h-[80vh] overflow-y-auto">
             <div className="px-4 py-6 space-y-4">
-              {/* Main Navigation Links */}
+              {/* Core Navigation Links */}
               <div className="space-y-3">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Navigation</h3>
                 <Link
@@ -167,52 +163,10 @@ export default function HomePage() {
                   Internships
                 </Link>
                 <Link
-                  href="/intern-application"
-                  className="block text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm py-2"
-                >
-                  Apply as Intern
-                </Link>
-                <Link
                   href="/communication-hub"
                   className="block text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm py-2"
                 >
                   Community
-                </Link>
-                <Link
-                  href="/ai-tutor"
-                  className="block text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm py-2"
-                >
-                  AI Tutor
-                </Link>
-                <Link
-                  href="/virtual-lab"
-                  className="block text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm py-2"
-                >
-                  Virtual Lab
-                </Link>
-                <Link
-                  href="/competitions"
-                  className="block text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm py-2"
-                >
-                  Competitions
-                </Link>
-                <Link
-                  href="/mentorship"
-                  className="block text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm py-2"
-                >
-                  Mentorship
-                </Link>
-                <Link
-                  href="/career-pathway"
-                  className="block text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm py-2"
-                >
-                  Career Path
-                </Link>
-                <Link
-                  href="/project-showcase"
-                  className="block text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm py-2"
-                >
-                  Projects
                 </Link>
                 <Link
                   href="/learning-path"
@@ -220,21 +174,49 @@ export default function HomePage() {
                 >
                   Learning
                 </Link>
+                <Link
+                  href="/ai-tutor"
+                  className="block text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm py-2"
+                >
+                  AI Tutor
+                </Link>
               </div>
 
               {/* Mobile Auth Buttons */}
               <div className="pt-4 border-t border-gray-200 space-y-3">
-                <Link href="/login" className="block">
-                  <button className="w-full flex items-center justify-center space-x-2 border border-blue-600 text-blue-600 px-4 py-3 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm">
-                    <LogIn className="w-4 h-4" />
-                    <span>Sign In</span>
-                  </button>
-                </Link>
-                <Link href={isLoggedIn ? "/dashboard" : "/sign%20up"} className="block">
-                  <button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg text-sm">
-                    Get Started
-                  </button>
-                </Link>
+                {guestMode ? (
+                  <div className="space-y-3">
+                    <div className="text-center">
+                      <span className="text-xs text-gray-500 bg-gray-100 px-3 py-2 rounded-full">Guest Mode Active</span>
+                    </div>
+                    <button 
+                      onClick={handleGuestLogout}
+                      className="w-full border border-red-300 text-red-600 px-4 py-3 rounded-lg hover:bg-red-50 transition-colors font-medium text-sm"
+                    >
+                      Exit Guest Mode
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Link href="/login" className="block">
+                      <button className="w-full flex items-center justify-center space-x-2 border border-blue-600 text-blue-600 px-4 py-3 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm">
+                        <LogIn className="w-4 h-4" />
+                        <span>Sign In</span>
+                      </button>
+                    </Link>
+                    <button 
+                      onClick={handleGuestMode}
+                      className="w-full border border-gray-300 text-gray-600 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm"
+                    >
+                      Try as Guest
+                    </button>
+                    <Link href={isLoggedIn ? "/dashboard" : "/sign%20up"} className="block">
+                      <button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg text-sm">
+                        Get Started
+                      </button>
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </div>
