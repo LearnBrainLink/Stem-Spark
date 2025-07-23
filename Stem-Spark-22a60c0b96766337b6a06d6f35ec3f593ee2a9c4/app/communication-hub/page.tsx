@@ -181,8 +181,9 @@ export default function CommunicationHub() {
 
   const loadCommunicationData = async (userId: string) => {
     try {
+      // Pass userId directly to ensure it's available
       await Promise.all([
-        loadChannels(),
+        loadChannels(userId),
         loadUsers(),
         loadUnreadCounts(userId)
       ])
@@ -193,17 +194,16 @@ export default function CommunicationHub() {
     }
   }
 
-  const loadChannels = async () => {
+  const loadChannels = async (userId: string) => {
     try {
-      // Use Supabase directly to load channels
-      // First get all channels the user is a member of
+      // Use the passed userId directly to avoid race conditions
       const { data: memberChannels, error: memberError } = await supabase
         .from('chat_channel_members')
         .select(`
           channel_id,
           chat_channels (*)
         `)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
 
       if (memberError) {
         console.error('Error loading member channels:', memberError)
@@ -222,11 +222,11 @@ export default function CommunicationHub() {
       }
 
       // Combine and deduplicate channels
-      const memberChannelIds = memberChannels?.map(m => m.channel_id) || []
-      const memberChannelData = memberChannels?.map(m => m.chat_channels).filter(Boolean) || []
-      const publicChannelData = publicChannels?.filter(c => !memberChannelIds.includes(c.id)) || []
+      const memberChannelData = memberChannels?.map(m => m.chat_channels).filter(c => c !== null) as Channel[] || [];
+      const publicChannelIds = new Set(memberChannelData.map(c => c.id));
+      const uniquePublicChannels = publicChannels?.filter(c => !publicChannelIds.has(c.id)) || [];
       
-      const allChannels = [...memberChannelData, ...publicChannelData]
+      const allChannels = [...memberChannelData, ...uniquePublicChannels];
 
       // Get member count for each channel
       const channelsWithMemberCount = await Promise.all(
@@ -236,18 +236,14 @@ export default function CommunicationHub() {
             .select('*', { count: 'exact', head: true })
             .eq('channel_id', channel.id)
           
-          if (countError) {
-            console.error('Error getting member count for channel:', channel.id, countError)
-          }
-          
           return {
             ...channel,
-            member_count: count || 0
+            member_count: countError ? 0 : count || 0
           }
         })
       )
       
-      setChannels(channelsWithMemberCount)
+      setChannels(channelsWithMemberCount.sort((a, b) => a.name.localeCompare(b.name)));
       if (channelsWithMemberCount.length > 0 && !selectedChannel) {
         setSelectedChannel(channelsWithMemberCount[0])
       }
@@ -590,7 +586,7 @@ export default function CommunicationHub() {
       setShowCreateDialog(false)
       
       // Reload channels and select the new one
-      await loadChannels()
+      await loadChannels(user.id)
       
       // Find and select the newly created channel
       const newChannel = channels.find(c => c.id === channel.id)
