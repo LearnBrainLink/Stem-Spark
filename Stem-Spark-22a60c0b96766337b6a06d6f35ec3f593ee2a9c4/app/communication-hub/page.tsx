@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { 
   MessageSquare, 
   Send,
@@ -23,29 +25,62 @@ import {
   CheckCircle
 } from 'lucide-react'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+interface Message {
+  id: string
+  content: string
+  sender_id: string
+  sender_name: string
+  channel_id: string
+  created_at: string
+  message_type: 'text' | 'file' | 'system'
+}
+
+interface Channel {
+  id: string
+  name: string
+  description: string
+  channel_type: 'public' | 'private' | 'group' | 'announcement'
+  created_by: string
+  created_at: string
+  member_count: number
+}
+
+interface User {
+  id: string
+  full_name: string
+  email: string
+  role: string
+  avatar_url?: string
+}
 
 export default function CommunicationHub() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [channels, setChannels] = useState<any[]>([])
-  const [messages, setMessages] = useState<any[]>([])
-  const [selectedChannel, setSelectedChannel] = useState<any>(null)
+  const [channels, setChannels] = useState<Channel[]>([])
+  const [messages, setMessages] = useState<Message[]>([])
+  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null)
   const [newMessage, setNewMessage] = useState('')
-  const [users, setUsers] = useState<any[]>([])
+  const [users, setUsers] = useState<User[]>([])
   const [unreadCounts, setUnreadCounts] = useState<{[key: string]: number}>({})
   const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [newChannelName, setNewChannelName] = useState('')
-  const [newChannelDescription, setNewChannelDescription] = useState('')
-  const [newChannelType, setNewChannelType] = useState('public')
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([])
+  const [newChannelData, setNewChannelData] = useState({
+    name: '',
+    description: '',
+    channel_type: 'public' as const,
+    selectedUsers: [] as string[]
+  })
+  const [userRole, setUserRole] = useState<string>('')
 
   useEffect(() => {
     checkAuth()
   }, [])
+
+  useEffect(() => {
+    if (selectedChannel) {
+      loadMessages(selectedChannel.id)
+      subscribeToMessages(selectedChannel.id)
+    }
+  }, [selectedChannel])
 
   const checkAuth = async () => {
     try {
@@ -77,6 +112,7 @@ export default function CommunicationHub() {
       }
 
       setUser(profile)
+      setUserRole(profile.role || '')
     } catch (error) {
       console.error('Error in loadUserProfile:', error)
     }
@@ -84,69 +120,71 @@ export default function CommunicationHub() {
 
   const loadCommunicationData = async (userId: string) => {
     try {
-      // Load chat channels
+      await Promise.all([
+        loadChannels(),
+        loadUsers(),
+        loadUnreadCounts(userId)
+      ])
+    } catch (error) {
+      console.error('Error loading communication data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadChannels = async () => {
+    try {
       const { data: channelData, error: channelError } = await supabase
         .from('chat_channels')
         .select('*')
         .order('created_at', { ascending: false })
 
       if (!channelError && channelData) {
-        setChannels(channelData)
-        if (channelData.length > 0) {
-          setSelectedChannel(channelData[0])
-          await loadMessages(channelData[0].id)
+        // Get member count for each channel
+        const channelsWithMemberCount = await Promise.all(
+          channelData.map(async (channel) => {
+            const { count } = await supabase
+              .from('chat_channel_members')
+              .select('*', { count: 'exact', head: true })
+              .eq('channel_id', channel.id)
+            
+            return {
+              ...channel,
+              member_count: count || 0
+            }
+          })
+        )
+        
+        setChannels(channelsWithMemberCount)
+        if (channelsWithMemberCount.length > 0) {
+          setSelectedChannel(channelsWithMemberCount[0])
         }
       }
+    } catch (error) {
+      console.error('Error loading channels:', error)
+    }
+  }
 
-      // Load users
-      const { data: userData, error: userError } = await supabase
+  const loadUsers = async () => {
+    try {
+      const { data: userData, error } = await supabase
         .from('profiles')
-        .select('*')
-        .order('full_name', { ascending: true })
+        .select('id, full_name, email, role, avatar_url')
+        .order('full_name')
 
-      if (!userError && userData) {
+      if (!error && userData) {
         setUsers(userData)
       }
-
-      // Load unread message counts for each channel
-      await loadUnreadCounts(userId)
-
-      setLoading(false)
     } catch (error) {
-      console.error('Error in loadCommunicationData:', error)
-      setLoading(false)
+      console.error('Error loading users:', error)
     }
   }
 
   const loadUnreadCounts = async (userId: string) => {
     try {
-      const counts: {[key: string]: number} = {}
-      
-      for (const channel of channels) {
-        // Get total messages in channel
-        const { data: totalMessages, error: totalError } = await supabase
-          .from('chat_messages')
-          .select('id')
-          .eq('channel_id', channel.id)
-          .neq('sender_id', userId)
-
-        if (!totalError && totalMessages) {
-          // Get read messages by user
-          const { data: readMessages, error: readError } = await supabase
-            .from('message_reads')
-            .select('message_id')
-            .eq('user_id', userId)
-            .in('message_id', totalMessages.map(m => m.id))
-
-          if (!readError) {
-            const readMessageIds = readMessages?.map(m => m.message_id) || []
-            const unreadCount = totalMessages.length - readMessageIds.length
-            counts[channel.id] = Math.max(0, unreadCount)
-          }
-        }
-      }
-      
-      setUnreadCounts(counts)
+      // This would need to be implemented based on your unread message tracking
+      // For now, we'll set empty counts
+      setUnreadCounts({})
     } catch (error) {
       console.error('Error loading unread counts:', error)
     }
@@ -154,168 +192,143 @@ export default function CommunicationHub() {
 
   const loadMessages = async (channelId: string) => {
     try {
-      const { data: messageData, error: messageError } = await supabase
+      const { data, error } = await supabase
         .from('chat_messages')
         .select(`
           *,
-          sender:profiles!chat_messages_sender_id_fkey(full_name)
+          profiles:profiles(full_name)
         `)
         .eq('channel_id', channelId)
         .order('created_at', { ascending: true })
 
-      if (!messageError && messageData) {
-        setMessages(messageData)
-        
-        // Mark messages as read
-        if (user) {
-          await markMessagesAsRead(messageData.map(m => m.id))
-        }
+      if (!error && data) {
+        setMessages(data.map(msg => ({
+          ...msg,
+          sender_name: msg.profiles?.full_name || 'Unknown'
+        })))
       }
     } catch (error) {
-      console.error('Error in loadMessages:', error)
+      console.error('Error loading messages:', error)
     }
   }
 
-  const markMessagesAsRead = async (messageIds: string[]) => {
-    if (!user || messageIds.length === 0) return
-
-    try {
-      // Insert read records for messages not sent by current user
-      const messagesToMark = messageIds.filter(id => {
-        const message = messages.find(m => m.id === id)
-        return message && message.sender_id !== user.id
+  const subscribeToMessages = (channelId: string) => {
+    const subscription = supabase
+      .channel(`messages:${channelId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'chat_messages',
+        filter: `channel_id=eq.${channelId}`
+      }, (payload) => {
+        const newMessage = payload.new as Message
+        setMessages(prev => [...prev, newMessage])
       })
+      .subscribe()
 
-      if (messagesToMark.length > 0) {
-        const readRecords = messagesToMark.map(messageId => ({
-          user_id: user.id,
-          message_id: messageId
-        }))
-
-        const { error } = await supabase
-          .from('message_reads')
-          .upsert(readRecords, { onConflict: 'user_id,message_id' })
-
-        if (!error) {
-          // Update unread count for current channel
-          setUnreadCounts(prev => ({
-            ...prev,
-            [selectedChannel.id]: 0
-          }))
-        }
-      }
-    } catch (error) {
-      console.error('Error marking messages as read:', error)
-    }
+    return () => subscription.unsubscribe()
   }
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedChannel || !user) return
+    if (!newMessage.trim() || !user || !selectedChannel) return
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('chat_messages')
         .insert({
-          channel_id: selectedChannel.id,
+          content: newMessage,
           sender_id: user.id,
-          content: newMessage.trim(),
+          channel_id: selectedChannel.id,
           message_type: 'text'
         })
 
-      if (error) {
+      if (!error) {
+        setNewMessage('')
+      } else {
         console.error('Error sending message:', error)
-        return
       }
-
-      setNewMessage('')
-      await loadMessages(selectedChannel.id)
     } catch (error) {
-      console.error('Error in handleSendMessage:', error)
+      console.error('Error sending message:', error)
     }
   }
 
-  const handleChannelSelect = async (channel: any) => {
-    setSelectedChannel(channel)
-    await loadMessages(channel.id)
-  }
-
   const handleCreateChannel = async () => {
-    if (!newChannelName.trim() || !user) return
-
     try {
-      // Create the channel
-      const { data: channelData, error: channelError } = await supabase
+      if (!user) return
+
+      const { data: channel, error } = await supabase
         .from('chat_channels')
         .insert({
-          name: newChannelName.trim(),
-          description: newChannelDescription.trim(),
-          channel_type: newChannelType,
+          name: newChannelData.name,
+          description: newChannelData.description,
+          channel_type: newChannelData.channel_type,
           created_by: user.id
         })
         .select()
         .single()
 
-      if (channelError) {
-        console.error('Error creating channel:', channelError)
-        alert('Failed to create channel')
-        return
-      }
+      if (error) throw error
 
-      // Add current user as member
-      await supabase
-        .from('chat_channel_members')
-        .insert({
-          user_id: user.id,
-          channel_id: channelData.id,
-          role: 'admin'
-        })
-
-      // Add selected users as members
-      if (selectedUsers.length > 0) {
-        const memberRecords = selectedUsers.map(userId => ({
+      // Add members to the channel
+      if (newChannelData.selectedUsers.length > 0) {
+        const memberInserts = newChannelData.selectedUsers.map(userId => ({
           user_id: userId,
-          channel_id: channelData.id,
+          channel_id: channel.id,
           role: 'member'
         }))
 
         await supabase
           .from('chat_channel_members')
-          .insert(memberRecords)
+          .insert(memberInserts)
       }
 
-      // Reset form and reload data
-      setNewChannelName('')
-      setNewChannelDescription('')
-      setNewChannelType('public')
-      setSelectedUsers([])
+      // Add creator as admin
+      await supabase
+        .from('chat_channel_members')
+        .insert({
+          user_id: user.id,
+          channel_id: channel.id,
+          role: 'admin'
+        })
+
+      setNewChannelData({
+        name: '',
+        description: '',
+        channel_type: 'public',
+        selectedUsers: []
+      })
       setShowCreateDialog(false)
-      
-      await loadCommunicationData(user.id)
-      setSelectedChannel(channelData)
-      await loadMessages(channelData.id)
-      
-      alert('Channel created successfully!')
+      loadChannels()
     } catch (error) {
-      console.error('Error in handleCreateChannel:', error)
-      alert('Failed to create channel')
+      console.error('Error creating channel:', error)
+      alert('Failed to create channel. Please try again.')
     }
   }
 
   const toggleUserSelection = (userId: string) => {
-    setSelectedUsers(prev => 
-      prev.includes(userId) 
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
-    )
+    setNewChannelData(prev => ({
+      ...prev,
+      selectedUsers: prev.selectedUsers.includes(userId)
+        ? prev.selectedUsers.filter(id => id !== userId)
+        : [...prev.selectedUsers, userId]
+    }))
+  }
+
+  const canCreateChannel = () => {
+    return userRole === 'student' || userRole === 'intern' || userRole === 'admin' || userRole === 'super_admin'
+  }
+
+  const canSendMessage = (channel: Channel) => {
+    if (channel.channel_type === 'announcement') {
+      return userRole === 'admin' || userRole === 'super_admin'
+    }
+    return true
   }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <div className="text-xl text-gray-600">Loading communication hub...</div>
-        </div>
+        <div className="text-xl">Loading communication hub...</div>
       </div>
     )
   }
@@ -324,253 +337,240 @@ export default function CommunicationHub() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Image
-                  src="/images/novakinetix-logo.png"
-                  alt="NovaKinetix Academy"
-                  width={40}
-                  height={40}
-                  className="h-10 w-auto"
-                />
-                <h1 className="text-2xl font-bold text-gray-900">Communication Hub</h1>
-              </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Communication Hub</h1>
+              <p className="mt-2 text-gray-600">Connect with teachers, parents, and administrators</p>
             </div>
-            <Button variant="outline" asChild>
-              <Link href="/student-dashboard">
-                <ArrowRight className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[600px]">
-          {/* Channels Sidebar */}
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center">
-                  <Hash className="h-4 w-4 mr-2" />
-                  Channels
-                </span>
+            <div className="mt-4 md:mt-0">
+              {canCreateChannel() && (
                 <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
                   <DialogTrigger asChild>
-                    <Button size="sm" variant="outline">
-                      <Plus className="h-4 w-4" />
+                    <Button>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Channel
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
+                  <DialogContent className="max-w-md">
                     <DialogHeader>
                       <DialogTitle>Create New Channel</DialogTitle>
                       <DialogDescription>
-                        Create a new channel for group discussions
+                        Create a new communication channel for the community.
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="name" className="text-right">
-                          Name
-                        </Label>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="channel-name">Channel Name</Label>
                         <Input
-                          id="name"
-                          value={newChannelName}
-                          onChange={(e) => setNewChannelName(e.target.value)}
-                          className="col-span-3"
-                          placeholder="Channel name"
+                          id="channel-name"
+                          value={newChannelData.name}
+                          onChange={(e) => setNewChannelData(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder="Enter channel name"
                         />
                       </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="description" className="text-right">
-                          Description
-                        </Label>
-                        <Input
-                          id="description"
-                          value={newChannelDescription}
-                          onChange={(e) => setNewChannelDescription(e.target.value)}
-                          className="col-span-3"
-                          placeholder="Channel description"
+                      <div>
+                        <Label htmlFor="channel-description">Description</Label>
+                        <Textarea
+                          id="channel-description"
+                          value={newChannelData.description}
+                          onChange={(e) => setNewChannelData(prev => ({ ...prev, description: e.target.value }))}
+                          placeholder="Enter channel description"
                         />
                       </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="type" className="text-right">
-                          Type
-                        </Label>
-                        <select
-                          id="type"
-                          value={newChannelType}
-                          onChange={(e) => setNewChannelType(e.target.value)}
-                          className="col-span-3 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      <div>
+                        <Label htmlFor="channel-type">Channel Type</Label>
+                        <Select
+                          value={newChannelData.channel_type}
+                          onValueChange={(value: any) => setNewChannelData(prev => ({ ...prev, channel_type: value }))}
                         >
-                          <option value="public">Public</option>
-                          <option value="private">Private</option>
-                          <option value="group">Group</option>
-                        </select>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="public">Public</SelectItem>
+                            <SelectItem value="private">Private</SelectItem>
+                            <SelectItem value="group">Group</SelectItem>
+                            {userRole === 'admin' || userRole === 'super_admin' ? (
+                              <SelectItem value="announcement">Announcement</SelectItem>
+                            ) : null}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <div className="grid grid-cols-4 items-start gap-4">
-                        <Label className="text-right pt-2">
-                          Add Members
-                        </Label>
-                        <div className="col-span-3 max-h-32 overflow-y-auto space-y-2">
-                          {users.filter(u => u.id !== user?.id).map((userItem) => (
-                            <div key={userItem.id} className="flex items-center space-x-2">
-                              <input
-                                type="checkbox"
-                                id={userItem.id}
-                                checked={selectedUsers.includes(userItem.id)}
-                                onChange={() => toggleUserSelection(userItem.id)}
-                                className="rounded"
-                              />
-                              <Label htmlFor={userItem.id} className="text-sm">
-                                {userItem.full_name} ({userItem.role})
-                              </Label>
-                            </div>
-                          ))}
-                        </div>
+                      <div>
+                        <Label>Add Members</Label>
+                        <Select
+                          onValueChange={(value) => {
+                            if (!newChannelData.selectedUsers.includes(value)) {
+                              setNewChannelData(prev => ({
+                                ...prev,
+                                selectedUsers: [...prev.selectedUsers, value]
+                              }))
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select users to add" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {users.map(user => (
+                              <SelectItem key={user.id} value={user.id}>
+                                {user.full_name} ({user.role})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {newChannelData.selectedUsers.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {newChannelData.selectedUsers.map(userId => {
+                              const user = users.find(u => u.id === userId)
+                              return (
+                                <Badge key={userId} variant="secondary">
+                                  {user?.full_name}
+                                  <button
+                                    onClick={() => setNewChannelData(prev => ({
+                                      ...prev,
+                                      selectedUsers: prev.selectedUsers.filter(id => id !== userId)
+                                    }))}
+                                    className="ml-1"
+                                  >
+                                    ×
+                                  </button>
+                                </Badge>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    <div className="flex justify-end space-x-2">
-                      <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                        Cancel
-                      </Button>
-                      <Button onClick={handleCreateChannel}>
+                      <Button onClick={handleCreateChannel} className="w-full">
                         Create Channel
                       </Button>
                     </div>
                   </DialogContent>
                 </Dialog>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {channels.map((channel) => (
-                  <button
-                    key={channel.id}
-                    onClick={() => handleChannelSelect(channel)}
-                    className={`w-full text-left p-2 rounded-lg transition-colors ${
-                      selectedChannel?.id === channel.id
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'hover:bg-gray-100'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <Hash className="h-4 w-4 mr-2" />
-                        <span className="font-medium">{channel.name}</span>
-                      </div>
-                      {unreadCounts[channel.id] > 0 && (
-                        <Badge variant="destructive" className="text-xs">
-                          {unreadCounts[channel.id]}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-500 truncate">{channel.description}</p>
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
 
-          {/* Chat Area */}
-          <Card className="lg:col-span-3 flex flex-col">
-            {selectedChannel ? (
-              <>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span className="flex items-center">
-                      <Hash className="h-4 w-4 mr-2" />
-                      {selectedChannel.name}
-                    </span>
-                    <Badge variant="outline">{selectedChannel.channel_type}</Badge>
-                  </CardTitle>
-                  <CardDescription>{selectedChannel.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col">
-                  {/* Messages */}
-                  <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-                    {messages.map((message) => (
-                      <div key={message.id} className="flex items-start space-x-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-xs font-medium text-blue-600">
-                            {message.sender?.full_name?.charAt(0) || 'U'}
-                          </span>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-medium text-sm">
-                              {message.sender?.full_name || 'Unknown User'}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {new Date(message.created_at).toLocaleTimeString()}
-                            </span>
-                            {message.sender_id === user?.id && (
-                              <CheckCircle className="h-3 w-3 text-green-500" />
-                            )}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Channels Sidebar */}
+          <div className="lg:col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Hash className="w-5 h-5 mr-2" />
+                  Channels ({channels.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {channels.map((channel) => (
+                    <div
+                      key={channel.id}
+                      className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                        selectedChannel?.id === channel.id
+                          ? 'bg-blue-50 border border-blue-200'
+                          : 'hover:bg-gray-50'
+                      }`}
+                      onClick={() => setSelectedChannel(channel)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium text-gray-900">#{channel.name}</h4>
+                          <p className="text-sm text-gray-600">{channel.description}</p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <Badge variant="outline" className="text-xs">
+                              {channel.channel_type}
+                            </Badge>
+                            <div className="flex items-center text-xs text-gray-500">
+                              <Users className="w-3 h-3 mr-1" />
+                              {channel.member_count}
+                            </div>
                           </div>
-                          <p className="text-sm text-gray-700 mt-1">{message.content}</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-
-                  {/* Message Input */}
-                  <div className="flex space-x-2">
-                    <Input
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder="Type your message..."
-                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    />
-                    <Button onClick={handleSendMessage}>
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </>
-            ) : (
-              <CardContent className="flex-1 flex items-center justify-center">
-                <div className="text-center">
-                  <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Select a channel to start chatting</p>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
-            )}
-          </Card>
-        </div>
+            </Card>
+          </div>
 
-        {/* Online Users */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Users className="h-5 w-5 mr-2" />
-              Online Users
-            </CardTitle>
-            <CardDescription>
-              Students and tutors currently online
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {users.slice(0, 8).map((userItem) => (
-                <div key={userItem.id} className="flex items-center space-x-3 p-3 border rounded-lg">
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <span className="text-xs font-medium text-green-600">
-                      {userItem.full_name?.charAt(0) || 'U'}
-                    </span>
+          {/* Messages Area */}
+          <div className="lg:col-span-3">
+            <Card>
+              <CardHeader>
+                <CardTitle>Messages</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {selectedChannel ? (
+                  <div className="space-y-4">
+                    {/* Messages */}
+                    <div className="space-y-4 max-h-96 overflow-y-auto">
+                      {messages.map((message) => (
+                        <div key={message.id} className="flex space-x-3">
+                          <div className="flex-shrink-0">
+                            <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
+                              {message.sender_name.charAt(0).toUpperCase()}
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm font-medium text-gray-900">
+                                {message.sender_name}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(message.created_at).toLocaleString()}
+                              </span>
+                              {message.message_type === 'system' && (
+                                <Badge variant="secondary" className="text-xs">System</Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-700 mt-1">{message.content}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Message Input */}
+                    <div className="border-t border-gray-200 pt-4">
+                      {canSendMessage(selectedChannel) ? (
+                        <div className="flex space-x-2">
+                          <Input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                            placeholder="Type your message..."
+                            className="flex-1"
+                          />
+                          <Button
+                            onClick={handleSendMessage}
+                            disabled={!newMessage.trim()}
+                          >
+                            <Send className="w-4 h-4 mr-2" />
+                            Send
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-500 text-center py-2">
+                          You don't have permission to send messages in this channel
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">{userItem.full_name}</p>
-                    <p className="text-xs text-gray-500">{userItem.role}</p>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    Select a channel to start messaging
                   </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   )
