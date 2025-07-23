@@ -1,3 +1,4 @@
 {
+  "/api/messaging/channels/route": "app/api/messaging/channels/route.js",
   "/page": "app/page.js"
 }
