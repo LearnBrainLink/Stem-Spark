@@ -77,6 +77,39 @@ export default function AdminCommunicationHub() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedChannelType, setSelectedChannelType] = useState('all')
 
+  const handleDebugCreateChannel = async () => {
+    if (!user) {
+      alert('You must be logged in to perform this action.');
+      return;
+    }
+  
+    try {
+      const response = await fetch('/api/admin/debug/create-channel-as-admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...newChannelData,
+          user_id: user.id,
+        }),
+      });
+  
+      const result = await response.json();
+  
+      if (!response.ok) {
+        throw new Error(result.error || 'An unknown error occurred');
+      }
+  
+      alert('Debug channel created successfully!');
+      await loadChannels();
+      setShowCreateDialog(false);
+    } catch (error: any) {
+      alert(`Debug channel creation failed: ${error.message}`);
+      console.error(error);
+    }
+  };
+
   useEffect(() => {
     checkAuth()
   }, [])
@@ -500,6 +533,9 @@ export default function AdminCommunicationHub() {
                         </div>
                         <Button onClick={handleCreateChannel} className="w-full">
                           Create Channel
+                        </Button>
+                        <Button onClick={handleDebugCreateChannel} className="w-full mt-2" variant="outline">
+                          Create as Admin (Debug)
                         </Button>
                       </div>
                     </DialogContent>
