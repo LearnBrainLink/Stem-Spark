@@ -70,15 +70,40 @@ export default function CommunicationHub() {
     selectedUsers: [] as string[]
   })
   const [userRole, setUserRole] = useState<string>('')
+  const [currentSubscription, setCurrentSubscription] = useState<any>(null)
 
   useEffect(() => {
     checkAuth()
   }, [])
 
+  // Cleanup effect for component unmounting
+  useEffect(() => {
+    return () => {
+      if (currentSubscription) {
+        currentSubscription.unsubscribe()
+      }
+    }
+  }, [currentSubscription])
+
   useEffect(() => {
     if (selectedChannel) {
       loadMessages(selectedChannel.id)
-      subscribeToMessages(selectedChannel.id)
+      
+      // Unsubscribe from previous subscription if it exists
+      if (currentSubscription) {
+        currentSubscription.unsubscribe()
+      }
+      
+      // Create new subscription
+      const subscription = subscribeToMessages(selectedChannel.id)
+      setCurrentSubscription(subscription)
+    }
+    
+    // Cleanup function to unsubscribe when component unmounts or selectedChannel changes
+    return () => {
+      if (currentSubscription) {
+        currentSubscription.unsubscribe()
+      }
     }
   }, [selectedChannel])
 
@@ -113,6 +138,9 @@ export default function CommunicationHub() {
 
       setUser(profile)
       setUserRole(profile.role || '')
+      
+      // Auto-add user to group channels based on their role
+      await addUserToGroupChannels(userId, profile.role)
     } catch (error) {
       console.error('Error in loadUserProfile:', error)
     }
@@ -134,37 +162,33 @@ export default function CommunicationHub() {
 
   const loadChannels = async () => {
     try {
-      const { data: channelData, error: channelError } = await supabase
-        .from('chat_channels')
-        .select('*')
-        .order('created_at', { ascending: false })
+      // Get user session for authentication
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        console.error('No session found')
+        return
+      }
 
-      if (!channelError && channelData) {
-        // Get member count for each channel using a more efficient query
-        const channelsWithMemberCount = await Promise.all(
-          channelData.map(async (channel) => {
-            const { count, error: countError } = await supabase
-              .from('chat_channel_members')
-              .select('*', { count: 'exact', head: true })
-              .eq('channel_id', channel.id)
-            
-            if (countError) {
-              console.error('Error getting member count for channel:', channel.id, countError)
-            }
-            
-            return {
-              ...channel,
-              member_count: count || 0
-            }
-          })
-        )
-        
-        setChannels(channelsWithMemberCount)
-        if (channelsWithMemberCount.length > 0 && !selectedChannel) {
-          setSelectedChannel(channelsWithMemberCount[0])
+      // Use the API route with proper authentication
+      const response = await fetch('/api/messaging/channels', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
         }
-      } else if (channelError) {
-        console.error('Error loading channels:', channelError)
+      })
+
+      if (response.ok) {
+        const { channels: channelData } = await response.json()
+        
+        if (channelData && channelData.length > 0) {
+          setChannels(channelData)
+          if (!selectedChannel) {
+            setSelectedChannel(channelData[0])
+          }
+        } else {
+          setChannels([])
+        }
+      } else {
+        console.error('Failed to load channels:', response.statusText)
       }
     } catch (error) {
       console.error('Error loading channels:', error)
@@ -198,20 +222,31 @@ export default function CommunicationHub() {
 
   const loadMessages = async (channelId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select(`
-          *,
-          profiles:profiles(full_name)
-        `)
-        .eq('channel_id', channelId)
-        .order('created_at', { ascending: true })
+      // Get user session for authentication
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        console.error('No session found')
+        return
+      }
 
-      if (!error && data) {
-        setMessages(data.map(msg => ({
-          ...msg,
-          sender_name: msg.profiles?.full_name || 'Unknown'
-        })))
+      // Use the API route with proper authentication and no limit
+      const response = await fetch(`/api/messaging/messages?channel_id=${channelId}&limit=10000`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      })
+
+      if (response.ok) {
+        const { messages: messageData } = await response.json()
+        
+        if (messageData) {
+          setMessages(messageData.map((msg: any) => ({
+            ...msg,
+            sender_name: msg.profiles?.full_name || 'Unknown'
+          })))
+        }
+      } else {
+        console.error('Failed to load messages:', response.statusText)
       }
     } catch (error) {
       console.error('Error loading messages:', error)
@@ -444,6 +479,61 @@ export default function CommunicationHub() {
     } catch (error) {
       console.error('Database access test failed:', error)
       return { success: false, error: 'Database access failed' }
+    }
+  }
+
+  const addUserToGroupChannels = async (userId: string, role: string) => {
+    try {
+      // Get or create group channels based on role
+      const groupChannelTypes = {
+        'admin': 'admin_group',
+        'intern': 'intern_group', 
+        'parent': 'parent_group',
+        'student': 'student_group'
+      }
+
+      const channelType = groupChannelTypes[role as keyof typeof groupChannelTypes]
+      if (!channelType) return
+
+      // Check if group channel exists, if not create it
+      let { data: channel } = await supabase
+        .from('chat_channels')
+        .select('*')
+        .eq('channel_type', channelType)
+        .single()
+
+      if (!channel) {
+        // Create the group channel
+        const { data: newChannel } = await supabase
+          .from('chat_channels')
+          .insert({
+            name: `${role.charAt(0).toUpperCase() + role.slice(1)}s Group`,
+            description: `Group channel for ${role}s`,
+            channel_type: channelType,
+            created_by: userId
+          })
+          .select()
+          .single()
+        
+        channel = newChannel
+      }
+
+      if (channel) {
+        // Add user to the channel if not already a member
+        const { error: memberError } = await supabase
+          .from('chat_channel_members')
+          .upsert({
+            channel_id: channel.id,
+            user_id: userId,
+            role: 'member'
+          }, { onConflict: 'channel_id,user_id' })
+
+        if (memberError) {
+          console.error('Error adding user to group channel:', memberError)
+        }
+      }
+    } catch (error) {
+      console.error('Error in addUserToGroupChannels:', error)
     }
   }
 

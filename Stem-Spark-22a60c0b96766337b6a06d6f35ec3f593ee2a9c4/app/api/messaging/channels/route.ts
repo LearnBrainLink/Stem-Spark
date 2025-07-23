@@ -8,22 +8,61 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function GET(request: NextRequest) {
   try {
-    // Use service role key to bypass RLS for admin access
-    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {
+    // Get the authorization header
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Missing authorization header' }, { status: 401 })
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+    
+    // Use anon key for authentication
+    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+    
+    // Verify the user token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+    }
+
+    // Get user profile to check role
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    // Use service role key for database operations
+    const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
       },
     })
-    
-    const { data: channels, error } = await supabase
+
+    let channelsQuery = supabaseAdmin
       .from('chat_channels')
-      .select('*')
+      .select(`
+        *,
+        chat_channel_members!inner(user_id)
+      `)
+      .eq('chat_channel_members.user_id', user.id)
       .order('name')
+
+    // If user is admin, also include all public channels
+    if (profile && ['admin', 'super_admin'].includes(profile.role)) {
+      channelsQuery = supabaseAdmin
+        .from('chat_channels')
+        .select('*')
+        .or(`chat_channel_members.user_id.eq.${user.id},channel_type.eq.public`)
+        .order('name')
+    }
+
+    const { data: channels, error } = await channelsQuery
 
     if (error) throw error
 
-    return NextResponse.json({ channels })
+    return NextResponse.json({ channels: channels || [] })
   } catch (error) {
     console.error('Error fetching channels:', error)
     return NextResponse.json(
