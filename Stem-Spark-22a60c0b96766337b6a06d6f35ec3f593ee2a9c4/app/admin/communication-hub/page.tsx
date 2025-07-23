@@ -27,7 +27,8 @@ import {
   Shield,
   UserX,
   UserCheck,
-  AlertTriangle
+  AlertTriangle,
+  ArrowLeft
 } from 'lucide-react'
 
 interface Message {
@@ -44,10 +45,11 @@ interface Channel {
   id: string
   name: string
   description: string
-  channel_type: 'public' | 'private' | 'group' | 'announcement'
+  channel_type: 'public' | 'private' | 'group' | 'announcement' | 'admin_group' | 'intern_group' | 'parent_group' | 'student_group'
   created_by: string
   created_at: string
   member_count: number
+  group_role?: string // For group-specific channels
 }
 
 interface User {
@@ -79,6 +81,7 @@ export default function AdminCommunicationHub() {
   const [userRole, setUserRole] = useState<string>('')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedChannelType, setSelectedChannelType] = useState('all')
+  const [currentSubscription, setCurrentSubscription] = useState<any>(null)
 
   const handleDebugCreateChannel = async () => {
     if (!user) {
@@ -117,10 +120,34 @@ export default function AdminCommunicationHub() {
     checkAuth()
   }, [])
 
+  // Cleanup effect for component unmounting
+  useEffect(() => {
+    return () => {
+      if (currentSubscription) {
+        currentSubscription.unsubscribe()
+      }
+    }
+  }, [currentSubscription])
+
   useEffect(() => {
     if (selectedChannel) {
       loadMessages(selectedChannel.id)
-      subscribeToMessages(selectedChannel.id)
+      
+      // Unsubscribe from previous subscription if it exists
+      if (currentSubscription) {
+        currentSubscription.unsubscribe()
+      }
+      
+      // Create new subscription
+      const subscription = subscribeToMessages(selectedChannel.id)
+      setCurrentSubscription(subscription)
+    }
+    
+    // Cleanup function to unsubscribe when component unmounts or selectedChannel changes
+    return () => {
+      if (currentSubscription) {
+        currentSubscription.unsubscribe()
+      }
     }
   }, [selectedChannel])
 
@@ -234,21 +261,51 @@ export default function AdminCommunicationHub() {
 
   const loadMessages = async (channelId: string) => {
     try {
-      const { data, error } = await supabase
+      // First get all messages for the channel
+      const { data: messages, error: messagesError } = await supabase
         .from('chat_messages')
-        .select(`
-          *,
-          profiles:profiles(full_name)
-        `)
+        .select('*')
         .eq('channel_id', channelId)
         .order('created_at', { ascending: true })
 
-      if (!error && data) {
-        setMessages(data.map(msg => ({
-          ...msg,
-          sender_name: msg.profiles?.full_name || 'Unknown'
-        })))
+      if (messagesError) {
+        console.error('Error loading messages:', messagesError)
+        return
       }
+
+      if (!messages || messages.length === 0) {
+        setMessages([])
+        return
+      }
+
+      // Get unique sender IDs
+      const senderIds = [...new Set(messages.map(msg => msg.sender_id))]
+
+      // Fetch sender information for all senders
+      const { data: senders, error: sendersError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', senderIds)
+
+      if (sendersError) {
+        console.error('Error loading senders:', sendersError)
+      }
+
+      // Create a map of sender ID to sender info
+      const senderMap = new Map()
+      if (senders) {
+        senders.forEach(sender => {
+          senderMap.set(sender.id, sender)
+        })
+      }
+
+      // Combine messages with sender information
+      const messagesWithSenders = messages.map(msg => ({
+        ...msg,
+        sender_name: senderMap.get(msg.sender_id)?.full_name || 'Unknown User'
+      }))
+
+      setMessages(messagesWithSenders)
     } catch (error) {
       console.error('Error loading messages:', error)
     }
@@ -262,35 +319,94 @@ export default function AdminCommunicationHub() {
         schema: 'public',
         table: 'chat_messages',
         filter: `channel_id=eq.${channelId}`
-      }, (payload) => {
-        const newMessage = payload.new as Message
-        setMessages(prev => [...prev, newMessage])
+      }, async (payload) => {
+        const newMessage = payload.new as any
+        
+        // Fetch sender information for the new message
+        try {
+          const { data: senderData, error: senderError } = await supabase
+            .from('profiles')
+            .select('full_name, email')
+            .eq('id', newMessage.sender_id)
+            .single()
+          
+          if (senderError) {
+            console.error('Error fetching sender info:', senderError)
+          }
+          
+          const messageWithSender = {
+            ...newMessage,
+            sender_name: senderData?.full_name || 'Unknown User'
+          }
+          
+          setMessages(prev => [...prev, messageWithSender])
+          console.log('New message received:', messageWithSender)
+        } catch (error) {
+          console.error('Error fetching sender info for new message:', error)
+          // Add message without sender info as fallback
+          setMessages(prev => [...prev, { ...newMessage, sender_name: 'Unknown User' }])
+        }
       })
-      .subscribe()
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'chat_messages',
+        filter: `channel_id=eq.${channelId}`
+      }, (payload) => {
+        // Remove deleted message from state
+        setMessages(prev => prev.filter(msg => msg.id !== payload.old.id))
+      })
+      .subscribe((status) => {
+        console.log('Subscription status:', status)
+      })
 
-    return () => subscription.unsubscribe()
+    return subscription
   }
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !user || !selectedChannel) return
+    if (!newMessage.trim() || !user || !selectedChannel) {
+      console.log('Cannot send message:', { 
+        hasMessage: !!newMessage.trim(), 
+        hasUser: !!user, 
+        hasChannel: !!selectedChannel 
+      })
+      return
+    }
 
     try {
-      const { error } = await supabase
+      console.log('Sending message:', {
+        content: newMessage,
+        sender_id: user.id,
+        channel_id: selectedChannel.id,
+        channel_name: selectedChannel.name
+      })
+
+      const { data, error } = await supabase
         .from('chat_messages')
         .insert({
-          content: newMessage,
+          content: newMessage.trim(),
           sender_id: user.id,
           channel_id: selectedChannel.id,
           message_type: 'text'
         })
+        .select()
 
-      if (!error) {
+      if (error) {
+        console.error('Error sending message:', error)
+        alert(`Failed to send message: ${error.message}`)
+        return
+      }
+
+      if (data && data.length > 0) {
+        console.log('Message sent successfully:', data[0])
         setNewMessage('')
       } else {
-        console.error('Error sending message:', error)
+        console.error('No data returned from message insert')
+        alert('Message sent but no confirmation received')
       }
     } catch (error) {
       console.error('Error sending message:', error)
+      alert(`Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -300,7 +416,7 @@ export default function AdminCommunicationHub() {
 
       console.log('Creating channel with user:', user.email)
 
-      // Check if user is admin
+      // Get user profile to determine their role
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role')
@@ -309,11 +425,11 @@ export default function AdminCommunicationHub() {
 
       if (profileError) {
         console.error('Profile error:', profileError)
-        throw new Error('Failed to verify admin status')
+        throw new Error('Failed to verify user status')
       }
 
-      if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
-        throw new Error('Admin access required')
+      if (!profile) {
+        throw new Error('User profile not found')
       }
 
       console.log('User role confirmed:', profile.role)
@@ -337,7 +453,7 @@ export default function AdminCommunicationHub() {
 
       console.log('Channel created:', channel)
 
-      // Add creator as admin member
+      // Add creator as admin member (channel creator is always admin of their channel)
       const { error: memberError } = await supabase
         .from('chat_channel_members')
         .insert({
@@ -367,6 +483,11 @@ export default function AdminCommunicationHub() {
           console.error('Additional members error:', membersError)
           // Don't throw here, channel was created successfully
         }
+      }
+
+      // If this is a group channel, automatically add users based on their roles
+      if (['admin_group', 'intern_group', 'parent_group', 'student_group'].includes(channel.channel_type)) {
+        await addUsersToGroupChannel(channel.id, channel.channel_type)
       }
 
       setNewChannelData({
@@ -428,10 +549,12 @@ export default function AdminCommunicationHub() {
   }
 
   const canCreateChannel = () => {
-    return userRole === 'admin' || userRole === 'super_admin'
+    // Allow all authenticated users to create channels
+    return !!user
   }
 
   const canDeleteChannel = (channel: Channel) => {
+    // Only admins and super_admins can delete channels
     return userRole === 'admin' || userRole === 'super_admin'
   }
 
@@ -442,6 +565,25 @@ export default function AdminCommunicationHub() {
     return true
   }
 
+  // Function to get the appropriate dashboard URL based on user role
+  const getDashboardUrl = () => {
+    switch (userRole) {
+      case 'admin':
+      case 'super_admin':
+        return '/admin'
+      case 'intern':
+        return '/intern-dashboard'
+      case 'student':
+        return '/student-dashboard'
+      case 'parent':
+        return '/parent-dashboard'
+      case 'teacher':
+        return '/teacher-dashboard'
+      default:
+        return '/dashboard'
+    }
+  }
+
   const filteredChannels = channels.filter(channel => {
     const matchesSearch = channel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          channel.description.toLowerCase().includes(searchTerm.toLowerCase())
@@ -449,6 +591,78 @@ export default function AdminCommunicationHub() {
     
     return matchesSearch && matchesType
   })
+
+  // Function to get users by role
+  const getUsersByRole = async (role: string) => {
+    try {
+      const { data: users, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .eq('role', role)
+      
+      if (error) {
+        console.error('Error fetching users by role:', error)
+        return []
+      }
+      
+      return users || []
+    } catch (error) {
+      console.error('Error in getUsersByRole:', error)
+      return []
+    }
+  }
+
+  // Function to automatically add users to group channels
+  const addUsersToGroupChannel = async (channelId: string, channelType: string) => {
+    try {
+      let targetRole = ''
+      
+      // Map channel types to roles
+      switch (channelType) {
+        case 'admin_group':
+          targetRole = 'admin'
+          break
+        case 'intern_group':
+          targetRole = 'intern'
+          break
+        case 'parent_group':
+          targetRole = 'parent'
+          break
+        case 'student_group':
+          targetRole = 'student'
+          break
+        default:
+          return // Not a group channel
+      }
+      
+      // Get all users with the target role
+      const users = await getUsersByRole(targetRole)
+      
+      if (users.length === 0) {
+        console.log(`No users found with role: ${targetRole}`)
+        return
+      }
+      
+      // Add all users to the channel
+      const memberInserts = users.map(user => ({
+        channel_id: channelId,
+        user_id: user.id,
+        role: 'member'
+      }))
+      
+      const { error } = await supabase
+        .from('chat_channel_members')
+        .insert(memberInserts)
+      
+      if (error) {
+        console.error('Error adding users to group channel:', error)
+      } else {
+        console.log(`Added ${users.length} users to ${channelType} channel`)
+      }
+    } catch (error) {
+      console.error('Error in addUsersToGroupChannel:', error)
+    }
+  }
 
   if (loading) {
     return (
@@ -461,9 +675,19 @@ export default function AdminCommunicationHub() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Communication Hub</h1>
-        <p className="text-gray-600">Manage messaging channels and communications</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Communication Hub</h1>
+          <p className="text-gray-600">Manage messaging channels and communications</p>
+        </div>
+        <Button 
+          variant="outline" 
+          onClick={() => window.location.href = getDashboardUrl()}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Dashboard
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -523,7 +747,16 @@ export default function AdminCommunicationHub() {
                               <SelectItem value="public">Public</SelectItem>
                               <SelectItem value="private">Private</SelectItem>
                               <SelectItem value="group">Group</SelectItem>
-                              <SelectItem value="announcement">Announcement</SelectItem>
+                              {/* Only admins can create announcement and role-specific channels */}
+                              {(userRole === 'admin' || userRole === 'super_admin') && (
+                                <>
+                                  <SelectItem value="announcement">Announcement</SelectItem>
+                                  <SelectItem value="admin_group">Admin Group</SelectItem>
+                                  <SelectItem value="intern_group">Intern Group</SelectItem>
+                                  <SelectItem value="parent_group">Parent Group</SelectItem>
+                                  <SelectItem value="student_group">Student Group</SelectItem>
+                                </>
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
@@ -575,9 +808,6 @@ export default function AdminCommunicationHub() {
                         <Button onClick={handleCreateChannel} className="w-full">
                           Create Channel
                         </Button>
-                        <Button onClick={handleDebugCreateChannel} className="w-full mt-2" variant="outline">
-                          Create as Admin (Debug)
-                        </Button>
                       </div>
                     </DialogContent>
                   </Dialog>
@@ -603,6 +833,10 @@ export default function AdminCommunicationHub() {
                     <SelectItem value="private">Private</SelectItem>
                     <SelectItem value="group">Group</SelectItem>
                     <SelectItem value="announcement">Announcement</SelectItem>
+                    <SelectItem value="admin_group">Admin Group</SelectItem>
+                    <SelectItem value="intern_group">Intern Group</SelectItem>
+                    <SelectItem value="parent_group">Parent Group</SelectItem>
+                    <SelectItem value="student_group">Student Group</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

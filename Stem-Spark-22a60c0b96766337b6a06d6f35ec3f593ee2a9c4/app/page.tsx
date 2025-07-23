@@ -10,7 +10,7 @@ import { FeaturesSection } from "../components/FeaturesSection"
 import { CTASection } from "../components/CTASection"
 import { VideoModal } from "../components/VideoModal"
 import { Menu, X, Lock, Star, User, LogIn, BookOpen, Users, Award, Play, GraduationCap, MessageSquare, Calendar, Trophy, Briefcase } from "lucide-react"
-import { createClient } from "@supabase/supabase-js"
+import { supabase } from "@/lib/supabase/client"
 import Link from "next/link"
 
 export default function HomePage() {
@@ -21,10 +21,6 @@ export default function HomePage() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
       const { data: { user } } = await supabase.auth.getUser()
       setIsLoggedIn(!!user)
     }
