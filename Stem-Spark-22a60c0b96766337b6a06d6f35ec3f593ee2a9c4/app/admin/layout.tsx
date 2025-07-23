@@ -71,7 +71,7 @@ const navigationItems = [
   },
   {
     title: "Communication Hub",
-    href: "/communication-hub",
+    href: "/admin/communication-hub",
     icon: MessageSquare,
     description: "Manage messaging and channels",
   },

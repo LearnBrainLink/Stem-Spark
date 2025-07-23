@@ -140,13 +140,17 @@ export default function CommunicationHub() {
         .order('created_at', { ascending: false })
 
       if (!channelError && channelData) {
-        // Get member count for each channel
+        // Get member count for each channel using a more efficient query
         const channelsWithMemberCount = await Promise.all(
           channelData.map(async (channel) => {
-            const { count } = await supabase
+            const { count, error: countError } = await supabase
               .from('chat_channel_members')
               .select('*', { count: 'exact', head: true })
               .eq('channel_id', channel.id)
+            
+            if (countError) {
+              console.error('Error getting member count for channel:', channel.id, countError)
+            }
             
             return {
               ...channel,
@@ -156,9 +160,11 @@ export default function CommunicationHub() {
         )
         
         setChannels(channelsWithMemberCount)
-        if (channelsWithMemberCount.length > 0) {
+        if (channelsWithMemberCount.length > 0 && !selectedChannel) {
           setSelectedChannel(channelsWithMemberCount[0])
         }
+      } else if (channelError) {
+        console.error('Error loading channels:', channelError)
       }
     } catch (error) {
       console.error('Error loading channels:', error)
@@ -254,8 +260,16 @@ export default function CommunicationHub() {
 
   const handleCreateChannel = async () => {
     try {
-      if (!user) return
+      if (!user) {
+        console.error('No user found')
+        alert('Please log in to create a channel.')
+        return
+      }
 
+      console.log('Creating channel with data:', newChannelData)
+      console.log('Current user:', user)
+
+      // Create the channel
       const { data: channel, error } = await supabase
         .from('chat_channels')
         .insert({
@@ -267,23 +281,16 @@ export default function CommunicationHub() {
         .select()
         .single()
 
-      if (error) throw error
-
-      // Add members to the channel
-      if (newChannelData.selectedUsers.length > 0) {
-        const memberInserts = newChannelData.selectedUsers.map(userId => ({
-          user_id: userId,
-          channel_id: channel.id,
-          role: 'member'
-        }))
-
-        await supabase
-          .from('chat_channel_members')
-          .insert(memberInserts)
+      if (error) {
+        console.error('Error creating channel:', error)
+        alert(`Failed to create channel: ${error.message}`)
+        return
       }
 
-      // Add creator as admin
-      await supabase
+      console.log('Channel created successfully:', channel)
+
+      // Add creator as admin immediately
+      const { error: memberError } = await supabase
         .from('chat_channel_members')
         .insert({
           user_id: user.id,
@@ -291,6 +298,37 @@ export default function CommunicationHub() {
           role: 'admin'
         })
 
+      if (memberError) {
+        console.error('Error adding creator as member:', memberError)
+        // If we can't add the creator as member, we should delete the channel
+        await supabase.from('chat_channels').delete().eq('id', channel.id)
+        alert(`Failed to create channel: ${memberError.message}`)
+        return
+      }
+
+      console.log('Creator added as admin successfully')
+
+      // Add selected members to the channel
+      if (newChannelData.selectedUsers.length > 0) {
+        const memberInserts = newChannelData.selectedUsers.map(userId => ({
+          user_id: userId,
+          channel_id: channel.id,
+          role: 'member'
+        }))
+
+        const { error: membersError } = await supabase
+          .from('chat_channel_members')
+          .insert(memberInserts)
+
+        if (membersError) {
+          console.error('Error adding members:', membersError)
+          // Don't fail the entire operation if adding members fails
+        } else {
+          console.log('Members added successfully')
+        }
+      }
+
+      // Reset form and reload channels
       setNewChannelData({
         name: '',
         description: '',
@@ -298,7 +336,17 @@ export default function CommunicationHub() {
         selectedUsers: []
       })
       setShowCreateDialog(false)
-      loadChannels()
+      
+      // Reload channels and select the new one
+      await loadChannels()
+      
+      // Find and select the newly created channel
+      const newChannel = channels.find(c => c.id === channel.id)
+      if (newChannel) {
+        setSelectedChannel(newChannel)
+      }
+
+      console.log('Channel creation completed successfully')
     } catch (error) {
       console.error('Error creating channel:', error)
       alert('Failed to create channel. Please try again.')
