@@ -41,7 +41,13 @@ class RealTimeMessagingService {
         throw new Error('Supabase configuration missing')
       }
       
-      this.supabase = createClient(supabaseUrl, supabaseAnonKey)
+      this.supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true,
+        },
+      })
     }
     return this.supabase
   }
@@ -97,19 +103,13 @@ class RealTimeMessagingService {
         channels.map(async (channel) => {
           const supabaseClient = this.getSupabase()
           const { data: members } = await supabaseClient
-            .from('channel_members')
+            .from('chat_channel_members')
             .select('*')
             .eq('channel_id', channel.id)
 
           return {
             ...channel,
-            members: members || [],
-            restrictions: channel.channel_restrictions || {
-              can_send_messages: 'everyone',
-              can_join: 'everyone',
-              is_announcement_channel: false,
-              moderation_enabled: false
-            }
+            members: members || []
           } as ExtendedChannel
         })
       )
@@ -166,7 +166,6 @@ class RealTimeMessagingService {
     }
   }
 
-  // Message Management
   async sendMessage(
     channelId: string,
     senderId: string,
@@ -176,12 +175,6 @@ class RealTimeMessagingService {
   ): Promise<{ success: boolean; message?: ExtendedMessage; error?: string }> {
     try {
       const supabase = this.getSupabase()
-      // Check if user can send messages in this channel
-      const canSend = await this.checkMessagePermissions(channelId, senderId)
-      if (!canSend.can_send) {
-        return { success: false, error: 'You do not have permission to send messages in this channel' }
-      }
-
       const { data: message, error } = await supabase
         .from('chat_messages')
         .insert({
@@ -191,25 +184,20 @@ class RealTimeMessagingService {
           message_type: messageType,
           file_url: fileUrl
         })
-        .select()
+        .select(`
+          *,
+          profiles:profiles(full_name, role, avatar_url)
+        `)
         .single()
 
       if (error) throw error
 
-              // Get sender details
-        const supabaseClient = this.getSupabase()
-        const { data: sender } = await supabaseClient
-          .from('profiles')
-          .select('full_name, role, avatar_url')
-          .eq('id', senderId)
-          .single()
-
       const extendedMessage: ExtendedMessage = {
         ...message,
         sender: {
-          full_name: sender?.full_name || 'Unknown User',
-          role: sender?.role || 'member',
-          avatar_url: sender?.avatar_url
+          full_name: message.profiles?.full_name || 'Unknown User',
+          role: message.profiles?.role || 'user',
+          avatar_url: message.profiles?.avatar_url
         }
       }
 
@@ -231,24 +219,24 @@ class RealTimeMessagingService {
         .from('chat_messages')
         .select(`
           *,
-          profiles!chat_messages_sender_id_fkey(full_name, role, avatar_url)
+          profiles:profiles(full_name, role, avatar_url)
         `)
         .eq('channel_id', channelId)
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: true })
         .range(offset, offset + limit - 1)
 
       if (error) throw error
 
-      const extendedMessages: ExtendedMessage[] = messages.map(msg => ({
-        ...msg,
+      const extendedMessages: ExtendedMessage[] = messages.map(message => ({
+        ...message,
         sender: {
-          full_name: msg.profiles?.full_name || 'Unknown User',
-          role: msg.profiles?.role || 'member',
-          avatar_url: msg.profiles?.avatar_url
+          full_name: message.profiles?.full_name || 'Unknown User',
+          role: message.profiles?.role || 'user',
+          avatar_url: message.profiles?.avatar_url
         }
       }))
 
-      return { success: true, messages: extendedMessages.reverse() }
+      return { success: true, messages: extendedMessages }
     } catch (error) {
       console.error('Error getting messages:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
@@ -261,10 +249,11 @@ class RealTimeMessagingService {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const supabase = this.getSupabase()
-      // Check if user can delete this message (sender or admin)
+      
+      // Check if user can delete the message
       const { data: message } = await supabase
-        .from('messages')
-        .select('sender_id, channel_id')
+        .from('chat_messages')
+        .select('sender_id')
         .eq('id', messageId)
         .single()
 
@@ -272,9 +261,17 @@ class RealTimeMessagingService {
         return { success: false, error: 'Message not found' }
       }
 
-      const canModerate = await this.checkMessagePermissions(message.channel_id, userId)
-      if (message.sender_id !== userId && !canModerate.can_moderate) {
-        return { success: false, error: 'You do not have permission to delete this message' }
+      // Only allow deletion if user is the sender or an admin
+      if (message.sender_id !== userId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .single()
+
+        if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
+          return { success: false, error: 'Not authorized to delete this message' }
+        }
       }
 
       const { error } = await supabase
@@ -291,18 +288,18 @@ class RealTimeMessagingService {
     }
   }
 
-  // Real-time Subscriptions
   subscribeToChannel(
     channelId: string,
     onMessage: (message: ExtendedMessage) => void,
     onMessageDelete: (messageId: string) => void
   ): RealtimeChannel {
-    // Unsubscribe from existing channel if exists
+    const supabase = this.getSupabase()
+    
+    // Unsubscribe from existing channel if any
     this.unsubscribeFromChannel(channelId)
 
-    const supabase = this.getSupabase()
     const channel = supabase
-      .channel(`messages:${channelId}`)
+      .channel(`chat:${channelId}`)
       .on(
         'postgres_changes',
         {
@@ -312,26 +309,26 @@ class RealTimeMessagingService {
           filter: `channel_id=eq.${channelId}`
         },
         async (payload) => {
-          const message = payload.new as Message
-          
-          // Get sender details
-          const supabase = this.getSupabase()
-          const { data: sender } = await supabase
-            .from('profiles')
-            .select('full_name, role, avatar_url')
-            .eq('id', message.sender_id)
-            .single()
+          try {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name, role, avatar_url')
+              .eq('id', payload.new.sender_id)
+              .single()
 
-          const extendedMessage: ExtendedMessage = {
-            ...message,
-            sender: {
-              full_name: sender?.full_name || 'Unknown User',
-              role: sender?.role || 'member',
-              avatar_url: sender?.avatar_url
+            const extendedMessage: ExtendedMessage = {
+              ...payload.new,
+              sender: {
+                full_name: profile?.full_name || 'Unknown User',
+                role: profile?.role || 'user',
+                avatar_url: profile?.avatar_url
+              }
             }
-          }
 
-          onMessage(extendedMessage)
+            onMessage(extendedMessage)
+          } catch (error) {
+            console.error('Error processing real-time message:', error)
+          }
         }
       )
       .on(
@@ -353,67 +350,45 @@ class RealTimeMessagingService {
   }
 
   unsubscribeFromChannel(channelId: string): void {
-    const supabase = this.getSupabase()
     const channel = this.channels.get(channelId)
     if (channel) {
-      supabase.removeChannel(channel)
+      channel.unsubscribe()
       this.channels.delete(channelId)
     }
   }
 
-  // Permission Checking
   async checkMessagePermissions(
     channelId: string,
     userId: string
   ): Promise<MessagePermissions> {
     try {
       const supabase = this.getSupabase()
-      // Get channel details
-      const { data: channel } = await supabase
-        .from('chat_channels')
-        .select('*')
-        .eq('id', channelId)
+      
+      // Get user profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
         .single()
 
-      if (!channel) {
-        return {
-          user_id: userId,
-          channel_id: channelId,
-          can_send: false,
-          can_moderate: false,
-          can_invite: false,
-          is_admin: false
-        }
-      }
+      // Get channel membership
+      const { data: membership } = await supabase
+        .from('chat_channel_members')
+        .select('role')
+        .eq('channel_id', channelId)
+        .eq('user_id', userId)
+        .single()
 
-              // Get user's role in the channel
-        const supabaseClient = this.getSupabase()
-        const { data: member } = await supabaseClient
-          .from('chat_channel_members')
-          .select('role')
-          .eq('channel_id', channelId)
-          .eq('user_id', userId)
-          .single()
-
-      const isAdmin = member?.role === 'admin'
-      const isMember = !!member
-
-      // Permission logic based on channel type and user role
-      let canSend = true
-      if (channel.channel_type === 'private' && !isMember) {
-        canSend = false
-      } else if (channel.channel_type === 'announcement') {
-        // Only admins can send messages in announcement channels
-        canSend = isAdmin
-      }
+      const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin'
+      const isChannelAdmin = membership?.role === 'admin'
 
       return {
         user_id: userId,
         channel_id: channelId,
-        can_send: canSend,
-        can_moderate: isAdmin,
-        can_invite: isAdmin,
-        is_admin: isAdmin
+        can_send: true, // All members can send messages
+        can_moderate: isAdmin || isChannelAdmin,
+        can_invite: isAdmin || isChannelAdmin,
+        is_admin: isAdmin || isChannelAdmin
       }
     } catch (error) {
       console.error('Error checking message permissions:', error)
@@ -428,24 +403,25 @@ class RealTimeMessagingService {
     }
   }
 
-  // User Presence
   async updateUserPresence(userId: string, isOnline: boolean): Promise<void> {
     try {
       const supabase = this.getSupabase()
       await supabase
         .from('profiles')
-        .update({ last_active: new Date().toISOString() })
+        .update({ 
+          last_seen: new Date().toISOString(),
+          is_online: isOnline
+        })
         .eq('id', userId)
     } catch (error) {
       console.error('Error updating user presence:', error)
     }
   }
 
-  // Cleanup
   disconnect(): void {
-    const supabase = this.getSupabase()
+    // Unsubscribe from all channels
     this.channels.forEach((channel) => {
-      supabase.removeChannel(channel)
+      channel.unsubscribe()
     })
     this.channels.clear()
   }

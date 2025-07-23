@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     const supabase = createClient()
     
     const { data: channels, error } = await supabase
-      .from('channels')
+      .from('chat_channels')
       .select('*')
       .order('name')
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = createClient()
-    const { name, type, description } = await request.json()
+    const { name, description, channel_type } = await request.json()
 
     // Validate admin access
     const { data: { user } } = await supabase.auth.getUser()
@@ -49,13 +49,36 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data: channel, error } = await supabase
-      .from('channels')
-      .insert([{ name, type, description }])
+    // Create channel
+    const { data: channel, error: channelError } = await supabase
+      .from('chat_channels')
+      .insert([{ 
+        name, 
+        description, 
+        channel_type: channel_type || 'public',
+        created_by: user.id
+      }])
       .select()
       .single()
 
-    if (error) throw error
+    if (channelError) {
+      console.error('Channel creation error:', channelError)
+      throw channelError
+    }
+
+    // Add creator as admin member
+    const { error: memberError } = await supabase
+      .from('chat_channel_members')
+      .insert([{
+        user_id: user.id,
+        channel_id: channel.id,
+        role: 'admin'
+      }])
+
+    if (memberError) {
+      console.error('Member creation error:', memberError)
+      // Don't throw here, channel was created successfully
+    }
 
     return NextResponse.json({ channel })
   } catch (error) {

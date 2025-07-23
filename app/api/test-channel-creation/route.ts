@@ -22,12 +22,12 @@ export async function GET(request: NextRequest) {
     const testChannelName = `test-channel-${Date.now()}`
     const { data: testChannel, error: createError } = await supabase
       .from('chat_channels')
-      .insert({
+      .insert([{
         name: testChannelName,
-        description: 'Test channel for debugging',
+        description: 'Test channel for API verification',
         channel_type: 'public',
         created_by: '00000000-0000-0000-0000-000000000000' // Dummy UUID
-      })
+      }])
       .select()
       .single()
 
@@ -48,21 +48,18 @@ export async function GET(request: NextRequest) {
           chat_messages: !messagesError
         },
         channel_creation: !createError,
-        test_channel_created: !!testChannel
-      },
-      errors: {
-        channels: channelsError?.message,
-        members: membersError?.message,
-        messages: messagesError?.message,
-        create: createError?.message
+        channel_count: channels,
+        member_count: members,
+        message_count: messages
       }
     })
   } catch (error) {
-    console.error('Test failed:', error)
+    console.error('Test error:', error)
     return NextResponse.json(
       { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+        success: false,
+        error: 'Test failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     )

@@ -1,79 +1,78 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { messagingService } from '@/lib/real-time-messaging'
+import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const supabase = createClient()
     
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json({ error: 'Supabase configuration missing' }, { status: 500 })
-    }
+    const { data: channels, error } = await supabase
+      .from('chat_channels')
+      .select('*')
+      .order('name')
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey)
-    
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (error) throw error
 
-    // Get channels for the user
-    const result = await messagingService.getChannels(user.id)
-    
-    if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 500 })
-    }
-
-    return NextResponse.json({ channels: result.channels })
+    return NextResponse.json({ channels })
   } catch (error) {
-    console.error('Error getting channels:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Error fetching channels:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch channels' },
+      { status: 500 }
+    )
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json({ error: 'Supabase configuration missing' }, { status: 500 })
-    }
+    const supabase = createClient()
+    const { name, description, channel_type } = await request.json()
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey)
-    
-    // Get current user
+    // Validate admin access
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { name, description, channelType = 'public' } = body
+    // Check if user is admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
 
-    // Validate required fields
-    if (!name) {
-      return NextResponse.json({ error: 'Channel name is required' }, { status: 400 })
-    }
-
-    // Validate channel type
-    const validChannelTypes = ['public', 'private', 'group', 'announcement']
-    if (!validChannelTypes.includes(channelType)) {
-      return NextResponse.json({ error: 'Invalid channel type' }, { status: 400 })
+    if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
     // Create channel
-    const result = await messagingService.createChannel(name, description, channelType, user.id)
+    const { data: channel, error } = await supabase
+      .from('chat_channels')
+      .insert({
+        name,
+        description,
+        channel_type: channel_type || 'public',
+        created_by: user.id
+      })
+      .select()
+      .single()
 
-    if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 500 })
-    }
+    if (error) throw error
 
-    return NextResponse.json({ channel: result.channel })
+    // Add creator as admin member
+    await supabase
+      .from('chat_channel_members')
+      .insert({
+        channel_id: channel.id,
+        user_id: user.id,
+        role: 'admin'
+      })
+
+    return NextResponse.json({ channel })
   } catch (error) {
     console.error('Error creating channel:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to create channel' },
+      { status: 500 }
+    )
   }
 } 
