@@ -96,9 +96,12 @@ export default function CommunicationHub() {
   const fetchData = async () => {
     try {
       await Promise.all([
-        fetchChannels(),
         fetchUsers()
       ])
+      // Ensure user is added to public channels
+      await ensureUserInPublicChannels()
+      // Refresh channels after ensuring user is in public channels
+      await fetchChannels()
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
@@ -106,33 +109,98 @@ export default function CommunicationHub() {
     }
   }
 
-  const fetchChannels = async () => {
-    const { data, error } = await supabase
-      .from('chat_channels')
-      .select('*')
-      .order('created_at', { ascending: false })
+  const ensureUserInPublicChannels = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-    if (!error && data) {
-      // Get member count for each channel
-      const channelsWithMemberCount = await Promise.all(
-        data.map(async (channel) => {
-          const { count } = await supabase
-            .from('chat_channel_members')
-            .select('*', { count: 'exact', head: true })
-            .eq('channel_id', channel.id)
-          
-          return {
-            ...channel,
-            member_count: count || 0
-          }
-        })
-      )
-      setChannels(channelsWithMemberCount)
-      
-      // Set first channel as selected if none selected
-      if (channelsWithMemberCount.length > 0 && !selectedChannel) {
-        setSelectedChannel(channelsWithMemberCount[0].id)
+      // Get all public channels
+      const { data: publicChannels } = await supabase
+        .from('chat_channels')
+        .select('id')
+        .eq('channel_type', 'public')
+
+      if (!publicChannels) return
+
+      // Check which public channels the user is already a member of
+      const { data: existingMemberships } = await supabase
+        .from('chat_channel_members')
+        .select('channel_id')
+        .eq('user_id', user.id)
+        .in('channel_id', publicChannels.map(c => c.id))
+
+      const existingChannelIds = existingMemberships?.map(m => m.channel_id) || []
+      const channelsToAdd = publicChannels.filter(c => !existingChannelIds.includes(c.id))
+
+      // Add user to public channels they're not already in
+      if (channelsToAdd.length > 0) {
+        const memberInserts = channelsToAdd.map(channel => ({
+          user_id: user.id,
+          channel_id: channel.id,
+          role: 'member'
+        }))
+
+        await supabase
+          .from('chat_channel_members')
+          .insert(memberInserts)
       }
+    } catch (error) {
+      console.error('Error ensuring user in public channels:', error)
+    }
+  }
+
+  const fetchChannels = async () => {
+    try {
+      // First, get the current user's ID
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        console.error('No authenticated user')
+        return
+      }
+
+      // Fetch channels that the user can see (public channels + channels they're members of)
+      const { data: channels, error } = await supabase
+        .from('chat_channels')
+        .select(`
+          *,
+          members:chat_channel_members(
+            user_id,
+            role
+          )
+        `)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching channels:', error)
+        return
+      }
+
+      if (channels) {
+        // Process channels and get member counts
+        const channelsWithMemberCount = await Promise.all(
+          channels.map(async (channel) => {
+            // Get member count for this channel
+            const { count } = await supabase
+              .from('chat_channel_members')
+              .select('*', { count: 'exact', head: true })
+              .eq('channel_id', channel.id)
+            
+            return {
+              ...channel,
+              member_count: count || 0
+            }
+          })
+        )
+        
+        setChannels(channelsWithMemberCount)
+        
+        // Set first channel as selected if none selected
+        if (channelsWithMemberCount.length > 0 && !selectedChannel) {
+          setSelectedChannel(channelsWithMemberCount[0].id)
+        }
+      }
+    } catch (error) {
+      console.error('Error in fetchChannels:', error)
     }
   }
 
