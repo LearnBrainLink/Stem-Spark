@@ -24,6 +24,9 @@ export default function AdminLayout({
               <Link href="/admin/users" className="text-gray-700 hover:text-blue-600">
                 Users
               </Link>
+              <Link href="/admin/messaging" className="text-gray-700 hover:text-blue-600">
+                Messaging
+              </Link>
               <Link href="/admin/analytics" className="text-gray-700 hover:text-blue-600">
                 Analytics
               </Link>

@@ -2,6 +2,22 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { 
+  MessageSquare, 
+  Send, 
+  Plus, 
+  Users, 
+  Settings,
+  Search,
+  Filter
+} from 'lucide-react'
 
 interface Message {
   id: string
@@ -10,27 +26,51 @@ interface Message {
   sender_name: string
   channel_id: string
   created_at: string
+  message_type: 'text' | 'file' | 'system'
 }
 
 interface Channel {
   id: string
   name: string
-  type: 'general' | 'announcements' | 'parent_teacher' | 'admin_only'
   description: string
+  channel_type: 'public' | 'private' | 'group' | 'announcement'
+  created_by: string
+  created_at: string
+  member_count: number
+}
+
+interface User {
+  id: string
+  full_name: string
+  email: string
+  role: string
+  avatar_url?: string
 }
 
 export default function CommunicationHub() {
   const [channels, setChannels] = useState<Channel[]>([])
   const [messages, setMessages] = useState<Message[]>([])
+  const [users, setUsers] = useState<User[]>([])
   const [selectedChannel, setSelectedChannel] = useState<string>('')
   const [newMessage, setNewMessage] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedChannelType, setSelectedChannelType] = useState('all')
   const [user, setUser] = useState<any>(null)
   const [userRole, setUserRole] = useState<string>('')
+  const [loading, setLoading] = useState(true)
+  const [isCreateChannelOpen, setIsCreateChannelOpen] = useState(false)
+  const [newChannelData, setNewChannelData] = useState({
+    name: '',
+    description: '',
+    channel_type: 'public' as const,
+    selectedUsers: [] as string[]
+  })
+
   const supabase = createClient()
 
   useEffect(() => {
     checkUser()
-    fetchChannels()
+    fetchData()
   }, [])
 
   useEffect(() => {
@@ -53,30 +93,70 @@ export default function CommunicationHub() {
     }
   }
 
+  const fetchData = async () => {
+    try {
+      await Promise.all([
+        fetchChannels(),
+        fetchUsers()
+      ])
+    } catch (error) {
+      console.error('Error fetching data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const fetchChannels = async () => {
     const { data, error } = await supabase
-      .from('channels')
+      .from('chat_channels')
       .select('*')
-      .order('name')
-    
+      .order('created_at', { ascending: false })
+
     if (!error && data) {
-      setChannels(data)
-      if (data.length > 0) {
-        setSelectedChannel(data[0].id)
+      // Get member count for each channel
+      const channelsWithMemberCount = await Promise.all(
+        data.map(async (channel) => {
+          const { count } = await supabase
+            .from('chat_channel_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('channel_id', channel.id)
+          
+          return {
+            ...channel,
+            member_count: count || 0
+          }
+        })
+      )
+      setChannels(channelsWithMemberCount)
+      
+      // Set first channel as selected if none selected
+      if (channelsWithMemberCount.length > 0 && !selectedChannel) {
+        setSelectedChannel(channelsWithMemberCount[0].id)
       }
+    }
+  }
+
+  const fetchUsers = async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, role')
+      .order('full_name')
+
+    if (!error && data) {
+      setUsers(data)
     }
   }
 
   const fetchMessages = async (channelId: string) => {
     const { data, error } = await supabase
-      .from('messages')
+      .from('chat_messages')
       .select(`
         *,
         profiles:profiles(full_name)
       `)
       .eq('channel_id', channelId)
       .order('created_at', { ascending: true })
-    
+
     if (!error && data) {
       setMessages(data.map(msg => ({
         ...msg,
@@ -91,7 +171,7 @@ export default function CommunicationHub() {
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'messages',
+        table: 'chat_messages',
         filter: `channel_id=eq.${channelId}`
       }, (payload) => {
         const newMessage = payload.new as Message
@@ -106,12 +186,13 @@ export default function CommunicationHub() {
     if (!newMessage.trim() || !user || !selectedChannel) return
 
     const { error } = await supabase
-      .from('messages')
+      .from('chat_messages')
       .insert([
         {
           content: newMessage,
           sender_id: user.id,
-          channel_id: selectedChannel
+          channel_id: selectedChannel,
+          message_type: 'text'
         }
       ])
 
@@ -120,113 +201,350 @@ export default function CommunicationHub() {
     }
   }
 
-  const canSendMessage = (channel: Channel) => {
-    if (channel.type === 'admin_only') {
-      return userRole === 'admin'
+  const createChannel = async () => {
+    try {
+      if (!user) return
+
+      const { data: channel, error } = await supabase
+        .from('chat_channels')
+        .insert({
+          name: newChannelData.name,
+          description: newChannelData.description,
+          channel_type: newChannelData.channel_type,
+          created_by: user.id
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Add members to the channel
+      if (newChannelData.selectedUsers.length > 0) {
+        const memberInserts = newChannelData.selectedUsers.map(userId => ({
+          user_id: userId,
+          channel_id: channel.id,
+          role: 'member'
+        }))
+
+        await supabase
+          .from('chat_channel_members')
+          .insert(memberInserts)
+      }
+
+      // Add creator as admin
+      await supabase
+        .from('chat_channel_members')
+        .insert({
+          user_id: user.id,
+          channel_id: channel.id,
+          role: 'admin'
+        })
+
+      setNewChannelData({
+        name: '',
+        description: '',
+        channel_type: 'public',
+        selectedUsers: []
+      })
+      setIsCreateChannelOpen(false)
+      fetchChannels()
+    } catch (error) {
+      console.error('Error creating channel:', error)
+      alert('Failed to create channel. Please try again.')
     }
-    if (channel.type === 'announcements') {
-      return userRole === 'admin'
+  }
+
+  const canSendMessage = (channel: Channel) => {
+    if (channel.channel_type === 'announcement') {
+      return userRole === 'admin' || userRole === 'super_admin'
     }
     return true
   }
 
   const canViewChannel = (channel: Channel) => {
-    if (channel.type === 'admin_only') {
-      return userRole === 'admin'
+    if (channel.channel_type === 'announcement') {
+      return userRole === 'admin' || userRole === 'super_admin'
     }
     return true
   }
 
+  const canCreateChannel = () => {
+    return userRole === 'student' || userRole === 'intern' || userRole === 'admin' || userRole === 'super_admin'
+  }
+
+  const filteredChannels = channels.filter(channel => {
+    const matchesSearch = channel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         channel.description.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesType = selectedChannelType === 'all' || channel.channel_type === selectedChannelType
+    
+    return matchesSearch && matchesType && canViewChannel(channel)
+  })
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-xl">Loading communication hub...</div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow-md">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h1 className="text-2xl font-bold text-gray-900">Communication Hub</h1>
-            <p className="text-gray-600">Connect with teachers, parents, and administrators</p>
-          </div>
-
-          <div className="flex h-96">
-            {/* Channels Sidebar */}
-            <div className="w-64 border-r border-gray-200 bg-gray-50">
-              <div className="p-4">
-                <h3 className="text-sm font-medium text-gray-900 mb-4">Channels</h3>
-                <div className="space-y-2">
-                  {channels.filter(canViewChannel).map((channel) => (
-                    <button
-                      key={channel.id}
-                      onClick={() => setSelectedChannel(channel.id)}
-                      className={`w-full text-left px-3 py-2 rounded-md text-sm ${
-                        selectedChannel === channel.id
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      <div className="font-medium">#{channel.name}</div>
-                      <div className="text-xs text-gray-500">{channel.description}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Communication Hub</h1>
+              <p className="mt-2 text-gray-600">Connect with teachers, parents, and administrators</p>
             </div>
-
-            {/* Messages Area */}
-            <div className="flex-1 flex flex-col">
-              {selectedChannel && (
-                <>
-                  {/* Messages */}
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    {messages.map((message) => (
-                      <div key={message.id} className="flex space-x-3">
-                        <div className="flex-shrink-0">
-                          <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
-                            {message.sender_name.charAt(0).toUpperCase()}
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium text-gray-900">
-                              {message.sender_name}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {new Date(message.created_at).toLocaleString()}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-700 mt-1">{message.content}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Message Input */}
-                  <div className="border-t border-gray-200 p-4">
-                    {canSendMessage(channels.find(c => c.id === selectedChannel)!) ? (
-                      <div className="flex space-x-2">
-                        <input
-                          type="text"
-                          value={newMessage}
-                          onChange={(e) => setNewMessage(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                          placeholder="Type your message..."
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <div className="mt-4 md:mt-0">
+              {canCreateChannel() && (
+                <Dialog open={isCreateChannelOpen} onOpenChange={setIsCreateChannelOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Channel
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Create New Channel</DialogTitle>
+                      <DialogDescription>
+                        Create a new communication channel for the community.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium">Channel Name</label>
+                        <Input
+                          value={newChannelData.name}
+                          onChange={(e) => setNewChannelData(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder="Enter channel name"
                         />
-                        <button
-                          onClick={sendMessage}
-                          disabled={!newMessage.trim()}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Description</label>
+                        <Textarea
+                          value={newChannelData.description}
+                          onChange={(e) => setNewChannelData(prev => ({ ...prev, description: e.target.value }))}
+                          placeholder="Enter channel description"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Channel Type</label>
+                        <Select
+                          value={newChannelData.channel_type}
+                          onValueChange={(value: any) => setNewChannelData(prev => ({ ...prev, channel_type: value }))}
                         >
-                          Send
-                        </button>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="public">Public</SelectItem>
+                            <SelectItem value="private">Private</SelectItem>
+                            <SelectItem value="group">Group</SelectItem>
+                            {userRole === 'admin' || userRole === 'super_admin' ? (
+                              <SelectItem value="announcement">Announcement</SelectItem>
+                            ) : null}
+                          </SelectContent>
+                        </Select>
                       </div>
-                    ) : (
-                      <div className="text-sm text-gray-500 text-center py-2">
-                        You don't have permission to send messages in this channel
+                      <div>
+                        <label className="text-sm font-medium">Add Members</label>
+                        <Select
+                          onValueChange={(value) => {
+                            if (!newChannelData.selectedUsers.includes(value)) {
+                              setNewChannelData(prev => ({
+                                ...prev,
+                                selectedUsers: [...prev.selectedUsers, value]
+                              }))
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select users to add" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {users.map(user => (
+                              <SelectItem key={user.id} value={user.id}>
+                                {user.full_name} ({user.role})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {newChannelData.selectedUsers.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {newChannelData.selectedUsers.map(userId => {
+                              const user = users.find(u => u.id === userId)
+                              return (
+                                <Badge key={userId} variant="secondary">
+                                  {user?.full_name}
+                                  <button
+                                    onClick={() => setNewChannelData(prev => ({
+                                      ...prev,
+                                      selectedUsers: prev.selectedUsers.filter(id => id !== userId)
+                                    }))}
+                                    className="ml-1"
+                                  >
+                                    ×
+                                  </button>
+                                </Badge>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </>
+                      <Button onClick={createChannel} className="w-full">
+                        Create Channel
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               )}
             </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Channels Sidebar */}
+          <div className="lg:col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Channels</span>
+                  <Badge variant="secondary">{channels.length}</Badge>
+                </CardTitle>
+                <div className="flex space-x-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Input
+                      placeholder="Search channels..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select value={selectedChannelType} onValueChange={setSelectedChannelType}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="public">Public</SelectItem>
+                      <SelectItem value="private">Private</SelectItem>
+                      <SelectItem value="group">Group</SelectItem>
+                      <SelectItem value="announcement">Announcement</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {filteredChannels.map((channel) => (
+                    <div
+                      key={channel.id}
+                      className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                        selectedChannel === channel.id
+                          ? 'bg-blue-50 border border-blue-200'
+                          : 'hover:bg-gray-50'
+                      }`}
+                      onClick={() => setSelectedChannel(channel.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium text-gray-900">#{channel.name}</h4>
+                          <p className="text-sm text-gray-600">{channel.description}</p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <Badge variant="outline" className="text-xs">
+                              {channel.channel_type}
+                            </Badge>
+                            <div className="flex items-center text-xs text-gray-500">
+                              <Users className="w-3 h-3 mr-1" />
+                              {channel.member_count}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Messages Area */}
+          <div className="lg:col-span-3">
+            <Card>
+              <CardHeader>
+                <CardTitle>Messages</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {selectedChannel ? (
+                  <div className="space-y-4">
+                    {/* Messages */}
+                    <div className="space-y-4 max-h-96 overflow-y-auto">
+                      {messages.map((message) => (
+                        <div key={message.id} className="flex space-x-3">
+                          <div className="flex-shrink-0">
+                            <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
+                              {message.sender_name.charAt(0).toUpperCase()}
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm font-medium text-gray-900">
+                                {message.sender_name}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(message.created_at).toLocaleString()}
+                              </span>
+                              {message.message_type === 'system' && (
+                                <Badge variant="secondary" className="text-xs">System</Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-700 mt-1">{message.content}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Message Input */}
+                    <div className="border-t border-gray-200 pt-4">
+                      {canSendMessage(channels.find(c => c.id === selectedChannel)!) ? (
+                        <div className="flex space-x-2">
+                          <Input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                            placeholder="Type your message..."
+                            className="flex-1"
+                          />
+                          <Button
+                            onClick={sendMessage}
+                            disabled={!newMessage.trim()}
+                          >
+                            <Send className="w-4 h-4 mr-2" />
+                            Send
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-500 text-center py-2">
+                          You don't have permission to send messages in this channel
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    Select a channel to start messaging
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

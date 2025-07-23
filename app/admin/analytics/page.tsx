@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,53 +23,18 @@ import {
   Zap
 } from 'lucide-react';
 
-const sampleUserGrowthData = [
-  { month: 'Jan', users: 120, interns: 45, admins: 8 },
-  { month: 'Feb', users: 180, interns: 62, admins: 10 },
-  { month: 'Mar', users: 250, interns: 78, admins: 12 },
-  { month: 'Apr', users: 320, interns: 95, admins: 15 },
-  { month: 'May', users: 410, interns: 120, admins: 18 },
-  { month: 'Jun', users: 520, interns: 145, admins: 20 },
-  { month: 'Jul', users: 650, interns: 180, admins: 25 },
-];
-
-const sampleVolunteerHoursData = [
-  { month: 'Jan', submitted: 45, approved: 42, pending: 3 },
-  { month: 'Feb', submitted: 62, approved: 58, pending: 4 },
-  { month: 'Mar', submitted: 78, approved: 72, pending: 6 },
-  { month: 'Apr', submitted: 95, approved: 88, pending: 7 },
-  { month: 'May', submitted: 120, approved: 110, pending: 10 },
-  { month: 'Jun', submitted: 145, approved: 135, pending: 10 },
-  { month: 'Jul', submitted: 180, approved: 165, pending: 15 },
-];
-
-const sampleMessagingData = [
-  { month: 'Jan', messages: 1200, channels: 8, activeUsers: 45 },
-  { month: 'Feb', messages: 1800, channels: 12, activeUsers: 62 },
-  { month: 'Mar', messages: 2500, channels: 15, activeUsers: 78 },
-  { month: 'Apr', messages: 3200, channels: 18, activeUsers: 95 },
-  { month: 'May', messages: 4100, channels: 22, activeUsers: 120 },
-  { month: 'Jun', messages: 5200, channels: 25, activeUsers: 145 },
-  { month: 'Jul', messages: 6500, channels: 30, activeUsers: 180 },
-];
-
-const userDistributionData = [
-  { name: 'Students', value: 65, color: '#3B82F6' },
-  { name: 'Interns', value: 25, color: '#10B981' },
-  { name: 'Admins', value: 10, color: '#8B5CF6' },
-];
-
-const volunteerHoursDistribution = [
-  { name: 'Tutoring', value: 45, color: '#3B82F6' },
-  { name: 'Event Planning', value: 25, color: '#10B981' },
-  { name: 'Content Creation', value: 20, color: '#F59E0B' },
-  { name: 'Administrative', value: 10, color: '#EF4444' },
-];
-
 export default function AdminAnalyticsPage() {
   const [timeRange, setTimeRange] = useState('6months');
   const [isLoading, setIsLoading] = useState(false);
   const [stats, setStats] = useState<any>(null);
+  const [userGrowthData, setUserGrowthData] = useState<any[]>([]);
+  const [volunteerHoursData, setVolunteerHoursData] = useState<any[]>([]);
+  const [messagingData, setMessagingData] = useState<any[]>([]);
+  const [userDistributionData, setUserDistributionData] = useState<any[]>([]);
+  const [volunteerHoursDistribution, setVolunteerHoursDistribution] = useState<any[]>([]);
+  const [applicationStats, setApplicationStats] = useState<any[]>([]);
+
+  const supabase = createClient();
 
   useEffect(() => {
     fetchAnalyticsData();
@@ -77,416 +43,431 @@ export default function AdminAnalyticsPage() {
   const fetchAnalyticsData = async () => {
     setIsLoading(true);
     try {
-      // In a real implementation, this would fetch data based on timeRange
-      // For now, we'll use sample data
-      setTimeout(() => {
-        setStats({
-          totalUsers: 650,
-          totalInterns: 180,
-          totalAdmins: 25,
-          totalVolunteerHours: 1650,
-          pendingHours: 15,
-          activeChannels: 30,
-          totalMessages: 6500,
-          avgResponseTime: '2.3 hours'
-        });
-        setIsLoading(false);
-      }, 1000);
+      const monthsToFetch = timeRange === '3months' ? 3 : timeRange === '6months' ? 6 : 12;
+      const startDate = new Date();
+      startDate.setMonth(startDate.getMonth() - monthsToFetch);
+
+      // Fetch user growth data
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('created_at, role')
+        .gte('created_at', startDate.toISOString())
+        .order('created_at', { ascending: true });
+
+      // Fetch volunteer hours data
+      const { data: volunteerData } = await supabase
+        .from('volunteer_hours')
+        .select('created_at, hours, status, activity_type')
+        .gte('created_at', startDate.toISOString())
+        .order('created_at', { ascending: true });
+
+      // Fetch messaging data
+      const { data: messageData } = await supabase
+        .from('chat_messages')
+        .select('created_at')
+        .gte('created_at', startDate.toISOString())
+        .order('created_at', { ascending: true });
+
+      // Fetch channel data
+      const { data: channelData } = await supabase
+        .from('chat_channels')
+        .select('created_at')
+        .gte('created_at', startDate.toISOString())
+        .order('created_at', { ascending: true });
+
+      // Fetch application data
+      const { data: applicationData } = await supabase
+        .from('intern_applications')
+        .select('created_at, status')
+        .gte('created_at', startDate.toISOString())
+        .order('created_at', { ascending: true });
+
+      // Process user growth data
+      const processedUserData = processTimeSeriesData(userData, 'created_at', 'users');
+      setUserGrowthData(processedUserData);
+
+      // Process volunteer hours data
+      const processedVolunteerData = processTimeSeriesData(volunteerData, 'created_at', 'hours');
+      setVolunteerHoursData(processedVolunteerData);
+
+      // Process messaging data
+      const processedMessageData = processTimeSeriesData(messageData, 'created_at', 'messages');
+      setMessagingData(processedMessageData);
+
+      // Process application data
+      const processedApplicationData = processTimeSeriesData(applicationData, 'created_at', 'applications');
+      setApplicationStats(processedApplicationData);
+
+      // Calculate user distribution
+      const userDistribution = calculateUserDistribution(userData);
+      setUserDistributionData(userDistribution);
+
+      // Calculate volunteer hours distribution by activity type
+      const volunteerDistribution = calculateVolunteerHoursDistribution(volunteerData);
+      setVolunteerHoursDistribution(volunteerDistribution);
+
+      // Calculate overall stats
+      const totalUsers = userData?.length || 0;
+      const totalInterns = userData?.filter(u => u.role === 'intern').length || 0;
+      const totalAdmins = userData?.filter(u => u.role === 'admin' || u.role === 'super_admin').length || 0;
+      const totalVolunteerHours = volunteerData?.reduce((sum, v) => sum + (v.hours || 0), 0) || 0;
+      const pendingHours = volunteerData?.filter(v => v.status === 'pending').length || 0;
+      const activeChannels = channelData?.length || 0;
+      const totalMessages = messageData?.length || 0;
+
+      setStats({
+        totalUsers,
+        totalInterns,
+        totalAdmins,
+        totalVolunteerHours,
+        pendingHours,
+        activeChannels,
+        totalMessages,
+        avgResponseTime: '2.3 hours' // This would need to be calculated from actual response times
+      });
+
     } catch (error) {
       console.error('Error fetching analytics data:', error);
+    } finally {
       setIsLoading(false);
     }
   };
 
-  const downloadReport = (type: string) => {
-    const data = {
-      type,
-      generatedAt: new Date().toISOString(),
-      timeRange,
-      stats
-    };
+  const processTimeSeriesData = (data: any[], dateField: string, valueField: string) => {
+    if (!data || data.length === 0) return [];
+
+    const monthlyData: { [key: string]: number } = {};
     
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `analytics-report-${type}-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    data.forEach(item => {
+      const date = new Date(item[dateField]);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (valueField === 'hours') {
+        monthlyData[monthKey] = (monthlyData[monthKey] || 0) + (item.hours || 0);
+      } else {
+        monthlyData[monthKey] = (monthlyData[monthKey] || 0) + 1;
+      }
+    });
+
+    return Object.entries(monthlyData).map(([month, value]) => ({
+      month: new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+      [valueField]: value
+    }));
   };
 
+  const calculateUserDistribution = (users: any[]) => {
+    if (!users || users.length === 0) return [];
+
+    const distribution: { [key: string]: number } = {};
+    users.forEach(user => {
+      distribution[user.role] = (distribution[user.role] || 0) + 1;
+    });
+
+    const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+    
+    return Object.entries(distribution).map(([role, count], index) => ({
+      name: role.charAt(0).toUpperCase() + role.slice(1),
+      value: count,
+      color: colors[index % colors.length]
+    }));
+  };
+
+  const calculateVolunteerHoursDistribution = (volunteerData: any[]) => {
+    if (!volunteerData || volunteerData.length === 0) return [];
+
+    const distribution: { [key: string]: number } = {};
+    volunteerData.forEach(volunteer => {
+      distribution[volunteer.activity_type] = (distribution[volunteer.activity_type] || 0) + (volunteer.hours || 0);
+    });
+
+    const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
+    
+    return Object.entries(distribution).map(([activity, hours], index) => ({
+      name: activity.charAt(0).toUpperCase() + activity.slice(1).replace('_', ' '),
+      value: hours,
+      color: colors[index % colors.length]
+    }));
+  };
+
+  const exportData = () => {
+    // In a real implementation, this would export the data to CSV/Excel
+    alert('Export functionality would be implemented here');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-xl">Loading analytics...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
-          <p className="text-gray-600 mt-1">Comprehensive insights and performance metrics</p>
+          <p className="text-gray-600">Comprehensive insights into NovaKinetix Academy performance</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="mt-4 md:mt-0 flex space-x-3">
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1month">Last Month</SelectItem>
               <SelectItem value="3months">Last 3 Months</SelectItem>
               <SelectItem value="6months">Last 6 Months</SelectItem>
-              <SelectItem value="1year">Last Year</SelectItem>
+              <SelectItem value="12months">Last 12 Months</SelectItem>
             </SelectContent>
           </Select>
-          <Button 
-            variant="outline" 
-            onClick={fetchAnalyticsData}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          <Button onClick={fetchAnalyticsData} variant="outline">
+            <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
+          </Button>
+          <Button onClick={exportData}>
+            <Download className="w-4 h-4 mr-2" />
+            Export
           </Button>
         </div>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalUsers || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              <span className="text-green-600">+12%</span> from last month
-            </p>
-          </CardContent>
-        </Card>
+      {/* Stats Overview */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Users className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Users</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalUsers}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Volunteer Hours</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalVolunteerHours || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              <span className="text-green-600">+8%</span> from last month
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Award className="w-6 h-6 text-green-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Interns</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalInterns}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Channels</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.activeChannels || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              <span className="text-green-600">+15%</span> from last month
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <MessageSquare className="w-6 h-6 text-purple-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Messages</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalMessages}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
-            <Zap className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.avgResponseTime || '0'}</div>
-            <p className="text-xs text-muted-foreground">
-              <span className="text-green-600">-10%</span> from last month
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-indigo-100 rounded-lg">
+                  <Clock className="w-6 h-6 text-indigo-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Volunteer Hours</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalVolunteerHours}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Charts */}
-      <Tabs defaultValue="users" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="users">User Growth</TabsTrigger>
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="volunteer">Volunteer Hours</TabsTrigger>
           <TabsTrigger value="messaging">Messaging</TabsTrigger>
-          <TabsTrigger value="distribution">Distribution</TabsTrigger>
+          <TabsTrigger value="applications">Applications</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="users" className="space-y-4">
+        <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>User Growth Trend</CardTitle>
-                <CardDescription>Monthly user registration and growth</CardDescription>
+                <CardTitle>User Growth</CardTitle>
+                <CardDescription>Monthly user registration trends</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={sampleUserGrowthData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Area type="monotone" dataKey="users" stackId="1" stroke="#3B82F6" fill="#3B82F6" />
-                      <Area type="monotone" dataKey="interns" stackId="1" stroke="#10B981" fill="#10B981" />
-                      <Area type="monotone" dataKey="admins" stackId="1" stroke="#8B5CF6" fill="#8B5CF6" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={userGrowthData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="users" stroke="#3B82F6" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
                 <CardTitle>User Distribution</CardTitle>
-                <CardDescription>Breakdown by user type</CardDescription>
+                <CardDescription>Breakdown by user roles</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={userDistributionData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {userDistributionData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={userDistributionData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {userDistributionData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
-        <TabsContent value="volunteer" className="space-y-4">
+        <TabsContent value="users" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>User Growth Trends</CardTitle>
+              <CardDescription>Detailed user registration analysis</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={400}>
+                <AreaChart data={userGrowthData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Area type="monotone" dataKey="users" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.3} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="volunteer" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Volunteer Hours Trend</CardTitle>
-                <CardDescription>Monthly volunteer hours submitted and approved</CardDescription>
+                <CardTitle>Volunteer Hours Trends</CardTitle>
+                <CardDescription>Monthly volunteer hours contribution</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={sampleVolunteerHoursData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="submitted" fill="#3B82F6" />
-                      <Bar dataKey="approved" fill="#10B981" />
-                      <Bar dataKey="pending" fill="#F59E0B" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={volunteerHoursData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="hours" fill="#10B981" />
+                  </BarChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Volunteer Hours by Activity</CardTitle>
-                <CardDescription>Distribution of volunteer hours by activity type</CardDescription>
+                <CardTitle>Activity Distribution</CardTitle>
+                <CardDescription>Volunteer hours by activity type</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={volunteerHoursDistribution}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {volunteerHoursDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={volunteerHoursDistribution}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {volunteerHoursDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
-        <TabsContent value="messaging" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Messaging Activity</CardTitle>
-                <CardDescription>Monthly message volume and channel growth</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={sampleMessagingData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Line type="monotone" dataKey="messages" stroke="#3B82F6" strokeWidth={2} />
-                      <Line type="monotone" dataKey="channels" stroke="#10B981" strokeWidth={2} />
-                      <Line type="monotone" dataKey="activeUsers" stroke="#8B5CF6" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Messaging Metrics</CardTitle>
-                <CardDescription>Key messaging platform statistics</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <MessageSquare className="w-6 h-6 text-blue-600" />
-                      <div>
-                        <p className="font-semibold text-blue-900">Total Messages</p>
-                        <p className="text-sm text-blue-700">{stats?.totalMessages || 0} messages</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Users className="w-6 h-6 text-green-600" />
-                      <div>
-                        <p className="font-semibold text-green-900">Active Users</p>
-                        <p className="text-sm text-green-700">180 users this month</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Activity className="w-6 h-6 text-purple-600" />
-                      <div>
-                        <p className="font-semibold text-purple-900">Engagement Rate</p>
-                        <p className="text-sm text-purple-700">85% active participation</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+        <TabsContent value="messaging" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Messaging Activity</CardTitle>
+              <CardDescription>Message volume over time</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={400}>
+                <LineChart data={messagingData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="messages" stroke="#8B5CF6" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="distribution" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Geographic Distribution</CardTitle>
-                <CardDescription>User distribution by location</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">United States</span>
-                    <Badge variant="secondary">65%</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Canada</span>
-                    <Badge variant="secondary">15%</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">United Kingdom</span>
-                    <Badge variant="secondary">10%</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Other</span>
-                    <Badge variant="secondary">10%</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Platform Usage</CardTitle>
-                <CardDescription>User activity by platform</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Web Browser</span>
-                    <Badge variant="secondary">70%</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Mobile App</span>
-                    <Badge variant="secondary">25%</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Tablet</span>
-                    <Badge variant="secondary">5%</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+        <TabsContent value="applications" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Application Trends</CardTitle>
+              <CardDescription>Intern application submissions over time</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={400}>
+                <BarChart data={applicationStats}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="applications" fill="#F59E0B" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Reports Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Generate Reports</CardTitle>
-          <CardDescription>Download comprehensive analytics reports</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Button 
-              variant="outline" 
-              onClick={() => downloadReport('user-analytics')}
-              className="h-auto p-4 flex flex-col items-center gap-2"
-            >
-              <Users className="w-6 h-6" />
-              <span>User Analytics</span>
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => downloadReport('volunteer-hours')}
-              className="h-auto p-4 flex flex-col items-center gap-2"
-            >
-              <Clock className="w-6 h-6" />
-              <span>Volunteer Hours</span>
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => downloadReport('messaging-analytics')}
-              className="h-auto p-4 flex flex-col items-center gap-2"
-            >
-              <MessageSquare className="w-6 h-6" />
-              <span>Messaging Analytics</span>
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => downloadReport('comprehensive')}
-              className="h-auto p-4 flex flex-col items-center gap-2"
-            >
-              <BarChart3 className="w-6 h-6" />
-              <span>Comprehensive</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 } 
