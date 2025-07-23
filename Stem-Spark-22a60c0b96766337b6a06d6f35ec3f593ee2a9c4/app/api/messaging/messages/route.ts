@@ -1,11 +1,130 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const { 
+      content, 
+      channel_id, 
+      message_type = 'text',
+      file_url,
+      image_url,
+      image_caption,
+      file_name,
+      file_size,
+      file_type,
+      reply_to_id
+    } = await request.json()
+
+    // Validate user authentication
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // Get user profile to check permissions
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, is_super_admin')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile) {
+      return NextResponse.json(
+        { error: 'Profile not found' },
+        { status: 404 }
+      )
+    }
+
+    // Get channel to check permissions
+    const { data: channel } = await supabase
+      .from('chat_channels')
+      .select('channel_type')
+      .eq('id', channel_id)
+      .single()
+
+    if (!channel) {
+      return NextResponse.json(
+        { error: 'Channel not found' },
+        { status: 404 }
+      )
+    }
+
+    // Check permissions based on channel type
+    const isAdmin = profile.role === 'admin' || profile.is_super_admin
+    const canSendMessage = 
+      channel.channel_type === 'public' ||
+      channel.channel_type === 'group' ||
+      channel.channel_type === 'private' ||
+      (channel.channel_type === 'announcement' && isAdmin) ||
+      channel.channel_type === 'admin_group' ||
+      channel.channel_type === 'intern_group' ||
+      channel.channel_type === 'parent_group' ||
+      channel.channel_type === 'student_group'
+
+    if (!canSendMessage) {
+      return NextResponse.json(
+        { error: 'You do not have permission to send messages in this channel' },
+        { status: 403 }
+      )
+    }
+
+    // Create message with enhanced fields
+    const messageData: any = {
+      content,
+      sender_id: user.id,
+      channel_id,
+      message_type,
+      read_by: [user.id] // Mark as read by sender
+    }
+
+    // Add optional fields if provided
+    if (file_url) messageData.file_url = file_url
+    if (image_url) messageData.image_url = image_url
+    if (image_caption) messageData.image_caption = image_caption
+    if (file_name) messageData.file_name = file_name
+    if (file_size) messageData.file_size = file_size
+    if (file_type) messageData.file_type = file_type
+    if (reply_to_id) messageData.reply_to_id = reply_to_id
+
+    const { data: message, error } = await supabase
+      .from('chat_messages')
+      .insert([messageData])
+      .select(`
+        *,
+        profiles:profiles(full_name, avatar_url),
+        reply_to:chat_messages!reply_to_id(content, profiles(full_name)),
+        forwarded_from:chat_messages!forwarded_from_id(content, profiles(full_name))
+      `)
+      .single()
+
+    if (error) throw error
+
+    return NextResponse.json({ message })
+  } catch (error) {
+    console.error('Error creating message:', error)
+    return NextResponse.json(
+      { error: 'Failed to create message' },
+      { status: 500 }
+    )
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
     const { searchParams } = new URL(request.url)
     const channelId = searchParams.get('channel_id')
-    
+    const limit = parseInt(searchParams.get('limit') || '50')
+    const offset = parseInt(searchParams.get('offset') || '0')
+
     if (!channelId) {
       return NextResponse.json(
         { error: 'Channel ID is required' },
@@ -13,45 +132,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const supabase = createClient()
-    
-    const { data: messages, error } = await supabase
-      .from('chat_messages')
-      .select(`
-        *,
-        profiles:profiles(full_name)
-      `)
-      .eq('channel_id', channelId)
-      .order('created_at', { ascending: true })
-
-    if (error) throw error
-
-    return NextResponse.json({ messages })
-  } catch (error) {
-    console.error('Error fetching messages:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch messages' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const supabase = createClient()
-    const { channelId, content, messageType = 'text', fileUrl } = await request.json()
-
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Validate required fields
-    if (!channelId || !content) {
+    // Validate user authentication
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
       return NextResponse.json(
-        { error: 'Channel ID and content are required' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       )
     }
 
@@ -65,34 +151,32 @@ export async function POST(request: NextRequest) {
 
     if (!membership) {
       return NextResponse.json(
-        { error: 'Not a member of this channel' },
+        { error: 'You are not a member of this channel' },
         { status: 403 }
       )
     }
 
-    // Create message
-    const { data: message, error } = await supabase
+    // Get messages with enhanced data
+    const { data: messages, error } = await supabase
       .from('chat_messages')
-      .insert({
-        channel_id: channelId,
-        sender_id: user.id,
-        content,
-        message_type: messageType,
-        file_url: fileUrl
-      })
       .select(`
         *,
-        profiles:profiles(full_name)
+        profiles:profiles(full_name, avatar_url),
+        reply_to:chat_messages!reply_to_id(content, profiles(full_name)),
+        forwarded_from:chat_messages!forwarded_from_id(content, profiles(full_name))
       `)
-      .single()
+      .eq('channel_id', channelId)
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
 
     if (error) throw error
 
-    return NextResponse.json({ message })
+    return NextResponse.json({ messages: messages.reverse() })
   } catch (error) {
-    console.error('Error sending message:', error)
+    console.error('Error fetching messages:', error)
     return NextResponse.json(
-      { error: 'Failed to send message' },
+      { error: 'Failed to fetch messages' },
       { status: 500 }
     )
   }
@@ -100,7 +184,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
     const { searchParams } = new URL(request.url)
     const messageId = searchParams.get('messageId')
 

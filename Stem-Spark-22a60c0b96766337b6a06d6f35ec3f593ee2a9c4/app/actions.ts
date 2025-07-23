@@ -32,8 +32,8 @@ function validateVideoData(data: Record<string, any>) {
 
 export async function createVideo(formData: FormData) {
   try {
-    const cookieStore = cookies()
-    const supabase = createServerClient(cookieStore)
+    const cookieStore = await cookies()
+    const supabase = await createServerClient(cookieStore)
 
     const {
       data: { user },
@@ -84,8 +84,8 @@ export async function createVideo(formData: FormData) {
 
 export async function updateVideo(videoId: string, formData: FormData) {
   try {
-    const cookieStore = cookies()
-    const supabase = createServerClient(cookieStore)
+    const cookieStore = await cookies()
+    const supabase = await createServerClient(cookieStore)
 
     const {
       data: { user },
@@ -146,8 +146,8 @@ export async function updateVideo(videoId: string, formData: FormData) {
 
 export async function deleteVideo(videoId: string) {
   try {
-    const cookieStore = cookies()
-    const supabase = createServerClient(cookieStore)
+    const cookieStore = await cookies()
+    const supabase = await createServerClient(cookieStore)
 
     const {
       data: { user },
@@ -191,8 +191,8 @@ export async function deleteVideo(videoId: string) {
 
 export async function getVideos() {
   try {
-    const cookieStore = cookies()
-    const supabase = createServerClient(cookieStore)
+    const cookieStore = await cookies()
+    const supabase = await createServerClient(cookieStore)
 
     const { data: videos, error } = await supabase
       .from("videos")
@@ -213,8 +213,8 @@ export async function getVideos() {
 
 export async function getVideo(videoId: string) {
   try {
-    const cookieStore = cookies()
-    const supabase = createServerClient(cookieStore)
+    const cookieStore = await cookies()
+    const supabase = await createServerClient(cookieStore)
 
     const { data: video, error } = await supabase.from("videos").select("*").eq("id", videoId).single()
 

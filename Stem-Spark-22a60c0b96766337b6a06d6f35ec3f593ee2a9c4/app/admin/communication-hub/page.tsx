@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -28,7 +28,16 @@ import {
   UserX,
   UserCheck,
   AlertTriangle,
-  ArrowLeft
+  ArrowLeft,
+  Image as ImageIcon,
+  Paperclip,
+  Edit,
+  Forward,
+  MoreVertical,
+  Smile,
+  Reply,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 
 interface Message {
@@ -38,7 +47,22 @@ interface Message {
   sender_name: string
   channel_id: string
   created_at: string
-  message_type: 'text' | 'file' | 'system'
+  message_type: 'text' | 'file' | 'image' | 'system'
+  file_url?: string
+  image_url?: string
+  image_caption?: string
+  file_name?: string
+  file_size?: number
+  file_type?: string
+  edited_at?: string
+  edited_by?: string
+  reply_to_id?: string
+  reply_to?: { content: string; profiles: { full_name: string } }
+  forwarded_from_id?: string
+  forwarded_from?: { content: string; profiles: { full_name: string } }
+  is_deleted?: boolean
+  reactions?: Record<string, string[]>
+  read_by?: string[]
 }
 
 interface Channel {
@@ -49,7 +73,7 @@ interface Channel {
   created_by: string
   created_at: string
   member_count: number
-  group_role?: string // For group-specific channels
+  group_role?: string
 }
 
 interface User {
@@ -82,6 +106,19 @@ export default function AdminCommunicationHub() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedChannelType, setSelectedChannelType] = useState('all')
   const [currentSubscription, setCurrentSubscription] = useState<any>(null)
+  
+  // New state for enhanced features
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null)
+  const [replyToMessage, setReplyToMessage] = useState<Message | null>(null)
+  const [showForwardDialog, setShowForwardDialog] = useState(false)
+  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null)
+  const [targetChannelId, setTargetChannelId] = useState('')
+  const [showReactions, setShowReactions] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const handleDebugCreateChannel = async () => {
     if (!user) {
@@ -363,52 +400,190 @@ export default function AdminCommunicationHub() {
     return subscription
   }
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !user || !selectedChannel) {
-      console.log('Cannot send message:', { 
-        hasMessage: !!newMessage.trim(), 
-        hasUser: !!user, 
-        hasChannel: !!selectedChannel 
-      })
-      return
+  // File upload handling
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      setSelectedFile(file)
+    }
+  }
+
+  const uploadFile = async (file: File): Promise<string> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('type', file.type.startsWith('image/') ? 'image' : 'file')
+
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData
+    })
+
+    if (!response.ok) {
+      throw new Error('Upload failed')
     }
 
+    const data = await response.json()
+    return data.url
+  }
+
+  // Enhanced message sending
+  const handleSendMessage = async () => {
+    if ((!newMessage.trim() && !selectedFile) || !user || !selectedChannel) return
+
     try {
-      console.log('Sending message:', {
-        content: newMessage,
-        sender_id: user.id,
+      setUploading(true)
+      let fileUrl = ''
+      let imageUrl = ''
+      let messageType: 'text' | 'file' | 'image' = 'text'
+      let fileName = ''
+      let fileSize = 0
+      let fileType = ''
+
+      if (selectedFile) {
+        fileUrl = await uploadFile(selectedFile)
+        fileName = selectedFile.name
+        fileSize = selectedFile.size
+        fileType = selectedFile.type
+        
+        if (selectedFile.type.startsWith('image/')) {
+          imageUrl = fileUrl
+          messageType = 'image'
+        } else {
+          messageType = 'file'
+        }
+      }
+
+      const messageData: any = {
+        content: newMessage.trim(),
         channel_id: selectedChannel.id,
-        channel_name: selectedChannel.name
-      })
+        message_type: messageType
+      }
+
+      if (fileUrl) messageData.file_url = fileUrl
+      if (imageUrl) messageData.image_url = imageUrl
+      if (fileName) messageData.file_name = fileName
+      if (fileSize) messageData.file_size = fileSize
+      if (fileType) messageData.file_type = fileType
+      if (replyToMessage) messageData.reply_to_id = replyToMessage.id
 
       const { data, error } = await supabase
         .from('chat_messages')
-        .insert({
-          content: newMessage.trim(),
-          sender_id: user.id,
-          channel_id: selectedChannel.id,
-          message_type: 'text'
-        })
-        .select()
+        .insert(messageData)
+        .select(`
+          *,
+          profiles:profiles(full_name, avatar_url),
+          reply_to:chat_messages!reply_to_id(content, profiles(full_name))
+        `)
+        .single()
 
-      if (error) {
-        console.error('Error sending message:', error)
-        alert(`Failed to send message: ${error.message}`)
-        return
-      }
+      if (error) throw error
 
-      if (data && data.length > 0) {
-        console.log('Message sent successfully:', data[0])
-        setNewMessage('')
-      } else {
-        console.error('No data returned from message insert')
-        alert('Message sent but no confirmation received')
-      }
+      setNewMessage('')
+      setSelectedFile(null)
+      setReplyToMessage(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      if (imageInputRef.current) imageInputRef.current.value = ''
     } catch (error) {
       console.error('Error sending message:', error)
-      alert(`Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      alert('Failed to send message')
+    } finally {
+      setUploading(false)
     }
   }
+
+  // Message editing
+  const handleEditMessage = async (message: Message, newContent: string) => {
+    try {
+      const response = await fetch(`/api/messaging/messages/${message.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newContent })
+      })
+
+      if (!response.ok) throw new Error('Failed to edit message')
+
+      const { message: updatedMessage } = await response.json()
+      setMessages(prev => prev.map(msg => 
+        msg.id === message.id ? { ...msg, ...updatedMessage } : msg
+      ))
+      setEditingMessage(null)
+    } catch (error) {
+      console.error('Error editing message:', error)
+      alert('Failed to edit message')
+    }
+  }
+
+  // Message deletion
+  const handleDeleteMessage = async (message: Message) => {
+    if (!confirm('Are you sure you want to delete this message?')) return
+
+    try {
+      const response = await fetch(`/api/messaging/messages/${message.id}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) throw new Error('Failed to delete message')
+
+      setMessages(prev => prev.map(msg => 
+        msg.id === message.id ? { ...msg, is_deleted: true, content: '[Message deleted]' } : msg
+      ))
+    } catch (error) {
+      console.error('Error deleting message:', error)
+      alert('Failed to delete message')
+    }
+  }
+
+  // Message forwarding
+  const handleForwardMessage = async () => {
+    if (!forwardingMessage || !targetChannelId) return
+
+    try {
+      const response = await fetch(`/api/messaging/messages/${forwardingMessage.id}/forward`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_channel_id: targetChannelId })
+      })
+
+      if (!response.ok) throw new Error('Failed to forward message')
+
+      setShowForwardDialog(false)
+      setForwardingMessage(null)
+      setTargetChannelId('')
+      alert('Message forwarded successfully')
+    } catch (error) {
+      console.error('Error forwarding message:', error)
+      alert('Failed to forward message')
+    }
+  }
+
+  // Message reactions
+  const handleReaction = async (message: Message, reaction: string) => {
+    try {
+      const response = await fetch(`/api/messaging/messages/${message.id}/react`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reaction })
+      })
+
+      if (!response.ok) throw new Error('Failed to add reaction')
+
+      const { message: updatedMessage } = await response.json()
+      setMessages(prev => prev.map(msg => 
+        msg.id === message.id ? { ...msg, reactions: updatedMessage.reactions } : msg
+      ))
+    } catch (error) {
+      console.error('Error adding reaction:', error)
+    }
+  }
+
+  // Scroll to bottom
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
 
   const handleCreateChannel = async () => {
     try {
@@ -899,57 +1074,267 @@ export default function AdminCommunicationHub() {
               {selectedChannel ? (
                 <div className="space-y-4">
                   {/* Messages */}
-                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
                     {messages.map((message) => (
-                      <div key={message.id} className="flex space-x-3">
-                        <div className="flex-shrink-0">
-                          <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
-                            {message.sender_name.charAt(0).toUpperCase()}
+                      <div key={message.id} className={`flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-xs lg:max-w-md ${message.sender_id === user?.id ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'} rounded-lg p-3 relative group`}>
+                          
+                          {/* Reply indicator */}
+                          {message.reply_to && (
+                            <div className="text-xs opacity-75 mb-1 border-l-2 border-current pl-2">
+                              Replying to {message.reply_to.profiles.full_name}: {message.reply_to.content.substring(0, 50)}...
+                            </div>
+                          )}
+
+                          {/* Forwarded indicator */}
+                          {message.forwarded_from && (
+                            <div className="text-xs opacity-75 mb-1">
+                              ↪ Forwarded from {message.forwarded_from.profiles.full_name}
+                            </div>
+                          )}
+
+                          {/* Message content */}
+                          <div className="break-words">
+                            {message.content}
                           </div>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium text-gray-900">
-                              {message.sender_name}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {new Date(message.created_at).toLocaleString()}
-                            </span>
-                            {message.message_type === 'system' && (
-                              <Badge variant="secondary" className="text-xs">System</Badge>
-                            )}
+
+                          {/* Image */}
+                          {message.image_url && (
+                            <div className="mt-2">
+                              <img 
+                                src={message.image_url} 
+                                alt="Message attachment"
+                                className="max-w-full rounded-lg cursor-pointer"
+                                onClick={() => window.open(message.image_url, '_blank')}
+                              />
+                              {message.image_caption && (
+                                <div className="text-xs mt-1 opacity-75">{message.image_caption}</div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* File attachment */}
+                          {message.file_url && message.message_type === 'file' && (
+                            <div className="mt-2 p-2 bg-black bg-opacity-10 rounded">
+                              <div className="flex items-center space-x-2">
+                                <Paperclip className="w-4 h-4" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium truncate">{message.file_name}</div>
+                                  <div className="text-xs opacity-75">
+                                    {message.file_size ? `${(message.file_size / 1024).toFixed(1)} KB` : ''}
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => window.open(message.file_url, '_blank')}
+                                >
+                                  Download
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Edited indicator */}
+                          {message.edited_at && (
+                            <div className="text-xs opacity-75 mt-1">(edited)</div>
+                          )}
+
+                          {/* Message actions */}
+                          <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex space-x-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setShowReactions(showReactions === message.id ? null : message.id)}
+                              >
+                                <Smile className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setReplyToMessage(message)}
+                              >
+                                <Reply className="w-3 h-3" />
+                              </Button>
+                              {message.sender_id === user?.id && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setEditingMessage(message)}
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleDeleteMessage(message)}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setForwardingMessage(message)
+                                  setShowForwardDialog(true)
+                                }}
+                              >
+                                <Forward className="w-3 h-3" />
+                              </Button>
+                            </div>
                           </div>
-                          <p className="text-sm text-gray-700 mt-1">{message.content}</p>
+
+                          {/* Reactions */}
+                          {message.reactions && Object.keys(message.reactions).length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {Object.entries(message.reactions).map(([userId, reactions]) => (
+                                reactions.map((reaction, index) => (
+                                  <Badge key={`${userId}-${index}`} variant="secondary" className="text-xs">
+                                    {reaction}
+                                  </Badge>
+                                ))
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Reaction picker */}
+                          {showReactions === message.id && (
+                            <div className="absolute bottom-full right-0 mb-2 bg-white border rounded-lg p-2 shadow-lg">
+                              <div className="flex space-x-1">
+                                {['👍', '❤️', '😄', '😮', '😢', '😡'].map((reaction) => (
+                                  <Button
+                                    key={reaction}
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      handleReaction(message, reaction)
+                                      setShowReactions(null)
+                                    }}
+                                  >
+                                    {reaction}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Timestamp */}
+                          <div className="text-xs opacity-75 mt-1">
+                            {new Date(message.created_at).toLocaleTimeString()}
+                          </div>
                         </div>
                       </div>
                     ))}
+                    <div ref={messagesEndRef} />
                   </div>
 
                   {/* Message Input */}
-                  <div className="border-t border-gray-200 pt-4">
-                    {canSendMessage(selectedChannel) ? (
-                      <div className="flex space-x-2">
-                        <Input
-                          type="text"
-                          value={newMessage}
-                          onChange={(e) => setNewMessage(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                          placeholder="Type your message..."
-                          className="flex-1"
-                        />
+                  <div className="border-t p-4">
+                    {/* Reply indicator */}
+                    <div className="mb-2 p-2 bg-gray-100 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm">
+                          <span className="font-medium">Replying to:</span> {replyToMessage?.content.substring(0, 50)}...
+                        </div>
                         <Button
-                          onClick={handleSendMessage}
-                          disabled={!newMessage.trim()}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setReplyToMessage(null)}
                         >
-                          <Send className="w-4 h-4 mr-2" />
-                          Send
+                          <X className="w-4 h-4" />
                         </Button>
                       </div>
-                    ) : (
-                      <div className="text-sm text-gray-500 text-center py-2">
-                        You don't have permission to send messages in this channel
+                    </div>
+
+                    {/* Selected file indicator */}
+                    {selectedFile && (
+                      <div className="mb-2 p-2 bg-blue-100 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm">
+                            <span className="font-medium">File:</span> {selectedFile.name}
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setSelectedFile(null)
+                              if (fileInputRef.current) fileInputRef.current.value = ''
+                              if (imageInputRef.current) imageInputRef.current.value = ''
+                            }}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     )}
+
+                    <div className="flex items-center space-x-2">
+                      {/* File upload buttons */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => imageInputRef.current?.click()}
+                        disabled={uploading}
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                      >
+                        <Paperclip className="w-4 h-4" />
+                      </Button>
+
+                      {/* Hidden file inputs */}
+                      <input
+                        ref={imageInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf,.doc,.docx,.txt,.zip"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+
+                      {/* Message input */}
+                      <div className="flex-1">
+                        <Input
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          placeholder="Type a message..."
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault()
+                              handleSendMessage()
+                            }
+                          }}
+                          disabled={uploading}
+                        />
+                      </div>
+
+                      {/* Send button */}
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={uploading || (!newMessage.trim() && !selectedFile)}
+                      >
+                        {uploading ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -991,6 +1376,73 @@ export default function AdminCommunicationHub() {
               <Trash2 className="w-4 h-4 mr-2" />
               Delete Channel
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Message Dialog */}
+      <Dialog open={!!editingMessage} onOpenChange={() => setEditingMessage(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Message</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              value={editingMessage?.content || ''}
+              onChange={(e) => setEditingMessage(prev => prev ? { ...prev, content: e.target.value } : null)}
+              placeholder="Edit your message..."
+              rows={3}
+            />
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setEditingMessage(null)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => editingMessage && handleEditMessage(editingMessage, editingMessage.content)}
+              >
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Forward Message Dialog */}
+      <Dialog open={showForwardDialog} onOpenChange={setShowForwardDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Forward Message</DialogTitle>
+            <DialogDescription>
+              Select a channel to forward this message to.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Select Channel</Label>
+              <Select value={targetChannelId} onValueChange={setTargetChannelId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a channel" />
+                </SelectTrigger>
+                <SelectContent>
+                  {channels.map((channel) => (
+                    <SelectItem key={channel.id} value={channel.id}>
+                      {channel.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowForwardDialog(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleForwardMessage}
+                disabled={!targetChannelId}
+              >
+                Forward
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

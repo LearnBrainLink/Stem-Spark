@@ -15,7 +15,7 @@ export async function setupDatabase(formData: FormData) {
     }
 
     // Test database connection
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
     
     // Try to perform a simple query to test connection
     const { data, error } = await supabase
@@ -68,7 +68,7 @@ export async function setupEmail(formData: FormData) {
       return { error: "Invalid email address format" }
     }
 
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
 
     // Save email configuration
     const { error: configError } = await supabase
@@ -123,7 +123,7 @@ export async function createAdminAccount(formData: FormData) {
       return { error: "Invalid email address format" }
     }
 
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
 
     // Create admin user in auth
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -226,7 +226,7 @@ export async function verifyAdmins() {
 // Check setup status action
 export async function checkSetupStatus() {
   try {
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
 
     // Check database connection
     let databaseStatus = false
@@ -281,7 +281,7 @@ export async function checkSetupStatus() {
 // Export setup configuration
 export async function exportSetupConfig() {
   try {
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
 
     // Get all system configurations
     const { data: configs } = await supabase
@@ -316,7 +316,7 @@ export async function exportSetupConfig() {
 // Test database connection
 export async function testDatabaseConnection() {
   try {
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
 
     // Test basic connection
     const { data, error } = await supabase

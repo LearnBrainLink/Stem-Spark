@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 import { Database } from "@/lib/database.types"
 
-export const createServerClient = (cookieStore: ReturnType<typeof cookies>) => {
+export const createServerClient = async (cookieStore?: ReturnType<typeof cookies>) => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -10,11 +10,11 @@ export const createServerClient = (cookieStore: ReturnType<typeof cookies>) => {
     throw new Error("Missing Supabase environment variables")
   }
 
+  const resolvedCookieStore = cookieStore || await cookies()
+
   return createClient<Database>(supabaseUrl, supabaseKey, {
-    cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value
-      },
+    auth: {
+      persistSession: false,
     },
   })
 } 

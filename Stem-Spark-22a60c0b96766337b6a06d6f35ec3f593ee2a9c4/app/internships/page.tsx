@@ -199,7 +199,7 @@ export default function InternshipsPage() {
       <header className="bg-white/80 backdrop-blur-sm border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-3">
-            <Logo width={40} height={40} variant="with-text" showText />
+            <Logo width={40} height={40} variant="full" />
           </Link>
           <div className="flex items-center gap-4">
             <Link href="/dashboard">
