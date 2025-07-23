@@ -12,7 +12,7 @@ import { Search, Eye, Check, X, Flag, MessageSquare, Video, FileText, AlertTrian
 import Image from "next/image"
 import { motion } from "framer-motion"
 import { getEnhancedVideosData, getEnhancedApplicationsData } from '../enhanced-actions'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase/client'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"

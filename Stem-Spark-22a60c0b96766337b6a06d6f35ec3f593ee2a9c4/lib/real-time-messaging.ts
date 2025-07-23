@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { Database } from './database.types'
 import { RealtimeChannel } from '@supabase/supabase-js'
+import { supabase } from './supabase/client'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type Message = Database['public']['Tables']['chat_messages']['Row']
@@ -29,28 +30,7 @@ export interface MessagePermissions {
 }
 
 class RealTimeMessagingService {
-  private supabase: any = null
   private channels: Map<string, RealtimeChannel> = new Map()
-
-  private getSupabase() {
-    if (!this.supabase) {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      
-      if (!supabaseUrl || !supabaseAnonKey) {
-        throw new Error('Supabase configuration missing')
-      }
-      
-      this.supabase = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          autoRefreshToken: true,
-          persistSession: true,
-          detectSessionInUrl: true,
-        },
-      })
-    }
-    return this.supabase
-  }
 
   // Channel Management
   async createChannel(
@@ -60,7 +40,6 @@ class RealTimeMessagingService {
     createdBy: string
   ): Promise<{ success: boolean; channel?: ExtendedChannel; error?: string }> {
     try {
-      const supabase = this.getSupabase()
       const { data: channel, error } = await supabase
         .from('chat_channels')
         .insert({
@@ -86,7 +65,6 @@ class RealTimeMessagingService {
 
   async getChannels(userId: string): Promise<{ success: boolean; channels?: ExtendedChannel[]; error?: string }> {
     try {
-      const supabase = this.getSupabase()
       // Get channels where user is a member or public channels
       const { data: channels, error } = await supabase
         .from('chat_channels')
@@ -101,8 +79,7 @@ class RealTimeMessagingService {
       // Get member details for each channel
       const channelsWithMembers = await Promise.all(
         channels.map(async (channel) => {
-          const supabaseClient = this.getSupabase()
-          const { data: members } = await supabaseClient
+          const { data: members } = await supabase
             .from('chat_channel_members')
             .select('*')
             .eq('channel_id', channel.id)
@@ -127,7 +104,6 @@ class RealTimeMessagingService {
     role: 'admin' | 'member' = 'member'
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const supabase = this.getSupabase()
       const { error } = await supabase
         .from('chat_channel_members')
         .insert({
@@ -150,7 +126,6 @@ class RealTimeMessagingService {
     userId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const supabase = this.getSupabase()
       const { error } = await supabase
         .from('chat_channel_members')
         .delete()
@@ -174,7 +149,6 @@ class RealTimeMessagingService {
     fileUrl?: string
   ): Promise<{ success: boolean; message?: ExtendedMessage; error?: string }> {
     try {
-      const supabase = this.getSupabase()
       const { data: message, error } = await supabase
         .from('chat_messages')
         .insert({
@@ -214,7 +188,6 @@ class RealTimeMessagingService {
     offset: number = 0
   ): Promise<{ success: boolean; messages?: ExtendedMessage[]; error?: string }> {
     try {
-      const supabase = this.getSupabase()
       const { data: messages, error } = await supabase
         .from('chat_messages')
         .select(`
@@ -248,8 +221,6 @@ class RealTimeMessagingService {
     userId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const supabase = this.getSupabase()
-      
       // Check if user can delete the message
       const { data: message } = await supabase
         .from('chat_messages')
@@ -293,8 +264,6 @@ class RealTimeMessagingService {
     onMessage: (message: ExtendedMessage) => void,
     onMessageDelete: (messageId: string) => void
   ): RealtimeChannel {
-    const supabase = this.getSupabase()
-    
     // Unsubscribe from existing channel if any
     this.unsubscribeFromChannel(channelId)
 
@@ -362,8 +331,6 @@ class RealTimeMessagingService {
     userId: string
   ): Promise<MessagePermissions> {
     try {
-      const supabase = this.getSupabase()
-      
       // Get user profile
       const { data: profile } = await supabase
         .from('profiles')
@@ -405,7 +372,6 @@ class RealTimeMessagingService {
 
   async updateUserPresence(userId: string, isOnline: boolean): Promise<void> {
     try {
-      const supabase = this.getSupabase()
       await supabase
         .from('profiles')
         .update({ 

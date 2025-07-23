@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase/client'
+import Link from 'next/link'
+import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,10 +23,10 @@ import {
   ArrowRight,
   X,
   CheckCircle,
+  Trash2,
   Shield,
-  Settings,
-  AlertTriangle,
-  Trash2
+  UserX,
+  UserCheck
 } from 'lucide-react'
 
 interface Message {

@@ -17,7 +17,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { createInternship, updateInternship, deleteInternship } from '../enhanced-actions'
-import { supabase } from "@/lib/supabase"
+import { supabase } from "@/lib/supabase/client"
 import { Plus, Edit, Trash2, Users, Calendar, RefreshCw, MapPin, Clock, Briefcase, Download, Search } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
