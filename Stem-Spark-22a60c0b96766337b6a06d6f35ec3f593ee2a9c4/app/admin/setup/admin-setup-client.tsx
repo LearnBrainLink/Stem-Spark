@@ -31,7 +31,7 @@ export function AdminSetupClient({ adminAccounts }: AdminSetupClientProps) {
 
     try {
       // Import the function dynamically to avoid SSR issues
-      const { createAdminAccounts } = await import("@/lib/enhanced-auth-actions")
+      const { createAdminAccounts } = await import("@/lib/admin-setup")
       const results = await createAdminAccounts()
       setSetupResults(results)
 
@@ -62,7 +62,7 @@ export function AdminSetupClient({ adminAccounts }: AdminSetupClientProps) {
 
     try {
       // Import the function dynamically to avoid SSR issues
-      const { verifyAdminAccounts } = await import("@/lib/enhanced-auth-actions")
+      const { verifyAdminAccounts } = await import("@/lib/admin-setup")
       const results = await verifyAdminAccounts()
       setVerificationResults(results)
 
