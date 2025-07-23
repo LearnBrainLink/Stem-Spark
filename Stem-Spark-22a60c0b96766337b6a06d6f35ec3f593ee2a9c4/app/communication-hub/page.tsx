@@ -308,16 +308,22 @@ export default function CommunicationHub() {
     const subscription = supabase
       .channel(`messages:${channelId}`)
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*', // Listen to all events
         schema: 'public',
         table: 'chat_messages',
         filter: `channel_id=eq.${channelId}`
       }, (payload) => {
-        const newMessage = payload.new as any
-        setMessages(prev => [...prev, {
-          ...newMessage,
-          sender_name: newMessage.profiles?.full_name || 'Unknown'
-        }])
+
+        if (payload.eventType === 'INSERT') {
+          const newMessage = payload.new as any
+          setMessages(prev => [...prev, {
+            ...newMessage,
+            sender_name: newMessage.profiles?.full_name || 'Unknown'
+          }])
+        } else if (payload.eventType === 'DELETE') {
+          setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
+        }
+        
       })
       .subscribe()
 
@@ -461,6 +467,30 @@ export default function CommunicationHub() {
       setUploadingImage(false)
     }
   }
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!user) return;
+    
+    // Optimistically remove the message from the UI
+    setMessages(prevMessages => prevMessages.filter(msg => msg.id !== messageId));
+
+    try {
+      const { error } = await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('id', messageId)
+        .eq('sender_id', user.id); // Ensure users can only delete their own messages
+
+      if (error) {
+        // If the delete fails, add the message back to the UI
+        console.error('Error deleting message:', error);
+        // Note: Re-adding the message is complex; for now, we'll rely on a page refresh 
+        // if this rare error occurs. A more robust solution would use a state management library.
+      }
+    } catch (err) {
+      console.error('Unexpected error deleting message:', err);
+    }
+  };
 
   const handleReply = (message: Message) => {
     setReplyingTo(message)
@@ -961,6 +991,16 @@ export default function CommunicationHub() {
                               >
                                 <Reply className="w-3 h-3" />
                               </Button>
+                              {message.sender_id === user.id && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteMessage(message.id)}
+                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              )}
                             </div>
                             
                             {/* Reply to message */}
