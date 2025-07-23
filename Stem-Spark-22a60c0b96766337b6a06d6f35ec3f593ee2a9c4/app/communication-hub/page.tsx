@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -22,7 +22,12 @@ import {
   Plus,
   ArrowRight,
   X,
-  CheckCircle
+  CheckCircle,
+  Image as ImageIcon,
+  Paperclip,
+  Reply,
+  Download,
+  FileText
 } from 'lucide-react'
 
 interface Message {
@@ -32,14 +37,31 @@ interface Message {
   sender_name: string
   channel_id: string
   created_at: string
-  message_type: 'text' | 'file' | 'system'
+  message_type: 'text' | 'file' | 'image' | 'system'
+  file_url?: string
+  image_url?: string
+  image_caption?: string
+  file_name?: string
+  file_size?: number
+  file_type?: string
+  reply_to_id?: string
+  reply_to?: {
+    content: string
+    profiles: {
+      full_name: string
+    }
+  }
+  profiles?: {
+    full_name: string
+    avatar_url?: string
+  }
 }
 
 interface Channel {
   id: string
   name: string
   description: string
-  channel_type: 'public' | 'private' | 'group' | 'announcement'
+  channel_type: 'public' | 'private' | 'group' | 'announcement' | 'admin_group' | 'intern_group' | 'parent_group' | 'student_group'
   created_by: string
   created_at: string
   member_count: number
@@ -71,6 +93,12 @@ export default function CommunicationHub() {
   })
   const [userRole, setUserRole] = useState<string>('')
   const [currentSubscription, setCurrentSubscription] = useState<any>(null)
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null)
+  const [uploadingFile, setUploadingFile] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     checkAuth()
@@ -106,6 +134,11 @@ export default function CommunicationHub() {
       }
     }
   }, [selectedChannel])
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   const checkAuth = async () => {
     try {
@@ -250,12 +283,13 @@ export default function CommunicationHub() {
 
   const loadMessages = async (channelId: string) => {
     try {
-      // Use Supabase directly to load messages
+      // Use Supabase directly to load messages with reply data
       const { data, error } = await supabase
         .from('chat_messages')
         .select(`
           *,
-          profiles:profiles(full_name, avatar_url)
+          profiles:profiles(full_name, avatar_url),
+          reply_to:chat_messages!reply_to_id(content, profiles(full_name))
         `)
         .eq('channel_id', channelId)
         .eq('is_deleted', false)
@@ -298,23 +332,154 @@ export default function CommunicationHub() {
     if (!newMessage.trim() || !user || !selectedChannel) return
 
     try {
+      const messageData: any = {
+        content: newMessage,
+        sender_id: user.id,
+        channel_id: selectedChannel.id,
+        message_type: 'text'
+      }
+
+      // Add reply data if replying to a message
+      if (replyingTo) {
+        messageData.reply_to_id = replyingTo.id
+      }
+
       const { error } = await supabase
         .from('chat_messages')
-        .insert({
-          content: newMessage,
-          sender_id: user.id,
-          channel_id: selectedChannel.id,
-          message_type: 'text'
-        })
+        .insert(messageData)
 
       if (!error) {
         setNewMessage('')
+        setReplyingTo(null)
       } else {
         console.error('Error sending message:', error)
       }
     } catch (error) {
       console.error('Error sending message:', error)
     }
+  }
+
+  const handleFileUpload = async (file: File) => {
+    if (!user || !selectedChannel) return
+
+    try {
+      setUploadingFile(true)
+      
+      // Upload file to Supabase Storage
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Date.now()}.${fileExt}`
+      const filePath = `chat-files/${selectedChannel.id}/${fileName}`
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('chat-attachments')
+        .upload(filePath, file)
+
+      if (uploadError) {
+        console.error('Error uploading file:', uploadError)
+        return
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-attachments')
+        .getPublicUrl(filePath)
+
+      // Save message with file info
+      const messageData = {
+        content: `📎 ${file.name}`,
+        sender_id: user.id,
+        channel_id: selectedChannel.id,
+        message_type: 'file',
+        file_url: publicUrl,
+        file_name: file.name,
+        file_size: file.size,
+        file_type: file.type,
+        reply_to_id: replyingTo?.id || null
+      }
+
+      const { error } = await supabase
+        .from('chat_messages')
+        .insert(messageData)
+
+      if (!error) {
+        setReplyingTo(null)
+      } else {
+        console.error('Error saving file message:', error)
+      }
+    } catch (error) {
+      console.error('Error handling file upload:', error)
+    } finally {
+      setUploadingFile(false)
+    }
+  }
+
+  const handleImageUpload = async (file: File) => {
+    if (!user || !selectedChannel) return
+
+    try {
+      setUploadingImage(true)
+      
+      // Upload image to Supabase Storage
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Date.now()}.${fileExt}`
+      const filePath = `chat-images/${selectedChannel.id}/${fileName}`
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('chat-attachments')
+        .upload(filePath, file)
+
+      if (uploadError) {
+        console.error('Error uploading image:', uploadError)
+        return
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-attachments')
+        .getPublicUrl(filePath)
+
+      // Save message with image info
+      const messageData = {
+        content: newMessage || '📷 Image',
+        sender_id: user.id,
+        channel_id: selectedChannel.id,
+        message_type: 'image',
+        image_url: publicUrl,
+        image_caption: newMessage || null,
+        reply_to_id: replyingTo?.id || null
+      }
+
+      const { error } = await supabase
+        .from('chat_messages')
+        .insert(messageData)
+
+      if (!error) {
+        setNewMessage('')
+        setReplyingTo(null)
+      } else {
+        console.error('Error saving image message:', error)
+      }
+    } catch (error) {
+      console.error('Error handling image upload:', error)
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  const handleReply = (message: Message) => {
+    setReplyingTo(message)
+  }
+
+  const cancelReply = () => {
+    setReplyingTo(null)
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
   const handleCreateChannel = async () => {
@@ -792,32 +957,160 @@ export default function CommunicationHub() {
                               {message.message_type === 'system' && (
                                 <Badge variant="secondary" className="text-xs">System</Badge>
                               )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleReply(message)}
+                                className="h-6 w-6 p-0"
+                              >
+                                <Reply className="w-3 h-3" />
+                              </Button>
                             </div>
-                            <p className="text-sm text-gray-700 mt-1">{message.content}</p>
+                            
+                            {/* Reply to message */}
+                            {message.reply_to && (
+                              <div className="bg-gray-50 border-l-2 border-blue-500 pl-3 py-1 mb-2 rounded">
+                                <div className="text-xs text-gray-600">
+                                  Replying to {message.reply_to.profiles?.full_name || 'Unknown'}
+                                </div>
+                                <div className="text-sm text-gray-700 truncate">
+                                  {message.reply_to.content}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Message content */}
+                            <div className="mt-1">
+                              {message.message_type === 'image' && message.image_url ? (
+                                <div className="space-y-2">
+                                  <img 
+                                    src={message.image_url} 
+                                    alt={message.image_caption || 'Image'} 
+                                    className="max-w-xs rounded-lg cursor-pointer hover:opacity-80"
+                                    onClick={() => window.open(message.image_url, '_blank')}
+                                  />
+                                  {message.content && message.content !== '📷 Image' && (
+                                    <p className="text-sm text-gray-700">{message.content}</p>
+                                  )}
+                                </div>
+                              ) : message.message_type === 'file' && message.file_url ? (
+                                <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded-lg">
+                                  <FileText className="w-5 h-5 text-blue-500" />
+                                  <div className="flex-1">
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {message.file_name}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      {formatFileSize(message.file_size || 0)}
+                                    </div>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => window.open(message.file_url, '_blank')}
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <p className="text-sm text-gray-700">{message.content}</p>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
+                      <div ref={messagesEndRef} />
                     </div>
+
+                    {/* Reply indicator */}
+                    {replyingTo && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-blue-900">
+                              Replying to {replyingTo.sender_name}
+                            </div>
+                            <div className="text-sm text-blue-700 truncate">
+                              {replyingTo.content}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={cancelReply}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Message Input */}
                     <div className="border-t border-gray-200 pt-4">
                       {canSendMessage(selectedChannel) ? (
-                        <div className="flex space-x-2">
-                          <Input
-                            type="text"
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                            placeholder="Type your message..."
-                            className="flex-1"
-                          />
-                          <Button
-                            onClick={handleSendMessage}
-                            disabled={!newMessage.trim()}
-                          >
-                            <Send className="w-4 h-4 mr-2" />
-                            Send
-                          </Button>
+                        <div className="space-y-2">
+                          <div className="flex space-x-2">
+                            <Input
+                              type="text"
+                              value={newMessage}
+                              onChange={(e) => setNewMessage(e.target.value)}
+                              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                              placeholder={replyingTo ? `Reply to ${replyingTo.sender_name}...` : "Type your message..."}
+                              className="flex-1"
+                            />
+                            <Button
+                              onClick={handleSendMessage}
+                              disabled={!newMessage.trim() && !uploadingFile && !uploadingImage}
+                            >
+                              <Send className="w-4 h-4 mr-2" />
+                              Send
+                            </Button>
+                          </div>
+                          
+                          {/* File and Image Upload Buttons */}
+                          <div className="flex space-x-2">
+                            <input
+                              type="file"
+                              ref={fileInputRef}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0]
+                                if (file) handleFileUpload(file)
+                              }}
+                              className="hidden"
+                              accept="*/*"
+                            />
+                            <input
+                              type="file"
+                              ref={imageInputRef}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0]
+                                if (file) handleImageUpload(file)
+                              }}
+                              className="hidden"
+                              accept="image/*"
+                            />
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => fileInputRef.current?.click()}
+                              disabled={uploadingFile}
+                            >
+                              <Paperclip className="w-4 h-4 mr-2" />
+                              {uploadingFile ? 'Uploading...' : 'File'}
+                            </Button>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => imageInputRef.current?.click()}
+                              disabled={uploadingImage}
+                            >
+                              <ImageIcon className="w-4 h-4 mr-2" />
+                              {uploadingImage ? 'Uploading...' : 'Image'}
+                            </Button>
+                          </div>
                         </div>
                       ) : (
                         <div className="text-sm text-gray-500 text-center py-2">
