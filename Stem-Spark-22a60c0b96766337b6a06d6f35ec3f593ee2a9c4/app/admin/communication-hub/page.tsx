@@ -26,7 +26,8 @@ import {
   Trash2,
   Shield,
   UserX,
-  UserCheck
+  UserCheck,
+  AlertTriangle
 } from 'lucide-react'
 
 interface Message {
