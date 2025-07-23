@@ -58,6 +58,7 @@ export default function CommunicationHub() {
   const [user, setUser] = useState<any>(null)
   const [userRole, setUserRole] = useState<string>('')
   const [loading, setLoading] = useState(true)
+  const [messagesLoading, setMessagesLoading] = useState(false)
   const [isCreateChannelOpen, setIsCreateChannelOpen] = useState(false)
   const [newChannelData, setNewChannelData] = useState({
     name: '',
@@ -259,56 +260,126 @@ export default function CommunicationHub() {
   }
 
   const fetchMessages = async (channelId: string) => {
-    const { data, error } = await supabase
-      .from('chat_messages')
-      .select(`
-        *,
-        profiles:profiles(full_name)
-      `)
-      .eq('channel_id', channelId)
-      .order('created_at', { ascending: true })
+    try {
+      setMessagesLoading(true)
+      console.log('Fetching messages for channel:', channelId)
+      
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select(`
+          *,
+          profiles:profiles(full_name)
+        `)
+        .eq('channel_id', channelId)
+        .order('created_at', { ascending: true })
 
-    if (!error && data) {
-      setMessages(data.map(msg => ({
-        ...msg,
-        sender_name: msg.profiles?.full_name || 'Unknown'
-      })))
+      if (error) {
+        console.error('Error fetching messages:', error)
+        setMessages([])
+        return
+      }
+
+      if (data) {
+        console.log(`Found ${data.length} messages for channel ${channelId}`)
+        const formattedMessages = data.map(msg => ({
+          ...msg,
+          sender_name: msg.profiles?.full_name || 'Unknown'
+        }))
+        setMessages(formattedMessages)
+      } else {
+        console.log('No messages found for channel:', channelId)
+        setMessages([])
+      }
+    } catch (error) {
+      console.error('Error in fetchMessages:', error)
+      setMessages([])
+    } finally {
+      setMessagesLoading(false)
     }
   }
 
   const subscribeToMessages = (channelId: string) => {
-    const subscription = supabase
-      .channel(`messages:${channelId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'chat_messages',
-        filter: `channel_id=eq.${channelId}`
-      }, (payload) => {
-        const newMessage = payload.new as Message
-        setMessages(prev => [...prev, newMessage])
-      })
-      .subscribe()
+    try {
+      console.log('Subscribing to messages for channel:', channelId)
+      
+      const subscription = supabase
+        .channel(`messages:${channelId}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `channel_id=eq.${channelId}`
+        }, (payload) => {
+          console.log('New message received:', payload.new)
+          const newMessage = payload.new as Message
+          
+          // Fetch the sender name for the new message
+          supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', newMessage.sender_id)
+            .single()
+            .then(({ data: profile }) => {
+              const messageWithSender = {
+                ...newMessage,
+                sender_name: profile?.full_name || 'Unknown'
+              }
+              setMessages(prev => [...prev, messageWithSender])
+            })
+            .catch((error) => {
+              console.error('Error fetching sender name for new message:', error)
+              const messageWithSender = {
+                ...newMessage,
+                sender_name: 'Unknown'
+              }
+              setMessages(prev => [...prev, messageWithSender])
+            })
+        })
+        .subscribe((status) => {
+          console.log('Subscription status:', status)
+        })
 
-    return () => subscription.unsubscribe()
+      return () => {
+        console.log('Unsubscribing from messages for channel:', channelId)
+        subscription.unsubscribe()
+      }
+    } catch (error) {
+      console.error('Error setting up message subscription:', error)
+      return () => {}
+    }
   }
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !user || !selectedChannel) return
 
-    const { error } = await supabase
-      .from('chat_messages')
-      .insert([
-        {
-          content: newMessage,
-          sender_id: user.id,
-          channel_id: selectedChannel,
-          message_type: 'text'
-        }
-      ])
+    try {
+      console.log('Sending message to channel:', selectedChannel)
+      setMessagesLoading(true)
+      
+      const { error } = await supabase
+        .from('chat_messages')
+        .insert([
+          {
+            content: newMessage,
+            sender_id: user.id,
+            channel_id: selectedChannel,
+            message_type: 'text'
+          }
+        ])
 
-    if (!error) {
+      if (error) {
+        console.error('Error sending message:', error)
+        alert(`Failed to send message: ${error.message}`)
+        return
+      }
+
+      console.log('Message sent successfully')
       setNewMessage('')
+    } catch (error) {
+      console.error('Error in sendMessage:', error)
+      alert('Failed to send message. Please try again.')
+    } finally {
+      setMessagesLoading(false)
     }
   }
 
@@ -616,29 +687,35 @@ export default function CommunicationHub() {
                   <div className="space-y-4">
                     {/* Messages */}
                     <div className="space-y-4 max-h-96 overflow-y-auto">
-                      {messages.map((message) => (
-                        <div key={message.id} className="flex space-x-3">
-                          <div className="flex-shrink-0">
-                            <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
-                              {message.sender_name.charAt(0).toUpperCase()}
+                      {messagesLoading ? (
+                        <div className="text-center py-8 text-gray-500">Loading messages...</div>
+                      ) : messages.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">No messages yet in this channel.</div>
+                      ) : (
+                        messages.map((message) => (
+                          <div key={message.id} className="flex space-x-3">
+                            <div className="flex-shrink-0">
+                              <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
+                                {message.sender_name.charAt(0).toUpperCase()}
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {message.sender_name}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {new Date(message.created_at).toLocaleString()}
+                                </span>
+                                {message.message_type === 'system' && (
+                                  <Badge variant="secondary" className="text-xs">System</Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-700 mt-1">{message.content}</p>
                             </div>
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm font-medium text-gray-900">
-                                {message.sender_name}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {new Date(message.created_at).toLocaleString()}
-                              </span>
-                              {message.message_type === 'system' && (
-                                <Badge variant="secondary" className="text-xs">System</Badge>
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-700 mt-1">{message.content}</p>
-                          </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
 
                     {/* Message Input */}
@@ -655,7 +732,7 @@ export default function CommunicationHub() {
                           />
                           <Button
                             onClick={sendMessage}
-                            disabled={!newMessage.trim()}
+                            disabled={!newMessage.trim() || messagesLoading}
                           >
                             <Send className="w-4 h-4 mr-2" />
                             Send
