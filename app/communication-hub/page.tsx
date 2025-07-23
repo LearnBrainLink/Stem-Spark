@@ -33,7 +33,7 @@ interface Channel {
   id: string
   name: string
   description: string
-  channel_type: 'public' | 'private' | 'group' | 'announcement'
+  channel_type: 'public' | 'announcement'
   created_by: string
   created_at: string
   member_count: number
@@ -270,7 +270,7 @@ export default function CommunicationHub() {
         .from('chat_messages')
         .select(`
           *,
-          profiles:profiles(full_name)
+          sender:profiles!chat_messages_sender_id_fkey(full_name)
         `)
         .eq('channel_id', channelId)
         .order('created_at', { ascending: true })
@@ -285,7 +285,7 @@ export default function CommunicationHub() {
         console.log(`Found ${data.length} messages for channel ${channelId}`)
         const formattedMessages = data.map(msg => ({
           ...msg,
-          sender_name: msg.profiles?.full_name || 'Unknown'
+          sender_name: msg.sender?.full_name || 'Unknown'
         }))
         setMessages(formattedMessages)
       } else {
@@ -574,8 +574,6 @@ export default function CommunicationHub() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="public">Public</SelectItem>
-                            <SelectItem value="private">Private</SelectItem>
-                            <SelectItem value="group">Group</SelectItem>
                             {userRole === 'admin' || userRole === 'super_admin' ? (
                               <SelectItem value="announcement">Announcement</SelectItem>
                             ) : null}
@@ -666,8 +664,6 @@ export default function CommunicationHub() {
                     <SelectContent>
                       <SelectItem value="all">All</SelectItem>
                       <SelectItem value="public">Public</SelectItem>
-                      <SelectItem value="private">Private</SelectItem>
-                      <SelectItem value="group">Group</SelectItem>
                       <SelectItem value="announcement">Announcement</SelectItem>
                     </SelectContent>
                   </Select>
