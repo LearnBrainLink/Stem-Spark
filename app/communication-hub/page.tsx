@@ -318,41 +318,28 @@ export default function CommunicationHub() {
 
       console.log('Creating channel:', newChannelData.name)
 
-      const { data: channel, error } = await supabase
-        .from('chat_channels')
-        .insert({
+      // Use the API route instead of calling Supabase directly
+      const response = await fetch('/api/messaging/channels', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           name: newChannelData.name,
           description: newChannelData.description,
           channel_type: newChannelData.channel_type,
-          created_by: user.id
-        })
-        .select()
-        .single()
+        }),
+      })
 
-      if (error) {
-        console.error('Error creating channel:', error)
-        throw new Error(`Failed to create channel: ${error.message}`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create channel')
       }
 
+      const { channel } = await response.json()
       console.log('Channel created successfully:', channel.id)
 
-      // Add creator as admin first
-      const { error: adminError } = await supabase
-        .from('chat_channel_members')
-        .insert({
-          user_id: user.id,
-          channel_id: channel.id,
-          role: 'admin'
-        })
-
-      if (adminError) {
-        console.error('Error adding creator as admin:', adminError)
-        throw new Error(`Failed to add creator as admin: ${adminError.message}`)
-      }
-
-      console.log('Creator added as admin successfully')
-
-      // Add other members to the channel (one by one to avoid batch issues)
+      // Add other members to the channel if any were selected
       if (newChannelData.selectedUsers.length > 0) {
         for (const userId of newChannelData.selectedUsers) {
           try {

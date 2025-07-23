@@ -5,14 +5,27 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createClient()
     
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // Fetch channels that the user can see (public channels + channels they're members of)
     const { data: channels, error } = await supabase
       .from('chat_channels')
       .select('*')
-      .order('name')
+      .order('created_at', { ascending: false })
 
-    if (error) throw error
+    if (error) {
+      console.error('Error fetching channels:', error)
+      throw error
+    }
 
-    return NextResponse.json({ channels })
+    return NextResponse.json({ channels: channels || [] })
   } catch (error) {
     console.error('Error fetching channels:', error)
     return NextResponse.json(
@@ -27,7 +40,7 @@ export async function POST(request: NextRequest) {
     const supabase = createClient()
     const { name, description, channel_type } = await request.json()
 
-    // Validate admin access
+    // Validate user authentication
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json(
@@ -36,16 +49,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get user profile to check permissions
     const { data: profile } = await supabase
       .from('profiles')
       .select('role, is_super_admin')
       .eq('id', user.id)
       .single()
 
-    if (!profile || (profile.role !== 'admin' && !profile.is_super_admin)) {
+    if (!profile) {
       return NextResponse.json(
-        { error: 'Admin access required' },
+        { error: 'Profile not found' },
+        { status: 404 }
+      )
+    }
+
+    // Allow students, interns, and admins to create channels
+    const allowedRoles = ['student', 'intern', 'admin', 'super_admin']
+    if (!allowedRoles.includes(profile.role)) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions to create channels' },
         { status: 403 }
+      )
+    }
+
+    // Check if channel name already exists
+    const { data: existingChannel } = await supabase
+      .from('chat_channels')
+      .select('id')
+      .eq('name', name)
+      .single()
+
+    if (existingChannel) {
+      return NextResponse.json(
+        { error: 'Channel name already exists' },
+        { status: 400 }
       )
     }
 
