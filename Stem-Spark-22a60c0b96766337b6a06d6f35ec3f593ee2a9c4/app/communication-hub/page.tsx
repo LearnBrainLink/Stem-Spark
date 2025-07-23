@@ -162,33 +162,61 @@ export default function CommunicationHub() {
 
   const loadChannels = async () => {
     try {
-      // Get user session for authentication
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        console.error('No session found')
+      // Use Supabase directly to load channels
+      // First get all channels the user is a member of
+      const { data: memberChannels, error: memberError } = await supabase
+        .from('chat_channel_members')
+        .select(`
+          channel_id,
+          chat_channels (*)
+        `)
+        .eq('user_id', user.id)
+
+      if (memberError) {
+        console.error('Error loading member channels:', memberError)
         return
       }
 
-      // Use the API route with proper authentication
-      const response = await fetch('/api/messaging/channels', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      })
+      // Also get public channels
+      const { data: publicChannels, error: publicError } = await supabase
+        .from('chat_channels')
+        .select('*')
+        .eq('channel_type', 'public')
 
-      if (response.ok) {
-        const { channels: channelData } = await response.json()
-        
-        if (channelData && channelData.length > 0) {
-          setChannels(channelData)
-          if (!selectedChannel) {
-            setSelectedChannel(channelData[0])
+      if (publicError) {
+        console.error('Error loading public channels:', publicError)
+        return
+      }
+
+      // Combine and deduplicate channels
+      const memberChannelIds = memberChannels?.map(m => m.channel_id) || []
+      const memberChannelData = memberChannels?.map(m => m.chat_channels).filter(Boolean) || []
+      const publicChannelData = publicChannels?.filter(c => !memberChannelIds.includes(c.id)) || []
+      
+      const allChannels = [...memberChannelData, ...publicChannelData]
+
+      // Get member count for each channel
+      const channelsWithMemberCount = await Promise.all(
+        allChannels.map(async (channel) => {
+          const { count, error: countError } = await supabase
+            .from('chat_channel_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('channel_id', channel.id)
+          
+          if (countError) {
+            console.error('Error getting member count for channel:', channel.id, countError)
           }
-        } else {
-          setChannels([])
-        }
-      } else {
-        console.error('Failed to load channels:', response.statusText)
+          
+          return {
+            ...channel,
+            member_count: count || 0
+          }
+        })
+      )
+      
+      setChannels(channelsWithMemberCount)
+      if (channelsWithMemberCount.length > 0 && !selectedChannel) {
+        setSelectedChannel(channelsWithMemberCount[0])
       }
     } catch (error) {
       console.error('Error loading channels:', error)
@@ -222,31 +250,24 @@ export default function CommunicationHub() {
 
   const loadMessages = async (channelId: string) => {
     try {
-      // Get user session for authentication
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        console.error('No session found')
-        return
-      }
+      // Use Supabase directly to load messages
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select(`
+          *,
+          profiles:profiles(full_name, avatar_url)
+        `)
+        .eq('channel_id', channelId)
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: true })
 
-      // Use the API route with proper authentication and no limit
-      const response = await fetch(`/api/messaging/messages?channel_id=${channelId}&limit=10000`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      })
-
-      if (response.ok) {
-        const { messages: messageData } = await response.json()
-        
-        if (messageData) {
-          setMessages(messageData.map((msg: any) => ({
-            ...msg,
-            sender_name: msg.profiles?.full_name || 'Unknown'
-          })))
-        }
-      } else {
-        console.error('Failed to load messages:', response.statusText)
+      if (!error && data) {
+        setMessages(data.map(msg => ({
+          ...msg,
+          sender_name: msg.profiles?.full_name || 'Unknown'
+        })))
+      } else if (error) {
+        console.error('Error loading messages:', error)
       }
     } catch (error) {
       console.error('Error loading messages:', error)
@@ -262,12 +283,15 @@ export default function CommunicationHub() {
         table: 'chat_messages',
         filter: `channel_id=eq.${channelId}`
       }, (payload) => {
-        const newMessage = payload.new as Message
-        setMessages(prev => [...prev, newMessage])
+        const newMessage = payload.new as any
+        setMessages(prev => [...prev, {
+          ...newMessage,
+          sender_name: newMessage.profiles?.full_name || 'Unknown'
+        }])
       })
       .subscribe()
 
-    return () => subscription.unsubscribe()
+    return subscription
   }
 
   const handleSendMessage = async () => {
@@ -537,6 +561,25 @@ export default function CommunicationHub() {
     }
   }
 
+  // Function to get the correct dashboard URL based on user role
+  const getDashboardUrl = () => {
+    switch (userRole) {
+      case 'admin':
+      case 'super_admin':
+        return '/admin'
+      case 'intern':
+        return '/intern-dashboard'
+      case 'parent':
+        return '/parent-dashboard'
+      case 'student':
+        return '/student-dashboard'
+      case 'teacher':
+        return '/teacher-dashboard'
+      default:
+        return '/dashboard'
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -555,7 +598,16 @@ export default function CommunicationHub() {
               <h1 className="text-3xl font-bold text-gray-900">Communication Hub</h1>
               <p className="mt-2 text-gray-600">Connect with teachers, parents, and administrators</p>
             </div>
-            <div className="mt-4 md:mt-0">
+            <div className="mt-4 md:mt-0 flex gap-2">
+              {/* Back to Dashboard button - show for all except admin */}
+              {userRole !== 'admin' && userRole !== 'super_admin' && (
+                <Link href={getDashboardUrl()}>
+                  <Button variant="outline">
+                    <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
+                    Back to Dashboard
+                  </Button>
+                </Link>
+              )}
               {canCreateChannel() && (
                 <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
                   <DialogTrigger asChild>
