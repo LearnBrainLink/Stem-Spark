@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
+import type { Database } from '@/lib/database.types'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient()
+    // Use service role key to bypass RLS for admin access
+    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
     
     const { data: channels, error } = await supabase
       .from('chat_channels')
@@ -24,14 +35,24 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
-    const { name, description, channel_type } = await request.json()
-
-    // Validate admin access
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Get the authorization header
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Missing authorization header' }, { status: 401 })
     }
+
+    const token = authHeader.replace('Bearer ', '')
+    
+    // Use anon key for authentication
+    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+    
+    // Verify the user token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+    }
+
+    const { name, description, channel_type } = await request.json()
 
     // Check if user is admin
     const { data: profile } = await supabase
@@ -44,8 +65,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
+    // Use service role key for database operations
+    const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+
     // Create channel
-    const { data: channel, error } = await supabase
+    const { data: channel, error } = await supabaseAdmin
       .from('chat_channels')
       .insert({
         name,
@@ -56,10 +85,13 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Channel creation error:', error)
+      throw error
+    }
 
     // Add creator as admin member
-    await supabase
+    await supabaseAdmin
       .from('chat_channel_members')
       .insert({
         channel_id: channel.id,

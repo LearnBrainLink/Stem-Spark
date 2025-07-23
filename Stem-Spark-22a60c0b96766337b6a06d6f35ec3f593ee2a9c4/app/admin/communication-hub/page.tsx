@@ -298,20 +298,60 @@ export default function AdminCommunicationHub() {
     try {
       if (!user) return
 
-      const { data: channel, error } = await supabase
+      console.log('Creating channel with user:', user.email)
+
+      // Check if user is admin
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (profileError) {
+        console.error('Profile error:', profileError)
+        throw new Error('Failed to verify admin status')
+      }
+
+      if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
+        throw new Error('Admin access required')
+      }
+
+      console.log('User role confirmed:', profile.role)
+
+      // Create channel directly using Supabase
+      const { data: channel, error: channelError } = await supabase
         .from('chat_channels')
         .insert({
           name: newChannelData.name,
           description: newChannelData.description,
-          channel_type: newChannelData.channel_type,
+          channel_type: newChannelData.channel_type || 'public',
           created_by: user.id
         })
         .select()
         .single()
 
-      if (error) throw error
+      if (channelError) {
+        console.error('Channel creation error:', channelError)
+        throw channelError
+      }
 
-      // Add members to the channel
+      console.log('Channel created:', channel)
+
+      // Add creator as admin member
+      const { error: memberError } = await supabase
+        .from('chat_channel_members')
+        .insert({
+          channel_id: channel.id,
+          user_id: user.id,
+          role: 'admin'
+        })
+
+      if (memberError) {
+        console.error('Member creation error:', memberError)
+        // Don't throw here, channel was created successfully
+      }
+
+      // Add members to the channel if any were selected
       if (newChannelData.selectedUsers.length > 0) {
         const memberInserts = newChannelData.selectedUsers.map(userId => ({
           user_id: userId,
@@ -319,19 +359,15 @@ export default function AdminCommunicationHub() {
           role: 'member'
         }))
 
-        await supabase
+        const { error: membersError } = await supabase
           .from('chat_channel_members')
           .insert(memberInserts)
-      }
 
-      // Add creator as admin
-      await supabase
-        .from('chat_channel_members')
-        .insert({
-          user_id: user.id,
-          channel_id: channel.id,
-          role: 'admin'
-        })
+        if (membersError) {
+          console.error('Additional members error:', membersError)
+          // Don't throw here, channel was created successfully
+        }
+      }
 
       setNewChannelData({
         name: '',
@@ -341,9 +377,11 @@ export default function AdminCommunicationHub() {
       })
       setShowCreateDialog(false)
       loadChannels()
+      
+      console.log('Channel creation completed successfully')
     } catch (error) {
       console.error('Error creating channel:', error)
-      alert('Failed to create channel. Please try again.')
+      alert(`Failed to create channel: ${error.message}`)
     }
   }
 
