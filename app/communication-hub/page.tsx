@@ -112,25 +112,48 @@ export default function CommunicationHub() {
   const ensureUserInPublicChannels = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        console.log('No authenticated user found')
+        return
+      }
+
+      console.log('Ensuring user is in public channels for user:', user.id)
 
       // Get all public channels
-      const { data: publicChannels } = await supabase
+      const { data: publicChannels, error: channelsError } = await supabase
         .from('chat_channels')
         .select('id')
         .eq('channel_type', 'public')
 
-      if (!publicChannels) return
+      if (channelsError) {
+        console.error('Error fetching public channels:', channelsError)
+        return
+      }
+
+      if (!publicChannels || publicChannels.length === 0) {
+        console.log('No public channels found')
+        return
+      }
+
+      console.log('Found public channels:', publicChannels.map(c => c.id))
 
       // Check which public channels the user is already a member of
-      const { data: existingMemberships } = await supabase
+      const { data: existingMemberships, error: membershipsError } = await supabase
         .from('chat_channel_members')
         .select('channel_id')
         .eq('user_id', user.id)
         .in('channel_id', publicChannels.map(c => c.id))
 
+      if (membershipsError) {
+        console.error('Error checking existing memberships:', membershipsError)
+        return
+      }
+
       const existingChannelIds = existingMemberships?.map(m => m.channel_id) || []
       const channelsToAdd = publicChannels.filter(c => !existingChannelIds.includes(c.id))
+
+      console.log('Existing memberships:', existingChannelIds)
+      console.log('Channels to add user to:', channelsToAdd.map(c => c.id))
 
       // Add user to public channels they're not already in
       if (channelsToAdd.length > 0) {
@@ -140,9 +163,17 @@ export default function CommunicationHub() {
           role: 'member'
         }))
 
-        await supabase
+        const { error: insertError } = await supabase
           .from('chat_channel_members')
           .insert(memberInserts)
+
+        if (insertError) {
+          console.error('Error adding user to public channels:', insertError)
+        } else {
+          console.log('Successfully added user to public channels')
+        }
+      } else {
+        console.log('User is already a member of all public channels')
       }
     } catch (error) {
       console.error('Error ensuring user in public channels:', error)
@@ -284,7 +315,10 @@ export default function CommunicationHub() {
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Error creating channel:', error)
+        throw new Error(`Failed to create channel: ${error.message}`)
+      }
 
       // Add members to the channel
       if (newChannelData.selectedUsers.length > 0) {
@@ -294,19 +328,29 @@ export default function CommunicationHub() {
           role: 'member'
         }))
 
-        await supabase
+        const { error: memberError } = await supabase
           .from('chat_channel_members')
           .insert(memberInserts)
+
+        if (memberError) {
+          console.error('Error adding members:', memberError)
+          throw new Error(`Failed to add members: ${memberError.message}`)
+        }
       }
 
       // Add creator as admin
-      await supabase
+      const { error: adminError } = await supabase
         .from('chat_channel_members')
         .insert({
           user_id: user.id,
           channel_id: channel.id,
           role: 'admin'
         })
+
+      if (adminError) {
+        console.error('Error adding creator as admin:', adminError)
+        throw new Error(`Failed to add creator as admin: ${adminError.message}`)
+      }
 
       setNewChannelData({
         name: '',
@@ -318,7 +362,7 @@ export default function CommunicationHub() {
       fetchChannels()
     } catch (error) {
       console.error('Error creating channel:', error)
-      alert('Failed to create channel. Please try again.')
+      alert(`Failed to create channel: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
