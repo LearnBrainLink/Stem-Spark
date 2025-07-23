@@ -269,12 +269,28 @@ export default function CommunicationHub() {
       console.log('Creating channel with data:', newChannelData)
       console.log('Current user:', user)
 
+      // Test database access first
+      const testResult = await testDatabaseAccess()
+      if (!testResult.success) {
+        console.error('Database access test failed:', testResult.error)
+        alert(`Database access failed: ${testResult.error}`)
+        return
+      }
+
+      console.log('Database access test passed')
+
+      // Validate input
+      if (!newChannelData.name.trim()) {
+        alert('Please enter a channel name.')
+        return
+      }
+
       // Create the channel
       const { data: channel, error } = await supabase
         .from('chat_channels')
         .insert({
-          name: newChannelData.name,
-          description: newChannelData.description,
+          name: newChannelData.name.trim(),
+          description: newChannelData.description.trim(),
           channel_type: newChannelData.channel_type,
           created_by: user.id
         })
@@ -283,6 +299,12 @@ export default function CommunicationHub() {
 
       if (error) {
         console.error('Error creating channel:', error)
+        console.error('Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        })
         alert(`Failed to create channel: ${error.message}`)
         return
       }
@@ -300,6 +322,12 @@ export default function CommunicationHub() {
 
       if (memberError) {
         console.error('Error adding creator as member:', memberError)
+        console.error('Member error details:', {
+          message: memberError.message,
+          code: memberError.code,
+          details: memberError.details,
+          hint: memberError.hint
+        })
         // If we can't add the creator as member, we should delete the channel
         await supabase.from('chat_channels').delete().eq('id', channel.id)
         alert(`Failed to create channel: ${memberError.message}`)
@@ -347,6 +375,7 @@ export default function CommunicationHub() {
       }
 
       console.log('Channel creation completed successfully')
+      alert('Channel created successfully!')
     } catch (error) {
       console.error('Error creating channel:', error)
       alert('Failed to create channel. Please try again.')
@@ -371,6 +400,51 @@ export default function CommunicationHub() {
       return userRole === 'admin' || userRole === 'super_admin'
     }
     return true
+  }
+
+  // Add this function after the existing functions
+  const testDatabaseAccess = async () => {
+    try {
+      console.log('Testing database access...')
+      
+      // Test 1: Check authentication
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+      if (authError || !authUser) {
+        console.error('Authentication test failed:', authError)
+        return { success: false, error: 'Authentication failed' }
+      }
+      console.log('Authentication test passed:', authUser.id)
+
+      // Test 2: Check if we can read profiles
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single()
+
+      if (profileError) {
+        console.error('Profile read test failed:', profileError)
+        return { success: false, error: 'Cannot read profile' }
+      }
+      console.log('Profile read test passed:', profile)
+
+      // Test 3: Check if we can read channels
+      const { data: channels, error: channelsError } = await supabase
+        .from('chat_channels')
+        .select('*')
+        .limit(1)
+
+      if (channelsError) {
+        console.error('Channels read test failed:', channelsError)
+        return { success: false, error: 'Cannot read channels' }
+      }
+      console.log('Channels read test passed:', channels)
+
+      return { success: true, user: authUser, profile }
+    } catch (error) {
+      console.error('Database access test failed:', error)
+      return { success: false, error: 'Database access failed' }
+    }
   }
 
   if (loading) {
