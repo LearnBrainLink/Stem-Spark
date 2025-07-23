@@ -194,12 +194,13 @@ export default function CommunicationHub() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         console.error('No authenticated user')
+        setChannels([])
         return
       }
 
       console.log('Fetching channels for user:', user.id)
 
-      // Fetch channels that the user can see (public channels + channels they're members of)
+      // Fetch channels that the user can see (public channels + channels they're members of + channels they created)
       const { data: channels, error } = await supabase
         .from('chat_channels')
         .select('*')
@@ -207,6 +208,7 @@ export default function CommunicationHub() {
 
       if (error) {
         console.error('Error fetching channels:', error)
+        setChannels([])
         return
       }
 
@@ -235,16 +237,16 @@ export default function CommunicationHub() {
             }
           })
         )
-        
+
         setChannels(channelsWithMemberCount)
-        
-        // Set first channel as selected if none selected
-        if (channelsWithMemberCount.length > 0 && !selectedChannel) {
-          setSelectedChannel(channelsWithMemberCount[0].id)
-        }
+        console.log('Channels loaded successfully:', channelsWithMemberCount.length)
+      } else {
+        console.log('No channels found')
+        setChannels([])
       }
     } catch (error) {
       console.error('Error in fetchChannels:', error)
+      setChannels([])
     }
   }
 
@@ -481,6 +483,35 @@ export default function CommunicationHub() {
     return matchesSearch && matchesType && canViewChannel(channel)
   })
 
+  // Function to get a consistent color for a user based on their ID
+  const getUserColor = (userId: string) => {
+    const colors = [
+      'bg-blue-500',
+      'bg-green-500', 
+      'bg-purple-500',
+      'bg-pink-500',
+      'bg-indigo-500',
+      'bg-red-500',
+      'bg-yellow-500',
+      'bg-teal-500',
+      'bg-orange-500',
+      'bg-cyan-500'
+    ]
+    
+    // Use the user ID to consistently assign a color
+    const hash = userId.split('').reduce((a, b) => {
+      a = ((a << 5) - a) + b.charCodeAt(0)
+      return a & a
+    }, 0)
+    
+    return colors[Math.abs(hash) % colors.length]
+  }
+
+  // Function to check if message is from current user
+  const isOwnMessage = (message: Message) => {
+    return message.sender_id === user?.id
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -693,26 +724,50 @@ export default function CommunicationHub() {
                         <div className="text-center py-8 text-gray-500">No messages yet in this channel.</div>
                       ) : (
                         messages.map((message) => (
-                          <div key={message.id} className="flex space-x-3">
-                            <div className="flex-shrink-0">
-                              <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
-                                {message.sender_name.charAt(0).toUpperCase()}
+                          <div key={message.id} className={`flex space-x-3 ${isOwnMessage(message) ? 'justify-end' : 'justify-start'}`}>
+                            {!isOwnMessage(message) && (
+                              <div className="flex-shrink-0">
+                                <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${getUserColor(message.sender_id)}`}>
+                                  {message.sender_name.charAt(0).toUpperCase()}
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm font-medium text-gray-900">
-                                  {message.sender_name}
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  {new Date(message.created_at).toLocaleString()}
-                                </span>
-                                {message.message_type === 'system' && (
-                                  <Badge variant="secondary" className="text-xs">System</Badge>
+                            )}
+                            <div className={`flex-1 max-w-xs ${isOwnMessage(message) ? 'order-first' : ''}`}>
+                              {!isOwnMessage(message) && (
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <span className="text-sm font-medium text-gray-900">
+                                    {message.sender_name}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {new Date(message.created_at).toLocaleString()}
+                                  </span>
+                                  {message.message_type === 'system' && (
+                                    <Badge variant="secondary" className="text-xs">System</Badge>
+                                  )}
+                                </div>
+                              )}
+                              <div className={`p-3 rounded-lg ${
+                                isOwnMessage(message) 
+                                  ? 'bg-blue-500 text-white ml-auto' 
+                                  : 'bg-gray-100 text-gray-900'
+                              }`}>
+                                <p className="text-sm">{message.content}</p>
+                                {isOwnMessage(message) && (
+                                  <div className="text-right mt-1">
+                                    <span className="text-xs opacity-70">
+                                      {new Date(message.created_at).toLocaleString()}
+                                    </span>
+                                  </div>
                                 )}
                               </div>
-                              <p className="text-sm text-gray-700 mt-1">{message.content}</p>
                             </div>
+                            {isOwnMessage(message) && (
+                              <div className="flex-shrink-0">
+                                <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${getUserColor(message.sender_id)}`}>
+                                  {message.sender_name.charAt(0).toUpperCase()}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))
                       )}
