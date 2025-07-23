@@ -98,8 +98,10 @@ export default function CommunicationHub() {
       await Promise.all([
         fetchUsers()
       ])
-      // Ensure user is added to public channels
-      await ensureUserInPublicChannels()
+      // Only ensure user is in public channels if not creating a channel
+      if (!isCreateChannelOpen) {
+        await ensureUserInPublicChannels()
+      }
       // Refresh channels after ensuring user is in public channels
       await fetchChannels()
     } catch (error) {
@@ -381,8 +383,12 @@ export default function CommunicationHub() {
       })
       setIsCreateChannelOpen(false)
       
-      // Refresh channels
-      await fetchChannels()
+      // Add the new channel to the local state instead of refetching
+      const newChannel = {
+        ...channel,
+        member_count: 1 + newChannelData.selectedUsers.length
+      }
+      setChannels(prev => [newChannel, ...prev])
       
       console.log('Channel creation completed successfully')
     } catch (error) {
