@@ -12,7 +12,7 @@ import Link from "next/link";
 import { secureSignInWithEmail, secureSignInWithGoogle, secureSignInWithGitHub, secureForgotPassword, resendVerificationEmail } from "@/lib/secure-auth-actions"
 import { enhancedSignUp } from "@/lib/enhanced-auth-actions"
 import { Eye, EyeOff, Mail, Lock, Github, Loader2, AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase/client'
 
 interface AuthMessage {
   type: "success" | "error" | "info"
@@ -46,12 +46,6 @@ export default function SecureLoginPage() {
   })
   const router = useRouter()
   
-  // Create Supabase client
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-
   // Clear messages after 10 seconds
   useEffect(() => {
     if (message) {
