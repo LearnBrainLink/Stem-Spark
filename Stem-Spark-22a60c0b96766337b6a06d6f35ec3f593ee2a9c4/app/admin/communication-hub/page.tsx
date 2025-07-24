@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -63,6 +63,10 @@ interface Message {
   is_deleted?: boolean
   reactions?: Record<string, string[]>
   read_by?: string[]
+  sender?: { // Added for consistency
+    full_name: string
+    avatar_url?: string
+  }
 }
 
 interface Channel {
@@ -105,7 +109,7 @@ export default function AdminCommunicationHub() {
   const [userRole, setUserRole] = useState<string>('')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedChannelType, setSelectedChannelType] = useState('all')
-  const [currentSubscription, setCurrentSubscription] = useState<any>(null)
+  const subscriptionRef = useRef<any>(null)
   
   // New state for enhanced features
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -154,53 +158,62 @@ export default function AdminCommunicationHub() {
   };
 
   useEffect(() => {
-    checkAuth()
+    checkAuthAndLoadData()
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe()
+      }
+    }
   }, [])
 
-  // URL persistence for selected channel
   useEffect(() => {
+    // This effect handles URL persistence and ensures a channel is selected when channels load.
+    if (channels.length === 0 || selectedChannel) return;
+
     if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search)
-      const channelId = urlParams.get('channel')
+      const urlParams = new URLSearchParams(window.location.search);
+      const channelIdFromUrl = urlParams.get('channel');
       
-      if (channelId && channels.length > 0) {
-        const channel = channels.find(c => c.id === channelId)
-        if (channel && selectedChannel?.id !== channel.id) {
-          setSelectedChannel(channel)
-        }
-      } else if (channels.length > 0 && !selectedChannel) {
-        setSelectedChannel(channels[0])
+      const channelToSelect = channelIdFromUrl 
+        ? channels.find(c => c.id === channelIdFromUrl)
+        : channels[0];
+      
+      if (channelToSelect) {
+        setSelectedChannel(channelToSelect);
       }
     }
-  }, [channels, selectedChannel])
+  }, [channels, selectedChannel]);
+
 
   useEffect(() => {
-    if (selectedChannel) {
-      // Update URL with selected channel
-      if (typeof window !== 'undefined') {
-        const url = new URL(window.location)
-        url.searchParams.set('channel', selectedChannel.id)
-        window.history.replaceState({}, '', url.toString())
-      }
-      
-      loadMessages(selectedChannel.id)
-      
-      if (currentSubscription) {
-        currentSubscription.unsubscribe()
-      }
-      
-      const subscription = subscribeToMessages(selectedChannel.id)
-      setCurrentSubscription(subscription)
+    // This effect manages subscriptions and loads messages when the selectedChannel changes.
+    // It's crucial that this is separate from the channel initialization logic.
+    if (!selectedChannel) return;
+    
+    // Update URL
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('channel', selectedChannel.id);
+      window.history.replaceState({ path: url.href }, '', url.href);
+    }
+
+    // Unsubscribe from the previous channel before subscribing to a new one
+    if (subscriptionRef.current) {
+      subscriptionRef.current.unsubscribe();
     }
     
-    return () => {
-      if (currentSubscription) {
-        currentSubscription.unsubscribe()
-      }
-    }
-  }, [selectedChannel])
+    // Load messages for the new channel
+    loadMessages(selectedChannel.id);
+    
+    // Subscribe to new messages for the selected channel
+    const subscription = subscribeToMessages(selectedChannel.id);
+    subscriptionRef.current = subscription;
 
-  const checkAuth = async () => {
+  }, [selectedChannel?.id]); // Depend only on the ID to avoid re-running due to object reference changes
+
+  const checkAuthAndLoadData = async () => {
     try {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
       
@@ -208,11 +221,14 @@ export default function AdminCommunicationHub() {
         window.location.href = '/login'
         return
       }
-
-      await loadUserProfile(authUser.id)
-      await loadCommunicationData(authUser.id)
+      
+      // Load user profile and then all other data
+      await loadUserProfile(authUser.id);
+      await loadCommunicationData(authUser.id);
     } catch (error) {
-      console.error('Error in checkAuth:', error)
+      console.error('Error in checkAuthAndLoadData:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -226,7 +242,7 @@ export default function AdminCommunicationHub() {
 
       if (error) {
         console.error('Error loading profile:', error)
-        return
+        throw error;
       }
 
       setUser(profile)
@@ -245,8 +261,6 @@ export default function AdminCommunicationHub() {
       ])
     } catch (error) {
       console.error('Error loading communication data:', error)
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -257,8 +271,11 @@ export default function AdminCommunicationHub() {
         .select('*')
         .order('created_at', { ascending: false })
 
-      if (!channelError && channelData) {
-        // Get member count for each channel
+      if (channelError) {
+        throw channelError;
+      }
+      
+      if (channelData) {
         const channelsWithMemberCount = await Promise.all(
           channelData.map(async (channel) => {
             const { count } = await supabase
@@ -272,11 +289,7 @@ export default function AdminCommunicationHub() {
             }
           })
         )
-        
-        setChannels(channelsWithMemberCount)
-        if (channelsWithMemberCount.length > 0) {
-          setSelectedChannel(channelsWithMemberCount[0])
-        }
+        setChannels(channelsWithMemberCount);
       }
     } catch (error) {
       console.error('Error loading channels:', error)
@@ -290,7 +303,9 @@ export default function AdminCommunicationHub() {
         .select('id, full_name, email, role, avatar_url')
         .order('full_name')
 
-      if (!error && userData) {
+      if (error) throw error;
+      
+      if (userData) {
         setUsers(userData)
       }
     } catch (error) {
@@ -310,116 +325,89 @@ export default function AdminCommunicationHub() {
 
   const loadMessages = async (channelId: string) => {
     try {
-      // First, get basic messages without complex relationships
-      const { data: messages, error: messagesError } = await supabase
+      const { data: messagesData, error: messagesError } = await supabase
         .from('chat_messages')
-        .select('*')
+        .select(`
+          *,
+          sender:profiles(full_name, avatar_url),
+          reply_to:chat_messages(content, sender:profiles(full_name))
+        `)
         .eq('channel_id', channelId)
         .order('created_at', { ascending: true });
 
       if (messagesError) {
         console.error('Error loading messages:', messagesError);
-        return;
-      }
-
-      if (!messages || messages.length === 0) {
         setMessages([]);
         return;
       }
 
-      // Get sender profiles separately
-      const senderIds = [...new Set(messages.map(msg => msg.sender_id).filter(Boolean))]
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url')
-        .in('id', senderIds)
-
-      const profilesMap = new Map(profiles?.map(p => [p.id, p]) || [])
+      if (!messagesData || messagesData.length === 0) {
+        setMessages([]);
+        return;
+      }
       
-      // Get reply messages separately
-      const replyIds = messages.map(msg => msg.reply_to_id).filter(Boolean)
-      const { data: replyMessages } = await supabase
-        .from('chat_messages')
-        .select('id, content, sender_id')
-        .in('id', replyIds)
+      // The data is already shaped correctly due to the new query
+      const formattedMessages = messagesData.map((msg: any) => ({
+        ...msg,
+        sender_name: msg.sender?.full_name || 'Unknown User',
+        reply_to: msg.reply_to ? {
+          content: msg.reply_to.content,
+          profiles: {
+            full_name: msg.reply_to.sender?.full_name || 'Unknown User'
+          }
+        } : undefined
+      }))
 
-      const replyMap = new Map(replyMessages?.map(r => [r.id, r]) || [])
-      
-      const messagesWithSenders = messages.map(msg => {
-        const sender = profilesMap.get(msg.sender_id)
-        const replyMsg = msg.reply_to_id ? replyMap.get(msg.reply_to_id) : null
-        const replySender = replyMsg ? profilesMap.get(replyMsg.sender_id) : null
-        
-        return {
-          ...msg,
-          sender_name: sender?.full_name || 'Unknown User',
-          sender: {
-            full_name: sender?.full_name || 'Unknown User',
-            avatar_url: sender?.avatar_url
-          },
-          reply_to: replyMsg ? {
-            content: replyMsg.content,
-            profiles: {
-              full_name: replySender?.full_name || 'Unknown User'
-            }
-          } : undefined
-        }
-      });
-
-      setMessages(messagesWithSenders);
+      setMessages(formattedMessages);
     } catch (error) {
-      console.error('Error loading messages:', error);
+      console.error('Error in loadMessages:', error);
+      setMessages([]);
     }
   };
 
   const subscribeToMessages = (channelId: string) => {
     const subscription = supabase
-      .channel(`messages:${channelId}`)
+      .channel(`admin-messages:${channelId}`) // Using a unique channel name for admin
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'chat_messages',
         filter: `channel_id=eq.${channelId}`
       }, async (payload) => {
-        const newMessage = payload.new as any
-        
-        // Fetch sender information for the new message
-        try {
-          const { data: senderData, error: senderError } = await supabase
+        if (payload.eventType === 'INSERT') {
+          const newMessage = payload.new as any;
+          const { data: sender } = await supabase
             .from('profiles')
-            .select('full_name, email')
+            .select('full_name, avatar_url')
             .eq('id', newMessage.sender_id)
-            .single()
-          
-          if (senderError) {
-            console.error('Error fetching sender info:', senderError)
-          }
-          
+            .single();
+
           const messageWithSender = {
             ...newMessage,
-            sender_name: senderData?.full_name || 'Unknown User'
-          }
-          
-          setMessages(prev => [...prev, messageWithSender])
-          console.log('New message received:', messageWithSender)
-        } catch (error) {
-          console.error('Error fetching sender info for new message:', error)
-          // Add message without sender info as fallback
-          setMessages(prev => [...prev, { ...newMessage, sender_name: 'Unknown User' }])
+            sender_name: sender?.full_name || 'Unknown User',
+            sender: {
+              full_name: sender?.full_name || 'Unknown User',
+              avatar_url: sender?.avatar_url
+            }
+          };
+          setMessages(prev => [...prev, messageWithSender]);
+        } else if (payload.eventType === 'UPDATE') {
+          const updatedMessage = payload.new as any;
+           setMessages(prev => prev.map(msg => 
+            msg.id === updatedMessage.id ? { ...msg, ...updatedMessage, content: updatedMessage.content, edited_at: updatedMessage.edited_at } : msg
+          ));
+        }
+        else if (payload.eventType === 'DELETE') {
+          setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
         }
       })
-      .on('postgres_changes', {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'chat_messages',
-        filter: `channel_id=eq.${channelId}`
-      }, (payload) => {
-        // Remove deleted message from state
-        setMessages(prev => prev.filter(msg => msg.id !== payload.old.id))
-      })
       .subscribe((status) => {
-        console.log('Subscription status:', status)
-      })
+        console.log(`Admin subscription status for ${channelId}:`, status)
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Subscription failed, retrying...');
+          setTimeout(() => subscribeToMessages(channelId), 5000);
+        }
+      });
 
     return subscription
   }
@@ -464,13 +452,17 @@ export default function AdminCommunicationHub() {
       let fileType = ''
 
       if (selectedFile) {
-        fileUrl = await uploadFile(selectedFile)
+        // NOTE: The uploadFile function is a placeholder and should be implemented
+        // with a proper backend endpoint for handling file uploads.
+        // For now, we'll simulate the upload.
+        // fileUrl = await uploadFile(selectedFile) 
         fileName = selectedFile.name
         fileSize = selectedFile.size
         fileType = selectedFile.type
         
         if (selectedFile.type.startsWith('image/')) {
-          imageUrl = fileUrl
+          // You would get the real URL from your upload service
+          // imageUrl = fileUrl 
           messageType = 'image'
         } else {
           messageType = 'file'
@@ -480,6 +472,7 @@ export default function AdminCommunicationHub() {
       const messageData: any = {
         content: newMessage.trim(),
         channel_id: selectedChannel.id,
+        sender_id: user.id, // Ensure sender_id is set
         message_type: messageType
       }
 
@@ -493,28 +486,22 @@ export default function AdminCommunicationHub() {
       const { data, error } = await supabase
         .from('chat_messages')
         .insert(messageData)
-        .select('*')
+        .select(`
+          *,
+          sender:profiles(full_name, avatar_url)
+        `)
         .single()
 
       if (error) throw error
 
-      // Get sender profile separately
-      const { data: sender } = await supabase
-        .from('profiles')
-        .select('full_name, avatar_url')
-        .eq('id', data.sender_id)
-        .single()
-
       const messageWithSender = {
         ...data,
-        sender_name: sender?.full_name || 'Unknown User',
-        sender: {
-          full_name: sender?.full_name || 'Unknown User',
-          avatar_url: sender?.avatar_url
-        }
-      }
+        sender_name: data.sender?.full_name || 'Unknown User',
+      } as Message
 
-      setMessages(prev => [...prev, messageWithSender])
+      // No need to manually add to state, subscription should handle it.
+      // setMessages(prev => [...prev, messageWithSender]) 
+      
       setNewMessage('')
       setSelectedFile(null)
       setReplyToMessage(null)
@@ -529,9 +516,9 @@ export default function AdminCommunicationHub() {
   }
 
   // Message editing
-  const handleEditMessage = async (message: Message, newContent: string) => {
+  const handleEditMessage = async (messageId: string, newContent: string) => {
     try {
-      const response = await fetch(`/api/messaging/messages/${message.id}`, {
+      const response = await fetch(`/api/messaging/messages/${messageId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: newContent })
@@ -539,9 +526,9 @@ export default function AdminCommunicationHub() {
 
       if (!response.ok) throw new Error('Failed to edit message')
 
-      const { message: updatedMessage } = await response.json()
+      const updatedMessage = await response.json()
       setMessages(prev => prev.map(msg => 
-        msg.id === message.id ? { ...msg, ...updatedMessage } : msg
+        msg.id === messageId ? { ...msg, ...updatedMessage } : msg
       ))
       setEditingMessage(null)
     } catch (error) {
@@ -551,19 +538,19 @@ export default function AdminCommunicationHub() {
   }
 
   // Message deletion
-  const handleDeleteMessage = async (message: Message) => {
+  const handleDeleteMessage = async (messageId: string) => {
     if (!confirm('Are you sure you want to delete this message?')) return
 
     try {
-      const response = await fetch(`/api/messaging/messages/${message.id}`, {
-        method: 'DELETE'
-      })
+      const { error } = await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('id', messageId)
 
-      if (!response.ok) throw new Error('Failed to delete message')
+      if (error) throw error
 
-      setMessages(prev => prev.map(msg => 
-        msg.id === message.id ? { ...msg, is_deleted: true, content: '[Message deleted]' } : msg
-      ))
+      // Optimistic update
+      setMessages(prev => prev.filter(msg => msg.id !== messageId))
     } catch (error) {
       console.error('Error deleting message:', error)
       alert('Failed to delete message')
@@ -575,13 +562,14 @@ export default function AdminCommunicationHub() {
     if (!forwardingMessage || !targetChannelId) return
 
     try {
-      const response = await fetch(`/api/messaging/messages/${forwardingMessage.id}/forward`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target_channel_id: targetChannelId })
+      // This should be a server-side operation for security
+      const { error } = await supabase.rpc('forward_message', {
+        original_message_id: forwardingMessage.id,
+        target_channel_id: targetChannelId,
+        forwarding_user_id: user.id
       })
 
-      if (!response.ok) throw new Error('Failed to forward message')
+      if (error) throw error
 
       setShowForwardDialog(false)
       setForwardingMessage(null)
@@ -594,20 +582,33 @@ export default function AdminCommunicationHub() {
   }
 
   // Message reactions
-  const handleReaction = async (message: Message, reaction: string) => {
+  const handleReaction = async (messageId: string, reaction: string) => {
     try {
-      const response = await fetch(`/api/messaging/messages/${message.id}/react`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reaction })
+      // This should also be a server-side operation
+      const { error } = await supabase.rpc('toggle_reaction', {
+        message_id_param: messageId,
+        reaction_param: reaction,
+        user_id_param: user.id
       })
 
-      if (!response.ok) throw new Error('Failed to add reaction')
+      if (error) throw error
 
-      const { message: updatedMessage } = await response.json()
-      setMessages(prev => prev.map(msg => 
-        msg.id === message.id ? { ...msg, reactions: updatedMessage.reactions } : msg
-      ))
+      // The subscription should handle the update, but we can do an optimistic update
+      setMessages(prev => prev.map(msg => {
+        if (msg.id === messageId) {
+          const newReactions = { ...(msg.reactions || {}) };
+          // This is a simplified optimistic update. A real implementation
+          // would need more logic to handle adding/removing users from a reaction.
+          if (newReactions[reaction]) {
+            delete newReactions[reaction];
+          } else {
+            newReactions[reaction] = [user.id];
+          }
+          return { ...msg, reactions: newReactions };
+        }
+        return msg;
+      }));
+
     } catch (error) {
       console.error('Error adding reaction:', error)
     }
@@ -1115,7 +1116,7 @@ export default function AdminCommunicationHub() {
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    onClick={() => handleDeleteMessage(message)}
+                                    onClick={() => handleDeleteMessage(message.id)}
                                   >
                                     <Trash2 className="w-3 h-3" />
                                   </Button>
@@ -1157,7 +1158,7 @@ export default function AdminCommunicationHub() {
                                     size="sm"
                                     variant="ghost"
                                     onClick={() => {
-                                      handleReaction(message, reaction)
+                                      handleReaction(message.id, reaction)
                                       setShowReactions(null)
                                     }}
                                   >
@@ -1344,7 +1345,7 @@ export default function AdminCommunicationHub() {
                 Cancel
               </Button>
               <Button 
-                onClick={() => editingMessage && handleEditMessage(editingMessage, editingMessage.content)}
+                onClick={() => editingMessage && handleEditMessage(editingMessage.id, editingMessage.content)}
               >
                 Save Changes
               </Button>
