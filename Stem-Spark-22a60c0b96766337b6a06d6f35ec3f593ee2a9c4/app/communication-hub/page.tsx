@@ -711,6 +711,41 @@ export default function CommunicationHub() {
     }
   }
 
+  const handleLeaveChannel = async (channelId: string) => {
+    if (!user) return
+
+    try {
+      // Remove user from channel members
+      const { error } = await supabase
+        .from('chat_channel_members')
+        .delete()
+        .eq('channel_id', channelId)
+        .eq('user_id', user.id)
+
+      if (error) {
+        console.error('Error leaving channel:', error)
+        return
+      }
+
+      // If this was the selected channel, select a different one
+      if (selectedChannel?.id === channelId) {
+        const remainingChannels = channels.filter(c => c.id !== channelId)
+        if (remainingChannels.length > 0) {
+          setSelectedChannel(remainingChannels[0])
+        } else {
+          setSelectedChannel(null)
+        }
+      }
+
+      // Remove channel from list
+      setChannels(prev => prev.filter(c => c.id !== channelId))
+
+      console.log('Successfully left channel:', channelId)
+    } catch (error) {
+      console.error('Error in handleLeaveChannel:', error)
+    }
+  }
+
   const toggleUserSelection = (userId: string) => {
     setNewChannelData(prev => ({
       ...prev,
@@ -910,10 +945,12 @@ export default function CommunicationHub() {
                           ? 'bg-blue-50 border border-blue-200'
                           : 'hover:bg-gray-50'
                       }`}
-                      onClick={() => handleChannelSelect(channel)}
                     >
                       <div className="flex items-center justify-between">
-                        <div>
+                        <div 
+                          className="flex-1"
+                          onClick={() => handleChannelSelect(channel)}
+                        >
                           <h4 className="font-medium text-gray-900">#{channel.name}</h4>
                           <p className="text-sm text-gray-600">{channel.description}</p>
                           <div className="flex items-center space-x-2 mt-1">
@@ -926,6 +963,14 @@ export default function CommunicationHub() {
                             </div>
                           </div>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleLeaveChannel(channel.id)}
+                          className="text-red-500 hover:text-red-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}

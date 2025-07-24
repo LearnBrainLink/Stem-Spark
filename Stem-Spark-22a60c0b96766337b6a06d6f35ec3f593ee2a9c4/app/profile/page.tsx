@@ -1,7 +1,16 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { createClient } from "@supabase/supabase-js"
+import { useState, useEffect } from "react"
+import { supabase } from "@/lib/supabase/client"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { User, Mail, Phone, MapPin, Calendar, Edit, Save, X } from "lucide-react"
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { ProfileContent } from "./profile-content"
 
@@ -23,7 +32,7 @@ export default function ProfilePage() {
           return
         }
 
-        const supabase = createClient(supabaseUrl, supabaseAnonKey)
+        const supabase = supabase
 
         const {
           data: { user },

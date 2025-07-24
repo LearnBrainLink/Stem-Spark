@@ -1,37 +1,29 @@
 "use client"
 
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useEffect, useRef } from 'react'
+import { supabase } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { MessageSquare, Plus, ThumbsUp, MessageCircle, Share, Flag, Edit, Trash2, User, Clock, Hash } from 'lucide-react'
+import Link from 'next/link'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { 
-  MessageSquare, 
-  ThumbsUp, 
   ThumbsDown, 
-  Plus, 
   Pin, 
   Lock, 
-  Hash,
-  Users,
   TrendingUp,
-  Clock,
-  User,
   ArrowUp,
   ArrowDown
 } from 'lucide-react'
-import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/database.types'
-
-const supabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 type DiscussionBoard = Database['public']['Tables']['discussion_boards']['Row']
 type DiscussionPost = Database['public']['Tables']['discussion_posts']['Row']
