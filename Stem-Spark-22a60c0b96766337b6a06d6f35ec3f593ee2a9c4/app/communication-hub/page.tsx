@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -94,7 +94,6 @@ export default function CommunicationHub() {
     selectedUsers: [] as string[]
   })
   const [userRole, setUserRole] = useState<string>('')
-  const [currentSubscription, setCurrentSubscription] = useState<any>(null)
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [uploadingFile, setUploadingFile] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
@@ -103,207 +102,39 @@ export default function CommunicationHub() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const subscriptionRef = useRef<any>(null)
 
-  // Memoized functions to prevent unnecessary re-renders
-  const loadMessages = useCallback(async (channelId: string) => {
-    try {
-      console.log('Loading messages for channel:', channelId)
-      
-      const { data: messages, error } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('channel_id', channelId)
-        .eq('is_deleted', false)
-        .order('created_at', { ascending: true })
-
-      if (error) {
-        console.error('Error loading messages:', error)
-        return
-      }
-
-      console.log('Messages loaded:', messages?.length || 0)
-      
-      const senderIds = [...new Set(messages?.map(msg => msg.sender_id).filter(Boolean) || [])]
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url, role')
-        .in('id', senderIds)
-
-      const profilesMap = new Map(profiles?.map(p => [p.id, p]) || [])
-      
-      const replyIds = messages?.map(msg => msg.reply_to_id).filter(Boolean) || []
-      const { data: replyMessages } = await supabase
-        .from('chat_messages')
-        .select('id, content, sender_id')
-        .in('id', replyIds)
-
-      const replyMap = new Map(replyMessages?.map(r => [r.id, r]) || [])
-      
-      const formattedMessages: Message[] = (messages || []).map(msg => {
-        const sender = profilesMap.get(msg.sender_id)
-        const replyMsg = msg.reply_to_id ? replyMap.get(msg.reply_to_id) : null
-        const replySender = replyMsg ? profilesMap.get(replyMsg.sender_id) : null
-        
-        return {
-          id: msg.id,
-          content: msg.content,
-          sender_id: msg.sender_id,
-          sender_name: sender?.full_name || 'Unknown User',
-          channel_id: msg.channel_id,
-          created_at: msg.created_at,
-          message_type: msg.message_type || 'text',
-          file_url: msg.file_url,
-          image_url: msg.image_url,
-          image_caption: msg.image_caption,
-          file_name: msg.file_name,
-          file_size: msg.file_size,
-          file_type: msg.file_type,
-          reply_to_id: msg.reply_to_id,
-          reply_to: replyMsg ? {
-            content: replyMsg.content,
-            sender: {
-              full_name: replySender?.full_name || 'Unknown User'
-            }
-          } : undefined,
-          sender: {
-            full_name: sender?.full_name || 'Unknown User',
-            avatar_url: sender?.avatar_url,
-            role: sender?.role
-          }
-        }
-      })
-
-      setMessages(formattedMessages)
-    } catch (error) {
-      console.error('Error loading messages:', error)
-    }
+  // Initialize component
+  useEffect(() => {
+    initializeComponent()
   }, [])
 
-  const subscribeToMessages = useCallback((channelId: string) => {
-    // Clean up existing subscription
-    if (subscriptionRef.current) {
-      subscriptionRef.current.unsubscribe()
-    }
-
-    const subscription = supabase
-      .channel(`messages:${channelId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'chat_messages',
-        filter: `channel_id=eq.${channelId}`
-      }, async (payload) => {
-        if (payload.eventType === 'INSERT') {
-          const newMessage = payload.new as any
-          
-          const { data: sender } = await supabase
-            .from('profiles')
-            .select('full_name, avatar_url, role')
-            .eq('id', newMessage.sender_id)
-            .single()
-          
-          const formattedMessage: Message = {
-            id: newMessage.id,
-            content: newMessage.content,
-            sender_id: newMessage.sender_id,
-            sender_name: sender?.full_name || 'Unknown User',
-            channel_id: newMessage.channel_id,
-            created_at: newMessage.created_at,
-            message_type: newMessage.message_type || 'text',
-            file_url: newMessage.file_url,
-            image_url: newMessage.image_url,
-            image_caption: newMessage.image_caption,
-            file_name: newMessage.file_name,
-            file_size: newMessage.file_size,
-            file_type: newMessage.file_type,
-            reply_to_id: newMessage.reply_to_id,
-            sender: {
-              full_name: sender?.full_name || 'Unknown User',
-              avatar_url: sender?.avatar_url,
-              role: sender?.role
-            }
-          }
-          
-          setMessages(prev => [...prev, formattedMessage])
-        } else if (payload.eventType === 'DELETE') {
-          setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
-        }
-      })
-      .subscribe()
-
-    subscriptionRef.current = subscription
-    setCurrentSubscription(subscription)
-    return subscription
-  }, [])
-
-  // Initial auth check
+  // Handle channel selection
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
-        
-        if (authError || !authUser) {
-          window.location.href = '/login'
-          return
-        }
-
-        await loadUserProfile(authUser.id)
-        await loadCommunicationData(authUser.id)
-      } catch (error) {
-        console.error('Error in checkAuth:', error)
-      }
+    if (selectedChannel) {
+      loadMessages(selectedChannel.id)
+      setupSubscription(selectedChannel.id)
     }
-    
-    checkAuth()
-  }, [])
+  }, [selectedChannel])
 
-  // URL persistence for selected channel
-  useEffect(() => {
-    if (channels.length > 0 && !selectedChannel) {
-      if (typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search)
-        const channelId = urlParams.get('channel')
-        
-        if (channelId) {
-          const channel = channels.find(c => c.id === channelId)
-          if (channel) {
-            setSelectedChannel(channel)
-            return
-          }
-        }
-      }
-      setSelectedChannel(channels[0])
-    }
-  }, [channels, selectedChannel])
-
-  // Handle channel selection changes
-  useEffect(() => {
-    if (!selectedChannel) return
-
-    // Update URL
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href)
-      url.searchParams.set('channel', selectedChannel.id)
-      window.history.replaceState({}, '', url.toString())
-    }
-    
-    // Load messages and subscribe
-    loadMessages(selectedChannel.id)
-    subscribeToMessages(selectedChannel.id)
-  }, [selectedChannel?.id, loadMessages, subscribeToMessages])
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (subscriptionRef.current) {
-        subscriptionRef.current.unsubscribe()
-      }
-    }
-  }, [])
-
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  const initializeComponent = async () => {
+    try {
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !authUser) {
+        window.location.href = '/login'
+        return
+      }
+
+      await loadUserProfile(authUser.id)
+      await loadCommunicationData(authUser.id)
+    } catch (error) {
+      console.error('Error in initializeComponent:', error)
+    }
+  }
 
   const loadUserProfile = async (userId: string) => {
     try {
@@ -319,7 +150,7 @@ export default function CommunicationHub() {
       }
 
       setUser(profile)
-      setUserRole(profile.role || '')
+      setUserRole((profile?.role as string) || '')
     } catch (error) {
       console.error('Error in loadUserProfile:', error)
     }
@@ -384,7 +215,13 @@ export default function CommunicationHub() {
         })
       )
       
-      setChannels(channelsWithMemberCount.sort((a, b) => a.name.localeCompare(b.name)));
+      const sortedChannels = channelsWithMemberCount.sort((a, b) => a.name.localeCompare(b.name))
+      setChannels(sortedChannels)
+      
+      // Set first channel as selected if none selected
+      if (sortedChannels.length > 0 && !selectedChannel) {
+        setSelectedChannel(sortedChannels[0])
+      }
     } catch (error) {
       console.error('Error loading channels:', error)
     }
@@ -398,7 +235,7 @@ export default function CommunicationHub() {
         .order('full_name')
 
       if (!error && userData) {
-        setUsers(userData)
+        setUsers(userData as User[])
       }
     } catch (error) {
       console.error('Error loading users:', error)
@@ -412,6 +249,144 @@ export default function CommunicationHub() {
       console.error('Error loading unread counts:', error)
     }
   }
+
+  const loadMessages = async (channelId: string) => {
+    try {
+      console.log('Loading messages for channel:', channelId)
+      
+      const { data: messages, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('channel_id', channelId)
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: true })
+
+      if (error) {
+        console.error('Error loading messages:', error)
+        return
+      }
+
+      console.log('Messages loaded:', messages?.length || 0)
+      
+      const senderIds = [...new Set(messages?.map(msg => msg.sender_id as string).filter(Boolean) || [])]
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url, role')
+        .in('id', senderIds)
+
+      const profilesMap = new Map(profiles?.map(p => [p.id, p]) || [])
+      
+      const replyIds = messages?.map(msg => msg.reply_to_id as string).filter(Boolean) || []
+      const { data: replyMessages } = await supabase
+        .from('chat_messages')
+        .select('id, content, sender_id')
+        .in('id', replyIds)
+
+      const replyMap = new Map(replyMessages?.map(r => [r.id, r]) || [])
+      
+      const formattedMessages: Message[] = (messages || []).map(msg => {
+        const sender = profilesMap.get(msg.sender_id as string)
+        const replyMsg = msg.reply_to_id ? replyMap.get(msg.reply_to_id as string) : null
+        const replySender = replyMsg ? profilesMap.get(replyMsg.sender_id as string) : null
+        
+        return {
+          id: msg.id as string,
+          content: msg.content as string,
+          sender_id: msg.sender_id as string,
+          sender_name: sender?.full_name as string || 'Unknown User',
+          channel_id: msg.channel_id as string,
+          created_at: msg.created_at as string,
+          message_type: (msg.message_type as 'text' | 'file' | 'image' | 'system') || 'text',
+          file_url: msg.file_url as string | undefined,
+          image_url: msg.image_url as string | undefined,
+          image_caption: msg.image_caption as string | undefined,
+          file_name: msg.file_name as string | undefined,
+          file_size: msg.file_size as number | undefined,
+          file_type: msg.file_type as string | undefined,
+          reply_to_id: msg.reply_to_id as string | undefined,
+          reply_to: replyMsg ? {
+            content: replyMsg.content as string,
+            sender: {
+              full_name: replySender?.full_name as string || 'Unknown User'
+            }
+          } : undefined,
+          sender: {
+            full_name: sender?.full_name as string || 'Unknown User',
+            avatar_url: sender?.avatar_url as string | undefined,
+            role: sender?.role as string | undefined
+          }
+        }
+      })
+
+      setMessages(formattedMessages)
+    } catch (error) {
+      console.error('Error loading messages:', error)
+    }
+  }
+
+  const setupSubscription = (channelId: string) => {
+    // Clean up existing subscription
+    if (subscriptionRef.current) {
+      subscriptionRef.current.unsubscribe()
+    }
+
+    const subscription = supabase
+      .channel(`messages:${channelId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'chat_messages',
+        filter: `channel_id=eq.${channelId}`
+      }, async (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const newMessage = payload.new as any
+          
+          const { data: sender } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url, role')
+            .eq('id', newMessage.sender_id)
+            .single()
+          
+          const formattedMessage: Message = {
+            id: newMessage.id as string,
+            content: newMessage.content as string,
+            sender_id: newMessage.sender_id as string,
+            sender_name: (sender?.full_name as string) || 'Unknown User',
+            channel_id: newMessage.channel_id as string,
+            created_at: newMessage.created_at as string,
+            message_type: (newMessage.message_type as 'text' | 'file' | 'image' | 'system') || 'text',
+            file_url: newMessage.file_url as string | undefined,
+            image_url: newMessage.image_url as string | undefined,
+            image_caption: newMessage.image_caption as string | undefined,
+            file_name: newMessage.file_name as string | undefined,
+            file_size: newMessage.file_size as number | undefined,
+            file_type: newMessage.file_type as string | undefined,
+            reply_to_id: newMessage.reply_to_id as string | undefined,
+            sender: {
+              full_name: (sender?.full_name as string) || 'Unknown User',
+              avatar_url: sender?.avatar_url as string | undefined,
+              role: sender?.role as string | undefined
+            }
+          }
+          
+          setMessages(prev => [...prev, formattedMessage])
+        } else if (payload.eventType === 'DELETE') {
+          setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
+        }
+      })
+      .subscribe()
+
+    subscriptionRef.current = subscription
+  }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe()
+      }
+    }
+  }, [])
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !user || !selectedChannel) return
@@ -617,7 +592,7 @@ export default function CommunicationHub() {
         })
 
       if (memberError) {
-        await supabase.from('chat_channels').delete().eq('id', channel.id)
+        await supabase.from('chat_channels').delete().eq('id', channel.id as string)
         alert(`Failed to create channel: ${memberError.message}`)
         return
       }

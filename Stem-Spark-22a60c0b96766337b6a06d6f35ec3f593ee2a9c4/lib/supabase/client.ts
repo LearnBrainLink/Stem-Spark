@@ -1,24 +1,23 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '../database.types'
+import { createBrowserClient } from '@supabase/ssr'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// Global variable to ensure singleton
+let supabaseClient: ReturnType<typeof createBrowserClient> | null = null
 
-// Create a singleton instance to prevent multiple GoTrueClient instances
-let supabaseClient: ReturnType<typeof createSupabaseClient<Database>> | null = null
-
-export const createClient = () => {
+export function createClient() {
   if (!supabaseClient) {
-    supabaseClient = createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-      },
-    })
+    supabaseClient = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
   }
   return supabaseClient
 }
 
-// Export the singleton instance for direct use
-export const supabase = createClient() 
+// Export the singleton instance
+export const supabase = createClient()
+
+// Ensure we only create one instance
+if (typeof window !== 'undefined') {
+  // @ts-ignore - Add to global for debugging
+  window.__supabaseClient = supabase
+} 
