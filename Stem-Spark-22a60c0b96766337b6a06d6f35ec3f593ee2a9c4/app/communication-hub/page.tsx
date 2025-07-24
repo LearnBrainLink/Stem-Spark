@@ -107,18 +107,51 @@ export default function CommunicationHub() {
     initializeComponent()
   }, [])
 
-  // Handle channel selection
+  // Handle channel selection with proper subscription management
   useEffect(() => {
-    if (selectedChannel) {
-      loadMessages(selectedChannel.id)
-      setupSubscription(selectedChannel.id)
+    if (!selectedChannel) return
+
+    // Clean up previous subscription first
+    if (subscriptionRef.current) {
+      console.log('Cleaning up previous subscription')
+      subscriptionRef.current.unsubscribe()
+      subscriptionRef.current = null
     }
-  }, [selectedChannel])
+
+    // Load messages for the new channel
+    loadMessages(selectedChannel.id)
+    
+    // Set up new subscription with a small delay to ensure cleanup is complete
+    const timeoutId = setTimeout(() => {
+      setupSubscription(selectedChannel.id)
+    }, 100)
+
+    // Cleanup function for this effect
+    return () => {
+      clearTimeout(timeoutId)
+      if (subscriptionRef.current) {
+        console.log('Cleaning up subscription on channel change')
+        subscriptionRef.current.unsubscribe()
+        subscriptionRef.current = null
+      }
+    }
+  }, [selectedChannel?.id]) // Only depend on channel ID, not the entire channel object
 
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (subscriptionRef.current) {
+        console.log('Cleaning up subscription on unmount')
+        subscriptionRef.current.unsubscribe()
+        subscriptionRef.current = null
+      }
+    }
+  }, [])
 
   const initializeComponent = async () => {
     try {
@@ -218,12 +251,22 @@ export default function CommunicationHub() {
       const sortedChannels = channelsWithMemberCount.sort((a, b) => a.name.localeCompare(b.name))
       setChannels(sortedChannels)
       
-      // Set first channel as selected if none selected
-      if (sortedChannels.length > 0 && !selectedChannel) {
+      // Set first channel as selected if none selected and no current subscription
+      if (sortedChannels.length > 0 && !selectedChannel && !subscriptionRef.current) {
+        console.log('Setting initial channel:', sortedChannels[0].name)
         setSelectedChannel(sortedChannels[0])
       }
     } catch (error) {
       console.error('Error loading channels:', error)
+    }
+  }
+
+  const handleChannelSelect = (channel: Channel) => {
+    console.log('Selecting channel:', channel.name, channel.id)
+    
+    // Only change if it's a different channel
+    if (selectedChannel?.id !== channel.id) {
+      setSelectedChannel(channel)
     }
   }
 
@@ -325,68 +368,98 @@ export default function CommunicationHub() {
   }
 
   const setupSubscription = (channelId: string) => {
-    // Clean up existing subscription
-    if (subscriptionRef.current) {
-      subscriptionRef.current.unsubscribe()
-    }
-
-    const subscription = supabase
-      .channel(`messages:${channelId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'chat_messages',
-        filter: `channel_id=eq.${channelId}`
-      }, async (payload) => {
-        if (payload.eventType === 'INSERT') {
-          const newMessage = payload.new as any
-          
-          const { data: sender } = await supabase
-            .from('profiles')
-            .select('full_name, avatar_url, role')
-            .eq('id', newMessage.sender_id)
-            .single()
-          
-          const formattedMessage: Message = {
-            id: newMessage.id as string,
-            content: newMessage.content as string,
-            sender_id: newMessage.sender_id as string,
-            sender_name: (sender?.full_name as string) || 'Unknown User',
-            channel_id: newMessage.channel_id as string,
-            created_at: newMessage.created_at as string,
-            message_type: (newMessage.message_type as 'text' | 'file' | 'image' | 'system') || 'text',
-            file_url: newMessage.file_url as string | undefined,
-            image_url: newMessage.image_url as string | undefined,
-            image_caption: newMessage.image_caption as string | undefined,
-            file_name: newMessage.file_name as string | undefined,
-            file_size: newMessage.file_size as number | undefined,
-            file_type: newMessage.file_type as string | undefined,
-            reply_to_id: newMessage.reply_to_id as string | undefined,
-            sender: {
-              full_name: (sender?.full_name as string) || 'Unknown User',
-              avatar_url: sender?.avatar_url as string | undefined,
-              role: sender?.role as string | undefined
-            }
-          }
-          
-          setMessages(prev => [...prev, formattedMessage])
-        } else if (payload.eventType === 'DELETE') {
-          setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
-        }
-      })
-      .subscribe()
-
-    subscriptionRef.current = subscription
-  }
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
+    try {
+      console.log('Setting up subscription for channel:', channelId)
+      
+      // Clean up existing subscription
       if (subscriptionRef.current) {
+        console.log('Cleaning up existing subscription before creating new one')
         subscriptionRef.current.unsubscribe()
+        subscriptionRef.current = null
       }
+
+      const subscription = supabase
+        .channel(`messages:${channelId}`)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `channel_id=eq.${channelId}`
+        }, async (payload) => {
+          console.log('Received message update:', payload.eventType)
+          
+          if (payload.eventType === 'INSERT') {
+            const newMessage = payload.new as any
+            
+            const { data: sender } = await supabase
+              .from('profiles')
+              .select('full_name, avatar_url, role')
+              .eq('id', newMessage.sender_id)
+              .single()
+            
+            const formattedMessage: Message = {
+              id: newMessage.id as string,
+              content: newMessage.content as string,
+              sender_id: newMessage.sender_id as string,
+              sender_name: (sender?.full_name as string) || 'Unknown User',
+              channel_id: newMessage.channel_id as string,
+              created_at: newMessage.created_at as string,
+              message_type: (newMessage.message_type as 'text' | 'file' | 'image' | 'system') || 'text',
+              file_url: newMessage.file_url as string | undefined,
+              image_url: newMessage.image_url as string | undefined,
+              image_caption: newMessage.image_caption as string | undefined,
+              file_name: newMessage.file_name as string | undefined,
+              file_size: newMessage.file_size as number | undefined,
+              file_type: newMessage.file_type as string | undefined,
+              reply_to_id: newMessage.reply_to_id as string | undefined,
+              sender: {
+                full_name: (sender?.full_name as string) || 'Unknown User',
+                avatar_url: sender?.avatar_url as string | undefined,
+                role: sender?.role as string | undefined
+              }
+            }
+            
+            setMessages(prev => [...prev, formattedMessage])
+          } else if (payload.eventType === 'DELETE') {
+            setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
+          }
+        })
+        .on('presence', { event: 'sync' }, () => {
+          console.log('Presence sync for channel:', channelId)
+        })
+        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+          console.log('User joined channel:', channelId, newPresences)
+        })
+        .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+          console.log('User left channel:', channelId, leftPresences)
+        })
+        .subscribe((status) => {
+          console.log('Subscription status for channel', channelId, ':', status)
+          
+          if (status === 'SUBSCRIBED') {
+            console.log('Successfully subscribed to channel:', channelId)
+          } else if (status === 'CLOSED') {
+            console.log('Subscription closed for channel:', channelId)
+            subscriptionRef.current = null
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('Channel error for:', channelId)
+            // Try to resubscribe after a delay
+            setTimeout(() => {
+              if (selectedChannel?.id === channelId) {
+                console.log('Attempting to resubscribe to channel:', channelId)
+                setupSubscription(channelId)
+              }
+            }, 2000)
+          }
+        })
+
+      subscriptionRef.current = subscription
+      console.log('Subscription setup complete for channel:', channelId)
+      
+    } catch (error) {
+      console.error('Error setting up subscription for channel:', channelId, error)
     }
-  }, [])
+  }
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !user || !selectedChannel) return
@@ -836,7 +909,7 @@ export default function CommunicationHub() {
                           ? 'bg-blue-50 border border-blue-200'
                           : 'hover:bg-gray-50'
                       }`}
-                      onClick={() => setSelectedChannel(channel)}
+                      onClick={() => handleChannelSelect(channel)}
                     >
                       <div className="flex items-center justify-between">
                         <div>
