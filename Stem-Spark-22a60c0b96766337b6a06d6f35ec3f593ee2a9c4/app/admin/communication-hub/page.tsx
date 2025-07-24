@@ -298,14 +298,10 @@ export default function AdminCommunicationHub() {
 
   const loadMessages = async (channelId: string) => {
     try {
+      // First, get basic messages without complex relationships
       const { data: messages, error: messagesError } = await supabase
         .from('chat_messages')
-        .select(`
-          *,
-          sender:profiles!chat_messages_sender_id_fkey(full_name, avatar_url),
-          reply_to:chat_messages!reply_to_id(content, sender:profiles!chat_messages_sender_id_fkey(full_name)),
-          forwarded_from:profiles!chat_messages_forwarded_from_id_fkey(full_name)
-        `)
+        .select('*')
         .eq('channel_id', channelId)
         .order('created_at', { ascending: true });
 
@@ -319,10 +315,44 @@ export default function AdminCommunicationHub() {
         return;
       }
 
-      const messagesWithSenders = messages.map(msg => ({
-        ...msg,
-        sender_name: msg.sender?.full_name || 'Unknown User'
-      }));
+      // Get sender profiles separately
+      const senderIds = [...new Set(messages.map(msg => msg.sender_id).filter(Boolean))]
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', senderIds)
+
+      const profilesMap = new Map(profiles?.map(p => [p.id, p]) || [])
+      
+      // Get reply messages separately
+      const replyIds = messages.map(msg => msg.reply_to_id).filter(Boolean)
+      const { data: replyMessages } = await supabase
+        .from('chat_messages')
+        .select('id, content, sender_id')
+        .in('id', replyIds)
+
+      const replyMap = new Map(replyMessages?.map(r => [r.id, r]) || [])
+      
+      const messagesWithSenders = messages.map(msg => {
+        const sender = profilesMap.get(msg.sender_id)
+        const replyMsg = msg.reply_to_id ? replyMap.get(msg.reply_to_id) : null
+        const replySender = replyMsg ? profilesMap.get(replyMsg.sender_id) : null
+        
+        return {
+          ...msg,
+          sender_name: sender?.full_name || 'Unknown User',
+          sender: {
+            full_name: sender?.full_name || 'Unknown User',
+            avatar_url: sender?.avatar_url
+          },
+          reply_to: replyMsg ? {
+            content: replyMsg.content,
+            profiles: {
+              full_name: replySender?.full_name || 'Unknown User'
+            }
+          } : undefined
+        }
+      });
 
       setMessages(messagesWithSenders);
     } catch (error) {

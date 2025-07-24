@@ -263,15 +263,13 @@ export default function CommunicationHub() {
 
   const fetchMessages = async (channelId: string) => {
     try {
-      setMessagesLoading(true)
       console.log('Fetching messages for channel:', channelId)
+      setMessagesLoading(true)
       
+      // First, get basic messages without complex relationships
       const { data, error } = await supabase
         .from('chat_messages')
-        .select(`
-          *,
-          sender:profiles!chat_messages_sender_id_fkey(full_name, avatar_url)
-        `)
+        .select('*')
         .eq('channel_id', channelId)
         .order('created_at', { ascending: true })
 
@@ -284,11 +282,25 @@ export default function CommunicationHub() {
 
       if (data) {
         console.log(`Found ${data.length} messages for channel ${channelId}`)
-        const formattedMessages = data.map(msg => ({
-          ...msg,
-          sender_name: msg.sender?.full_name || 'Unknown User',
-          avatar_url: msg.sender?.avatar_url
-        }))
+        
+        // Get sender profiles separately
+        const senderIds = [...new Set(data.map(msg => msg.sender_id).filter(Boolean))]
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', senderIds)
+
+        const profilesMap = new Map(profiles?.map(p => [p.id, p]) || [])
+        
+        const formattedMessages = data.map(msg => {
+          const sender = profilesMap.get(msg.sender_id)
+          return {
+            ...msg,
+            sender_name: sender?.full_name || 'Unknown User',
+            avatar_url: sender?.avatar_url
+          }
+        })
+        
         setMessages(formattedMessages)
       } else {
         console.log('No messages found for channel:', channelId)

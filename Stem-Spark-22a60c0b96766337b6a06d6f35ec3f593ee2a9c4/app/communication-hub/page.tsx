@@ -264,50 +264,75 @@ export default function CommunicationHub() {
 
   const loadMessages = async (channelId: string) => {
     try {
-      const { data, error } = await supabase
+      console.log('Loading messages for channel:', channelId)
+      
+      // First, get basic messages without complex relationships
+      const { data: messages, error } = await supabase
         .from('chat_messages')
-        .select(`
-          *,
-          sender:profiles!chat_messages_sender_id_fkey(full_name, avatar_url)
-        `)
+        .select('*')
         .eq('channel_id', channelId)
         .eq('is_deleted', false)
         .order('created_at', { ascending: true })
 
-      if (!error && data) {
-        // Load reply messages separately to avoid the foreign key issue
-        const messagesWithReplies = await Promise.all(
-          data.map(async (msg) => {
-            if (msg.reply_to_id) {
-              const { data: replyData } = await supabase
-                .from('chat_messages')
-                .select(`
-                  content,
-                  sender:profiles!chat_messages_sender_id_fkey(full_name)
-                `)
-                .eq('id', msg.reply_to_id)
-                .single()
-              
-              return {
-                ...msg,
-                sender_name: msg.sender?.full_name || 'Unknown',
-                reply_to: replyData ? {
-                  content: replyData.content,
-                  sender: { full_name: replyData.sender?.full_name || 'Unknown' }
-                } : null
-              }
-            }
-            return {
-              ...msg,
-              sender_name: msg.sender?.full_name || 'Unknown'
-            }
-          })
-        )
-        
-        setMessages(messagesWithReplies)
-      } else if (error) {
+      if (error) {
         console.error('Error loading messages:', error)
+        return
       }
+
+      console.log('Messages loaded:', messages?.length || 0)
+      
+      // Get sender profiles separately to avoid relationship ambiguity
+      const senderIds = [...new Set(messages?.map(msg => msg.sender_id).filter(Boolean) || [])]
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', senderIds)
+
+      const profilesMap = new Map(profiles?.map(p => [p.id, p]) || [])
+      
+      // Get reply messages separately
+      const replyIds = messages?.map(msg => msg.reply_to_id).filter(Boolean) || []
+      const { data: replyMessages } = await supabase
+        .from('chat_messages')
+        .select('id, content, sender_id')
+        .in('id', replyIds)
+
+      const replyMap = new Map(replyMessages?.map(r => [r.id, r]) || [])
+      
+      const formattedMessages: Message[] = (messages || []).map(msg => {
+        const sender = profilesMap.get(msg.sender_id)
+        const replyMsg = msg.reply_to_id ? replyMap.get(msg.reply_to_id) : null
+        const replySender = replyMsg ? profilesMap.get(replyMsg.sender_id) : null
+        
+        return {
+          id: msg.id,
+          content: msg.content,
+          sender_id: msg.sender_id,
+          sender_name: sender?.full_name || 'Unknown User',
+          channel_id: msg.channel_id,
+          created_at: msg.created_at,
+          message_type: msg.message_type || 'text',
+          file_url: msg.file_url,
+          image_url: msg.image_url,
+          image_caption: msg.image_caption,
+          file_name: msg.file_name,
+          file_size: msg.file_size,
+          file_type: msg.file_type,
+          reply_to_id: msg.reply_to_id,
+          reply_to: replyMsg ? {
+            content: replyMsg.content,
+            sender: {
+              full_name: replySender?.full_name || 'Unknown User'
+            }
+          } : undefined,
+          sender: {
+            full_name: sender?.full_name || 'Unknown User',
+            avatar_url: sender?.avatar_url
+          }
+        }
+      })
+
+      setMessages(formattedMessages)
     } catch (error) {
       console.error('Error loading messages:', error)
     }

@@ -141,15 +141,28 @@ export default function StudentDashboard() {
       // Load chat messages
       const { data: chatMessages, error: messagesError } = await supabase
         .from('chat_messages')
-        .select(`
-          *,
-          sender:profiles!chat_messages_sender_id_fkey(full_name)
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(5)
 
       if (!messagesError && chatMessages) {
-        setMessages(chatMessages)
+        // Get sender profiles separately
+        const senderIds = [...new Set(chatMessages.map(msg => msg.sender_id).filter(Boolean))]
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', senderIds)
+
+        const profilesMap = new Map(profiles?.map(p => [p.id, p]) || [])
+        
+        const messagesWithSenders = chatMessages.map(msg => ({
+          ...msg,
+          sender: {
+            full_name: profilesMap.get(msg.sender_id)?.full_name || 'Unknown User'
+          }
+        }))
+        
+        setMessages(messagesWithSenders)
       }
 
       // Load videos
