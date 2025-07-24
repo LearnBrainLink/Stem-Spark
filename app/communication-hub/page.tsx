@@ -576,9 +576,11 @@ export default function CommunicationHub() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="public">Public</SelectItem>
-                            {userRole === 'admin' || userRole === 'super_admin' ? (
+                            <SelectItem value="private">Private</SelectItem>
+                            <SelectItem value="group">Group</SelectItem>
+                            {(userRole === 'admin' || userRole === 'super_admin') && (
                               <SelectItem value="announcement">Announcement</SelectItem>
-                            ) : null}
+                            )}
                           </SelectContent>
                         </Select>
                       </div>

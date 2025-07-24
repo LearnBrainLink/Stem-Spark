@@ -47,11 +47,11 @@ interface Message {
   reply_to_id?: string
   reply_to?: {
     content: string
-    profiles: {
+    sender: {
       full_name: string
     }
   }
-  profiles?: {
+  sender?: {
     full_name: string
     avatar_url?: string
   }
@@ -61,7 +61,7 @@ interface Channel {
   id: string
   name: string
   description: string
-  channel_type: 'public' | 'private' | 'group' | 'announcement' | 'admin_group' | 'intern_group' | 'parent_group' | 'student_group'
+  channel_type: 'public' | 'private' | 'group' | 'announcement'
   created_by: string
   created_at: string
   member_count: number
@@ -104,7 +104,6 @@ export default function CommunicationHub() {
     checkAuth()
   }, [])
 
-  // Cleanup effect for component unmounting
   useEffect(() => {
     return () => {
       if (currentSubscription) {
@@ -117,17 +116,14 @@ export default function CommunicationHub() {
     if (selectedChannel) {
       loadMessages(selectedChannel.id)
       
-      // Unsubscribe from previous subscription if it exists
       if (currentSubscription) {
         currentSubscription.unsubscribe()
       }
       
-      // Create new subscription
       const subscription = subscribeToMessages(selectedChannel.id)
       setCurrentSubscription(subscription)
     }
     
-    // Cleanup function to unsubscribe when component unmounts or selectedChannel changes
     return () => {
       if (currentSubscription) {
         currentSubscription.unsubscribe()
@@ -135,7 +131,6 @@ export default function CommunicationHub() {
     }
   }, [selectedChannel])
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
@@ -171,9 +166,6 @@ export default function CommunicationHub() {
 
       setUser(profile)
       setUserRole(profile.role || '')
-      
-      // Auto-add user to group channels based on their role
-      await addUserToGroupChannels(userId, profile.role)
     } catch (error) {
       console.error('Error in loadUserProfile:', error)
     }
@@ -181,7 +173,6 @@ export default function CommunicationHub() {
 
   const loadCommunicationData = async (userId: string) => {
     try {
-      // Pass userId directly to ensure it's available
       await Promise.all([
         loadChannels(userId),
         loadUsers(),
@@ -196,7 +187,6 @@ export default function CommunicationHub() {
 
   const loadChannels = async (userId: string) => {
     try {
-      // Use the passed userId directly to avoid race conditions
       const { data: memberChannels, error: memberError } = await supabase
         .from('chat_channel_members')
         .select(`
@@ -210,7 +200,6 @@ export default function CommunicationHub() {
         return
       }
 
-      // Also get public channels
       const { data: publicChannels, error: publicError } = await supabase
         .from('chat_channels')
         .select('*')
@@ -221,14 +210,12 @@ export default function CommunicationHub() {
         return
       }
 
-      // Combine and deduplicate channels
       const memberChannelData = memberChannels?.map(m => m.chat_channels).filter(c => c !== null) as Channel[] || [];
       const publicChannelIds = new Set(memberChannelData.map(c => c.id));
       const uniquePublicChannels = publicChannels?.filter(c => !publicChannelIds.has(c.id)) || [];
       
       const allChannels = [...memberChannelData, ...uniquePublicChannels];
 
-      // Get member count for each channel
       const channelsWithMemberCount = await Promise.all(
         allChannels.map(async (channel) => {
           const { count, error: countError } = await supabase
@@ -269,8 +256,6 @@ export default function CommunicationHub() {
 
   const loadUnreadCounts = async (userId: string) => {
     try {
-      // This would need to be implemented based on your unread message tracking
-      // For now, we'll set empty counts
       setUnreadCounts({})
     } catch (error) {
       console.error('Error loading unread counts:', error)
@@ -279,13 +264,12 @@ export default function CommunicationHub() {
 
   const loadMessages = async (channelId: string) => {
     try {
-      // Use Supabase directly to load messages with reply data
       const { data, error } = await supabase
         .from('chat_messages')
         .select(`
           *,
-          profiles:profiles(full_name, avatar_url),
-          reply_to:chat_messages!reply_to_id(content, profiles(full_name))
+          sender:profiles!chat_messages_sender_id_fkey(full_name, avatar_url),
+          reply_to:chat_messages!reply_to_id(content, sender:profiles!chat_messages_sender_id_fkey(full_name))
         `)
         .eq('channel_id', channelId)
         .eq('is_deleted', false)
@@ -294,7 +278,7 @@ export default function CommunicationHub() {
       if (!error && data) {
         setMessages(data.map(msg => ({
           ...msg,
-          sender_name: msg.profiles?.full_name || 'Unknown'
+          sender_name: msg.sender?.full_name || 'Unknown'
         })))
       } else if (error) {
         console.error('Error loading messages:', error)
@@ -308,22 +292,20 @@ export default function CommunicationHub() {
     const subscription = supabase
       .channel(`messages:${channelId}`)
       .on('postgres_changes', {
-        event: '*', // Listen to all events
+        event: '*',
         schema: 'public',
         table: 'chat_messages',
         filter: `channel_id=eq.${channelId}`
       }, (payload) => {
-
         if (payload.eventType === 'INSERT') {
           const newMessage = payload.new as any
           setMessages(prev => [...prev, {
             ...newMessage,
-            sender_name: newMessage.profiles?.full_name || 'Unknown'
+            sender_name: newMessage.sender?.full_name || 'Unknown'
           }])
         } else if (payload.eventType === 'DELETE') {
           setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
         }
-        
       })
       .subscribe()
 
@@ -341,7 +323,6 @@ export default function CommunicationHub() {
         message_type: 'text'
       }
 
-      // Add reply data if replying to a message
       if (replyingTo) {
         messageData.reply_to_id = replyingTo.id
       }
@@ -367,7 +348,6 @@ export default function CommunicationHub() {
     try {
       setUploadingFile(true)
       
-      // Upload file to Supabase Storage
       const fileExt = file.name.split('.').pop()
       const fileName = `${Date.now()}.${fileExt}`
       const filePath = `chat-files/${selectedChannel.id}/${fileName}`
@@ -381,17 +361,15 @@ export default function CommunicationHub() {
         return
       }
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('chat-attachments')
         .getPublicUrl(filePath)
 
-      // Save message with file info
       const messageData = {
         content: `📎 ${file.name}`,
         sender_id: user.id,
         channel_id: selectedChannel.id,
-        message_type: 'file',
+        message_type: 'file' as const,
         file_url: publicUrl,
         file_name: file.name,
         file_size: file.size,
@@ -421,7 +399,6 @@ export default function CommunicationHub() {
     try {
       setUploadingImage(true)
       
-      // Upload image to Supabase Storage
       const fileExt = file.name.split('.').pop()
       const fileName = `${Date.now()}.${fileExt}`
       const filePath = `chat-images/${selectedChannel.id}/${fileName}`
@@ -435,17 +412,15 @@ export default function CommunicationHub() {
         return
       }
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('chat-attachments')
         .getPublicUrl(filePath)
 
-      // Save message with image info
       const messageData = {
         content: newMessage || '📷 Image',
         sender_id: user.id,
         channel_id: selectedChannel.id,
-        message_type: 'image',
+        message_type: 'image' as const,
         image_url: publicUrl,
         image_caption: newMessage || null,
         reply_to_id: replyingTo?.id || null
@@ -471,7 +446,6 @@ export default function CommunicationHub() {
   const handleDeleteMessage = async (messageId: string) => {
     if (!user) return;
     
-    // Optimistically remove the message from the UI
     setMessages(prevMessages => prevMessages.filter(msg => msg.id !== messageId));
 
     try {
@@ -479,13 +453,10 @@ export default function CommunicationHub() {
         .from('chat_messages')
         .delete()
         .eq('id', messageId)
-        .eq('sender_id', user.id); // Ensure users can only delete their own messages
+        .eq('sender_id', user.id);
 
       if (error) {
-        // If the delete fails, add the message back to the UI
         console.error('Error deleting message:', error);
-        // Note: Re-adding the message is complex; for now, we'll rely on a page refresh 
-        // if this rare error occurs. A more robust solution would use a state management library.
       }
     } catch (err) {
       console.error('Unexpected error deleting message:', err);
@@ -511,31 +482,15 @@ export default function CommunicationHub() {
   const handleCreateChannel = async () => {
     try {
       if (!user) {
-        console.error('No user found')
         alert('Please log in to create a channel.')
         return
       }
 
-      console.log('Creating channel with data:', newChannelData)
-      console.log('Current user:', user)
-
-      // Test database access first
-      const testResult = await testDatabaseAccess()
-      if (!testResult.success) {
-        console.error('Database access test failed:', testResult.error)
-        alert(`Database access failed: ${testResult.error}`)
-        return
-      }
-
-      console.log('Database access test passed')
-
-      // Validate input
       if (!newChannelData.name.trim()) {
         alert('Please enter a channel name.')
         return
       }
 
-      // Create the channel
       const { data: channel, error } = await supabase
         .from('chat_channels')
         .insert({
@@ -548,20 +503,10 @@ export default function CommunicationHub() {
         .single()
 
       if (error) {
-        console.error('Error creating channel:', error)
-        console.error('Error details:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
-        })
         alert(`Failed to create channel: ${error.message}`)
         return
       }
 
-      console.log('Channel created successfully:', channel)
-
-      // Add creator as admin immediately
       const { error: memberError } = await supabase
         .from('chat_channel_members')
         .insert({
@@ -571,22 +516,11 @@ export default function CommunicationHub() {
         })
 
       if (memberError) {
-        console.error('Error adding creator as member:', memberError)
-        console.error('Member error details:', {
-          message: memberError.message,
-          code: memberError.code,
-          details: memberError.details,
-          hint: memberError.hint
-        })
-        // If we can't add the creator as member, we should delete the channel
         await supabase.from('chat_channels').delete().eq('id', channel.id)
         alert(`Failed to create channel: ${memberError.message}`)
         return
       }
 
-      console.log('Creator added as admin successfully')
-
-      // Add selected members to the channel
       if (newChannelData.selectedUsers.length > 0) {
         const memberInserts = newChannelData.selectedUsers.map(userId => ({
           user_id: userId,
@@ -600,13 +534,9 @@ export default function CommunicationHub() {
 
         if (membersError) {
           console.error('Error adding members:', membersError)
-          // Don't fail the entire operation if adding members fails
-        } else {
-          console.log('Members added successfully')
         }
       }
 
-      // Reset form and reload channels
       setNewChannelData({
         name: '',
         description: '',
@@ -615,19 +545,15 @@ export default function CommunicationHub() {
       })
       setShowCreateDialog(false)
       
-      // Reload channels and select the new one
       await loadChannels(user.id)
       
-      // Find and select the newly created channel
       const newChannel = channels.find(c => c.id === channel.id)
       if (newChannel) {
         setSelectedChannel(newChannel)
       }
 
-      console.log('Channel creation completed successfully')
       alert('Channel created successfully!')
     } catch (error) {
-      console.error('Error creating channel:', error)
       alert('Failed to create channel. Please try again.')
     }
   }
@@ -652,107 +578,6 @@ export default function CommunicationHub() {
     return true
   }
 
-  // Add this function after the existing functions
-  const testDatabaseAccess = async () => {
-    try {
-      console.log('Testing database access...')
-      
-      // Test 1: Check authentication
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
-      if (authError || !authUser) {
-        console.error('Authentication test failed:', authError)
-        return { success: false, error: 'Authentication failed' }
-      }
-      console.log('Authentication test passed:', authUser.id)
-
-      // Test 2: Check if we can read profiles
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authUser.id)
-        .single()
-
-      if (profileError) {
-        console.error('Profile read test failed:', profileError)
-        return { success: false, error: 'Cannot read profile' }
-      }
-      console.log('Profile read test passed:', profile)
-
-      // Test 3: Check if we can read channels
-      const { data: channels, error: channelsError } = await supabase
-        .from('chat_channels')
-        .select('*')
-        .limit(1)
-
-      if (channelsError) {
-        console.error('Channels read test failed:', channelsError)
-        return { success: false, error: 'Cannot read channels' }
-      }
-      console.log('Channels read test passed:', channels)
-
-      return { success: true, user: authUser, profile }
-    } catch (error) {
-      console.error('Database access test failed:', error)
-      return { success: false, error: 'Database access failed' }
-    }
-  }
-
-  const addUserToGroupChannels = async (userId: string, role: string) => {
-    try {
-      // Get or create group channels based on role
-      const groupChannelTypes = {
-        'admin': 'admin_group',
-        'intern': 'intern_group', 
-        'parent': 'parent_group',
-        'student': 'student_group'
-      }
-
-      const channelType = groupChannelTypes[role as keyof typeof groupChannelTypes]
-      if (!channelType) return
-
-      // Check if group channel exists, if not create it
-      let { data: channel } = await supabase
-        .from('chat_channels')
-        .select('*')
-        .eq('channel_type', channelType)
-        .single()
-
-      if (!channel) {
-        // Create the group channel
-        const { data: newChannel } = await supabase
-          .from('chat_channels')
-          .insert({
-            name: `${role.charAt(0).toUpperCase() + role.slice(1)}s Group`,
-            description: `Group channel for ${role}s`,
-            channel_type: channelType,
-            created_by: userId
-          })
-          .select()
-          .single()
-        
-        channel = newChannel
-      }
-
-      if (channel) {
-        // Add user to the channel if not already a member
-        const { error: memberError } = await supabase
-          .from('chat_channel_members')
-          .upsert({
-            channel_id: channel.id,
-            user_id: userId,
-            role: 'member'
-          }, { onConflict: 'channel_id,user_id' })
-
-        if (memberError) {
-          console.error('Error adding user to group channel:', memberError)
-        }
-      }
-    } catch (error) {
-      console.error('Error in addUserToGroupChannels:', error)
-    }
-  }
-
-  // Function to get the correct dashboard URL based on user role
   const getDashboardUrl = () => {
     switch (userRole) {
       case 'admin':
@@ -781,7 +606,6 @@ export default function CommunicationHub() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -790,7 +614,6 @@ export default function CommunicationHub() {
               <p className="mt-2 text-gray-600">Connect with teachers, parents, and administrators</p>
             </div>
             <div className="mt-4 md:mt-0 flex gap-2">
-              {/* Back to Dashboard button - show for all except admin */}
               {userRole !== 'admin' && userRole !== 'super_admin' && (
                 <Link href={getDashboardUrl()}>
                   <Button variant="outline">
@@ -911,7 +734,6 @@ export default function CommunicationHub() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Channels Sidebar */}
           <div className="lg:col-span-1">
             <Card>
               <CardHeader>
@@ -954,7 +776,6 @@ export default function CommunicationHub() {
             </Card>
           </div>
 
-          {/* Messages Area */}
           <div className="lg:col-span-3">
             <Card>
               <CardHeader>
@@ -963,7 +784,6 @@ export default function CommunicationHub() {
               <CardContent>
                 {selectedChannel ? (
                   <div className="space-y-4">
-                    {/* Messages */}
                     <div className="space-y-4 max-h-96 overflow-y-auto">
                       {messages.map((message) => (
                         <div key={message.id} className="flex space-x-3">
@@ -1003,11 +823,10 @@ export default function CommunicationHub() {
                               )}
                             </div>
                             
-                            {/* Reply to message */}
                             {message.reply_to && (
                               <div className="bg-gray-50 border-l-2 border-blue-500 pl-3 py-1 mb-2 rounded">
                                 <div className="text-xs text-gray-600">
-                                  Replying to {message.reply_to.profiles?.full_name || 'Unknown'}
+                                  Replying to {message.reply_to.sender?.full_name || 'Unknown'}
                                 </div>
                                 <div className="text-sm text-gray-700 truncate">
                                   {message.reply_to.content}
@@ -1015,7 +834,6 @@ export default function CommunicationHub() {
                               </div>
                             )}
                             
-                            {/* Message content */}
                             <div className="mt-1">
                               {message.message_type === 'image' && message.image_url ? (
                                 <div className="space-y-2">
@@ -1058,7 +876,6 @@ export default function CommunicationHub() {
                       <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Reply indicator */}
                     {replyingTo && (
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
                         <div className="flex items-center justify-between">
@@ -1082,7 +899,6 @@ export default function CommunicationHub() {
                       </div>
                     )}
 
-                    {/* Message Input */}
                     <div className="border-t border-gray-200 pt-4">
                       {canSendMessage(selectedChannel) ? (
                         <div className="space-y-2">
@@ -1104,7 +920,6 @@ export default function CommunicationHub() {
                             </Button>
                           </div>
                           
-                          {/* File and Image Upload Buttons */}
                           <div className="flex space-x-2">
                             <input
                               type="file"
