@@ -11,26 +11,9 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
-import { BookOpen, Play, CheckCircle, Clock, Star, Target, TrendingUp, Award, Calendar, Users, Bookmark, Share, Edit, Plus, ArrowRight, Lock, Unlock } from 'lucide-react'
+import { BookOpen, Play, CheckCircle, Clock, Star, Target, TrendingUp, Award, Calendar, Users, Bookmark, Share, Edit, Plus, ArrowRight, Lock, Unlock, Search, Filter, GraduationCap } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { 
-  BookOpen, 
-  Clock,
-  Users,
-  Star,
-  Search,
-  Filter,
-  Play,
-  ArrowRight,
-  GraduationCap,
-  Target,
-  Award
-} from 'lucide-react'
 
 
 interface Course {

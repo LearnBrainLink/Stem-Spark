@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
-import { Play, Plus, Search, Filter, Clock, Eye, ThumbsUp, MessageCircle, Share, Edit, Trash2, Upload, Video, FileText, Image } from 'lucide-react'
+import { Play, Plus, Search, Filter, Clock, Eye, ThumbsUp, MessageCircle, Share, Edit, Trash2, Upload, Video, FileText, Image as ImageIcon } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 
