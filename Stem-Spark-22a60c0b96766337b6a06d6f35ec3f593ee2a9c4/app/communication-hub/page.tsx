@@ -114,28 +114,32 @@ export default function CommunicationHub() {
     }
   }, [currentSubscription])
 
-  // URL persistence for selected channel
+  // URL persistence for selected channel - only run when channels are loaded
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search)
-      const channelId = urlParams.get('channel')
-      
-      if (channelId && channels.length > 0) {
-        const channel = channels.find(c => c.id === channelId)
-        if (channel && selectedChannel?.id !== channel.id) {
-          setSelectedChannel(channel)
+    if (channels.length > 0 && !selectedChannel) {
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search)
+        const channelId = urlParams.get('channel')
+        
+        if (channelId) {
+          const channel = channels.find(c => c.id === channelId)
+          if (channel) {
+            setSelectedChannel(channel)
+            return
+          }
         }
-      } else if (channels.length > 0 && !selectedChannel) {
-        setSelectedChannel(channels[0])
       }
+      // Default to first channel if no URL param or channel not found
+      setSelectedChannel(channels[0])
     }
   }, [channels, selectedChannel])
 
+  // Handle channel selection changes
   useEffect(() => {
     if (selectedChannel) {
       // Update URL with selected channel
       if (typeof window !== 'undefined') {
-        const url = new URL(window.location)
+        const url = new URL(window.location.href)
         url.searchParams.set('channel', selectedChannel.id)
         window.history.replaceState({}, '', url.toString())
       }
