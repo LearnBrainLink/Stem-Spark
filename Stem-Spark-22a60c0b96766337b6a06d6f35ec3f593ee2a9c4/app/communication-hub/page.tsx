@@ -784,9 +784,10 @@ export default function CommunicationHub() {
               <CardContent>
                 {selectedChannel ? (
                   <div className="space-y-4">
+                    {/* Messages */}
                     <div className="space-y-4 max-h-96 overflow-y-auto">
                       {messages.map((message) => (
-                        <div key={message.id} className="flex space-x-3">
+                        <div key={message.id} id={`message-${message.id}`} className="flex space-x-3">
                           <div className="flex-shrink-0">
                             <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
                               {message.sender_name.charAt(0).toUpperCase()}
@@ -823,8 +824,21 @@ export default function CommunicationHub() {
                               )}
                             </div>
                             
+                            {/* Reply to message */}
                             {message.reply_to && (
-                              <div className="bg-gray-50 border-l-2 border-blue-500 pl-3 py-1 mb-2 rounded">
+                              <div 
+                                className="bg-gray-50 border-l-2 border-blue-500 pl-3 py-1 mb-2 rounded cursor-pointer"
+                                onClick={() => {
+                                  const repliedMessageEl = document.getElementById(`message-${message.reply_to_id}`);
+                                  if (repliedMessageEl) {
+                                    repliedMessageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    repliedMessageEl.classList.add('bg-blue-100', 'transition-colors', 'duration-1000');
+                                    setTimeout(() => {
+                                      repliedMessageEl.classList.remove('bg-blue-100');
+                                    }, 1000);
+                                  }
+                                }}
+                              >
                                 <div className="text-xs text-gray-600">
                                   Replying to {message.reply_to.sender?.full_name || 'Unknown'}
                                 </div>
@@ -834,6 +848,7 @@ export default function CommunicationHub() {
                               </div>
                             )}
                             
+                            {/* Message content */}
                             <div className="mt-1">
                               {message.message_type === 'image' && message.image_url ? (
                                 <div className="space-y-2">
@@ -876,32 +891,21 @@ export default function CommunicationHub() {
                       <div ref={messagesEndRef} />
                     </div>
 
-                    {replyingTo && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="text-sm font-medium text-blue-900">
-                              Replying to {replyingTo.sender_name}
-                            </div>
-                            <div className="text-sm text-blue-700 truncate">
-                              {replyingTo.content}
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={cancelReply}
-                            className="h-6 w-6 p-0"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
+                    {/* Message Input */}
                     <div className="border-t border-gray-200 pt-4">
                       {canSendMessage(selectedChannel) ? (
                         <div className="space-y-2">
+                          {replyingTo && (
+                            <div className="bg-gray-100 border-l-4 border-blue-500 p-2 rounded-r-lg flex justify-between items-center mb-2">
+                              <div>
+                                <p className="font-semibold text-blue-600 text-sm">Replying to {replyingTo.sender_name}</p>
+                                <p className="text-sm text-gray-600 truncate max-w-xs">{replyingTo.content}</p>
+                              </div>
+                              <Button variant="ghost" size="icon" onClick={cancelReply} className="h-8 w-8">
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
                           <div className="flex space-x-2">
                             <Input
                               type="text"
