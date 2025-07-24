@@ -1,10 +1,8 @@
-import { supabase as clientSupabase } from "./supabase/client"
 import { createClient as createServerSupabaseClient } from '@supabase/supabase-js'
+import { supabase as clientSupabase, createClient as createBrowserSupabaseClient } from "./supabase/client"
 
-// Re-export the singleton client
 export const supabase = clientSupabase
 
-// Server-side Supabase client
 export const createServerClient = () => {
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL

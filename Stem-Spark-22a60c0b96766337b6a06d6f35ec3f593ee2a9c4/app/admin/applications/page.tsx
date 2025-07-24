@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -56,11 +56,6 @@ export default function ApplicationsPage() {
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null)
   const [showDetails, setShowDetails] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
 
   useEffect(() => {
     getCurrentUser()

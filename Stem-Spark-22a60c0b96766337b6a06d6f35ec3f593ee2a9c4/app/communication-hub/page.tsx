@@ -346,7 +346,6 @@ export default function CommunicationHub() {
     try {
       console.log('Loading messages for channel:', channelId)
       
-      // First, get all messages for the channel
       const { data: messageData, error: messageError } = await supabase
         .from('chat_messages')
         .select('*')
@@ -355,6 +354,7 @@ export default function CommunicationHub() {
 
       if (messageError) {
         console.error('Error loading messages:', messageError)
+        setMessages([]) // Clear messages on error
         return
       }
 
@@ -363,39 +363,37 @@ export default function CommunicationHub() {
         return
       }
 
-      // Get unique sender IDs
-      const senderIds = [...new Set(messageData.map(msg => msg.sender_id))]
+      const senderIds = [...new Set(messageData.map(msg => msg.sender_id).filter(Boolean))]
+      const profilesMap = new Map()
 
-      // Get sender profiles
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url, role')
-        .in('id', senderIds)
+      if (senderIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url, role')
+          .in('id', senderIds)
+        
+        profiles?.forEach(profile => profilesMap.set(profile.id, profile))
+      }
 
-      // Create a map of sender profiles
-      const senderMap = new Map()
-      profiles?.forEach(profile => {
-        senderMap.set(profile.id, profile)
-      })
-
-      // Format messages with sender information
       const formattedMessages: Message[] = messageData.map(msg => {
-        const sender = senderMap.get(msg.sender_id)
+        const sender = profilesMap.get(msg.sender_id)
         return {
           ...msg,
           sender_name: sender?.full_name || 'Unknown User',
-          sender: {
-            full_name: sender?.full_name || 'Unknown User',
-            avatar_url: sender?.avatar_url,
-            role: sender?.role
+          sender: sender ? {
+            full_name: sender.full_name,
+            avatar_url: sender.avatar_url,
+            role: sender.role
+          } : {
+            full_name: 'Unknown User'
           }
-        }
+        } as Message
       })
 
       setMessages(formattedMessages)
-      console.log('Messages loaded:', formattedMessages.length)
     } catch (error) {
       console.error('Error in loadMessages:', error)
+      setMessages([])
     }
   }
 
@@ -465,8 +463,14 @@ export default function CommunicationHub() {
         .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
           console.log('User left channel:', channelId, leftPresences)
         })
-        .subscribe((status) => {
+        .subscribe((status, err) => {
           console.log('Subscription status for channel', channelId, ':', status)
+          
+          if (status === 'CHANNEL_ERROR') {
+            console.error('Subscription error:', err)
+            // Attempt to reconnect after a delay
+            scheduleReconnect(channelId, 5000)
+          }
           
           if (status === 'SUBSCRIBED') {
             console.log('Successfully subscribed to channel:', channelId)
@@ -481,11 +485,6 @@ export default function CommunicationHub() {
               console.log('Subscription expired, attempting to resubscribe to channel:', channelId)
               scheduleReconnect(channelId, 1000)
             }
-          } else if (status === 'CHANNEL_ERROR') {
-            console.error('Channel error for:', channelId)
-            stopHeartbeat()
-            // Try to resubscribe after a delay
-            scheduleReconnect(channelId, 2000)
           } else if (status === 'TIMED_OUT') {
             console.error('Subscription timed out for:', channelId)
             stopHeartbeat()

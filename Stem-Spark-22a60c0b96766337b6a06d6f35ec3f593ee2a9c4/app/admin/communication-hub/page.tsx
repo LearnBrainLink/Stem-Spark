@@ -327,11 +327,7 @@ export default function AdminCommunicationHub() {
     try {
       const { data: messagesData, error: messagesError } = await supabase
         .from('chat_messages')
-        .select(`
-          *,
-          sender:profiles(full_name, avatar_url),
-          reply_to:chat_messages(content, sender:profiles(full_name))
-        `)
+        .select('*')
         .eq('channel_id', channelId)
         .order('created_at', { ascending: true });
 
@@ -345,18 +341,61 @@ export default function AdminCommunicationHub() {
         setMessages([]);
         return;
       }
+
+      const senderIds = [...new Set(messagesData.map(msg => msg.sender_id).filter(Boolean))]
+      const profilesMap = new Map()
+
+      if (senderIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', senderIds)
+        
+        profiles?.forEach(profile => profilesMap.set(profile.id, profile))
+      }
       
-      // The data is already shaped correctly due to the new query
-      const formattedMessages = messagesData.map((msg: any) => ({
-        ...msg,
-        sender_name: msg.sender?.full_name || 'Unknown User',
-        reply_to: msg.reply_to ? {
-          content: msg.reply_to.content,
-          profiles: {
-            full_name: msg.reply_to.sender?.full_name || 'Unknown User'
-          }
-        } : undefined
-      }))
+      const replyIds = messagesData.map(msg => msg.reply_to_id).filter(Boolean)
+      const replyMap = new Map()
+
+      if (replyIds.length > 0) {
+        const { data: replyMessages } = await supabase
+          .from('chat_messages')
+          .select('id, content, sender_id')
+          .in('id', replyIds)
+
+        const replySenderIds = [...new Set(replyMessages?.map(msg => msg.sender_id).filter(Boolean))]
+        if (replySenderIds.length > 0 && profiles) {
+           const { data: replyProfiles } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', replySenderIds)
+          
+          const replyProfilesMap = new Map(replyProfiles?.map(p => [p.id, p]))
+
+          replyMessages?.forEach(reply => {
+            const replySender = replyProfilesMap.get(reply.sender_id)
+            replyMap.set(reply.id, {
+              content: reply.content,
+              profiles: {
+                full_name: replySender?.full_name || 'Unknown User'
+              }
+            })
+          })
+        }
+      }
+
+      const formattedMessages = messagesData.map((msg: any) => {
+        const sender = profilesMap.get(msg.sender_id)
+        return {
+          ...msg,
+          sender_name: sender?.full_name || 'Unknown User',
+          sender: sender ? {
+            full_name: sender.full_name,
+            avatar_url: sender.avatar_url
+          } : undefined,
+          reply_to: msg.reply_to_id ? replyMap.get(msg.reply_to_id) : undefined
+        }
+      })
 
       setMessages(formattedMessages);
     } catch (error) {

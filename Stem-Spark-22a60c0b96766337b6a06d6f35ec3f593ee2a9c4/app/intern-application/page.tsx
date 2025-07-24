@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { useState, useEffect } from "react"
+import { supabase } from "@/lib/supabase/client"
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -35,10 +35,6 @@ export default function InternApplication() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState('')
   const router = useRouter()
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
