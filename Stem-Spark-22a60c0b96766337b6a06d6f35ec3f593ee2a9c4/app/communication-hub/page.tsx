@@ -81,24 +81,127 @@ export default function CommunicationHub() {
   const imageInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const subscriptionRef = useRef<any>(null)
+  const heartbeatRef = useRef<NodeJS.Timeout | null>(null)
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Initialize component
   useEffect(() => {
     initializeComponent()
   }, [])
 
-  // Handle channel selection
+  // Handle channel selection with enhanced subscription management
   useEffect(() => {
-    if (selectedChannel) {
-      loadMessages(selectedChannel.id)
-      setupSubscription(selectedChannel.id)
+    if (!selectedChannel) return
+
+    // Clean up previous subscription and heartbeat
+    if (subscriptionRef.current) {
+      console.log('Cleaning up previous subscription')
+      subscriptionRef.current.unsubscribe()
+      subscriptionRef.current = null
     }
-  }, [selectedChannel])
+    stopHeartbeat()
+    clearReconnectTimeout()
+
+    // Load messages for the new channel
+    loadMessages(selectedChannel.id)
+    
+    // Set up new subscription with a small delay to ensure cleanup is complete
+    const timeoutId = setTimeout(() => {
+      setupSubscription(selectedChannel.id)
+    }, 100)
+
+    // Cleanup function for this effect
+    return () => {
+      clearTimeout(timeoutId)
+      if (subscriptionRef.current) {
+        console.log('Cleaning up subscription on channel change')
+        subscriptionRef.current.unsubscribe()
+        subscriptionRef.current = null
+      }
+      stopHeartbeat()
+      clearReconnectTimeout()
+    }
+  }, [selectedChannel?.id])
 
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Monitor connection status and handle reconnection
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('Connection restored, checking subscriptions')
+      if (selectedChannel && !subscriptionRef.current) {
+        console.log('Reconnecting to channel:', selectedChannel.id)
+        setupSubscription(selectedChannel.id)
+      }
+    }
+
+    const handleOffline = () => {
+      console.log('Connection lost, will reconnect when online')
+    }
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [selectedChannel])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (subscriptionRef.current) {
+        console.log('Cleaning up subscription on unmount')
+        subscriptionRef.current.unsubscribe()
+        subscriptionRef.current = null
+      }
+      stopHeartbeat()
+      clearReconnectTimeout()
+    }
+  }, [])
+
+  const startHeartbeat = (channelId: string) => {
+    // Clear existing heartbeat
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current)
+    }
+    
+    // Start new heartbeat
+    heartbeatRef.current = setInterval(() => {
+      if (subscriptionRef.current && subscriptionRef.current.state === 'SUBSCRIBED') {
+        console.log('Sending heartbeat to keep subscription alive for channel:', channelId)
+        subscriptionRef.current.send({ type: 'heartbeat' })
+      }
+    }, 25000) // Every 25 seconds to prevent expiration
+  }
+
+  const stopHeartbeat = () => {
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current)
+      heartbeatRef.current = null
+    }
+  }
+
+  const clearReconnectTimeout = () => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current)
+      reconnectTimeoutRef.current = null
+    }
+  }
+
+  const scheduleReconnect = (channelId: string, delay: number = 1000) => {
+    clearReconnectTimeout()
+    reconnectTimeoutRef.current = setTimeout(() => {
+      if (selectedChannel?.id === channelId) {
+        console.log('Attempting to resubscribe to channel:', channelId)
+        setupSubscription(channelId)
+      }
+    }, delay)
+  }
 
   const initializeComponent = async () => {
     try {
@@ -353,23 +456,41 @@ export default function CommunicationHub() {
             setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
           }
         })
+        .on('presence', { event: 'sync' }, () => {
+          console.log('Presence sync for channel:', channelId)
+        })
+        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+          console.log('User joined channel:', channelId, newPresences)
+        })
+        .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+          console.log('User left channel:', channelId, leftPresences)
+        })
         .subscribe((status) => {
           console.log('Subscription status for channel', channelId, ':', status)
           
           if (status === 'SUBSCRIBED') {
             console.log('Successfully subscribed to channel:', channelId)
+            // Start heartbeat for this subscription
+            startHeartbeat(channelId)
           } else if (status === 'CLOSED') {
             console.log('Subscription closed for channel:', channelId)
             subscriptionRef.current = null
+            stopHeartbeat()
+            // Attempt to resubscribe if this wasn't intentional
+            if (selectedChannel?.id === channelId) {
+              console.log('Subscription expired, attempting to resubscribe to channel:', channelId)
+              scheduleReconnect(channelId, 1000)
+            }
           } else if (status === 'CHANNEL_ERROR') {
             console.error('Channel error for:', channelId)
+            stopHeartbeat()
             // Try to resubscribe after a delay
-            setTimeout(() => {
-              if (selectedChannel?.id === channelId) {
-                console.log('Attempting to resubscribe to channel:', channelId)
-                setupSubscription(channelId)
-              }
-            }, 2000)
+            scheduleReconnect(channelId, 2000)
+          } else if (status === 'TIMED_OUT') {
+            console.error('Subscription timed out for:', channelId)
+            stopHeartbeat()
+            // Immediate reconnection for timeouts
+            scheduleReconnect(channelId, 500)
           }
         })
 
@@ -378,6 +499,8 @@ export default function CommunicationHub() {
       
     } catch (error) {
       console.error('Error setting up subscription for channel:', channelId, error)
+      // Retry on error
+      scheduleReconnect(channelId, 3000)
     }
   }, [selectedChannel?.id])
 
