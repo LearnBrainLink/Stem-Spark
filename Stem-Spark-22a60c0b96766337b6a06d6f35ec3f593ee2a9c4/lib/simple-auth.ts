@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerClient } from "./supabase-simple"
+import { createSimpleServerClient as createServerClient } from "./supabase-simple"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 

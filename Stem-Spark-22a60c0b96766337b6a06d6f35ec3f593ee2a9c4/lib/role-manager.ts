@@ -1,4 +1,4 @@
-import { createServerClient } from "./supabase-simple"
+import { createSimpleServerClient as createServerClient } from "./supabase-simple"
 import type { User } from "@supabase/supabase-js"
 
 export type UserRole = "admin" | "student" | "parent" | "intern"
