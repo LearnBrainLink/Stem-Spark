@@ -270,14 +270,15 @@ export default function CommunicationHub() {
         .from('chat_messages')
         .select(`
           *,
-          sender:profiles!chat_messages_sender_id_fkey(full_name)
+          sender:profiles!chat_messages_sender_id_fkey(full_name, avatar_url)
         `)
         .eq('channel_id', channelId)
         .order('created_at', { ascending: true })
 
       if (error) {
-        console.error('Error fetching messages:', error)
+        console.error('Error loading messages:', error)
         setMessages([])
+        // It's possible the user doesn't have access, so don't alert.
         return
       }
 
@@ -285,7 +286,8 @@ export default function CommunicationHub() {
         console.log(`Found ${data.length} messages for channel ${channelId}`)
         const formattedMessages = data.map(msg => ({
           ...msg,
-          sender_name: msg.sender?.full_name || 'Unknown'
+          sender_name: msg.sender?.full_name || 'Unknown User',
+          avatar_url: msg.sender?.avatar_url
         }))
         setMessages(formattedMessages)
       } else {
@@ -293,7 +295,7 @@ export default function CommunicationHub() {
         setMessages([])
       }
     } catch (error) {
-      console.error('Error in fetchMessages:', error)
+      console.error('Error in fetchMessages catch block:', error)
       setMessages([])
     } finally {
       setMessagesLoading(false)

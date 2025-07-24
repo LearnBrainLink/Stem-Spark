@@ -69,7 +69,7 @@ interface Channel {
   id: string
   name: string
   description: string
-  channel_type: 'public' | 'private' | 'group' | 'announcement' | 'admin_group' | 'intern_group' | 'parent_group' | 'student_group'
+  channel_type: 'public' | 'private' | 'group' | 'announcement'
   created_by: string
   created_at: string
   member_count: number
@@ -298,55 +298,37 @@ export default function AdminCommunicationHub() {
 
   const loadMessages = async (channelId: string) => {
     try {
-      // First get all messages for the channel
       const { data: messages, error: messagesError } = await supabase
         .from('chat_messages')
-        .select('*')
+        .select(`
+          *,
+          sender:profiles!chat_messages_sender_id_fkey(full_name, avatar_url),
+          reply_to:chat_messages!reply_to_id(content, sender:profiles!chat_messages_sender_id_fkey(full_name)),
+          forwarded_from:profiles!chat_messages_forwarded_from_id_fkey(full_name)
+        `)
         .eq('channel_id', channelId)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: true });
 
       if (messagesError) {
-        console.error('Error loading messages:', messagesError)
-        return
+        console.error('Error loading messages:', messagesError);
+        return;
       }
 
       if (!messages || messages.length === 0) {
-        setMessages([])
-        return
+        setMessages([]);
+        return;
       }
 
-      // Get unique sender IDs
-      const senderIds = [...new Set(messages.map(msg => msg.sender_id))]
-
-      // Fetch sender information for all senders
-      const { data: senders, error: sendersError } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .in('id', senderIds)
-
-      if (sendersError) {
-        console.error('Error loading senders:', sendersError)
-      }
-
-      // Create a map of sender ID to sender info
-      const senderMap = new Map()
-      if (senders) {
-        senders.forEach(sender => {
-          senderMap.set(sender.id, sender)
-        })
-      }
-
-      // Combine messages with sender information
       const messagesWithSenders = messages.map(msg => ({
         ...msg,
-        sender_name: senderMap.get(msg.sender_id)?.full_name || 'Unknown User'
-      }))
+        sender_name: msg.sender?.full_name || 'Unknown User'
+      }));
 
-      setMessages(messagesWithSenders)
+      setMessages(messagesWithSenders);
     } catch (error) {
-      console.error('Error loading messages:', error)
+      console.error('Error loading messages:', error);
     }
-  }
+  };
 
   const subscribeToMessages = (channelId: string) => {
     const subscription = supabase
@@ -638,31 +620,23 @@ export default function AdminCommunicationHub() {
         })
 
       if (memberError) {
-        console.error('Member creation error:', memberError)
-        // Don't throw here, channel was created successfully
+        console.error('Member creation error:', memberError);
       }
 
-      // Add members to the channel if any were selected
       if (newChannelData.selectedUsers.length > 0) {
         const memberInserts = newChannelData.selectedUsers.map(userId => ({
           user_id: userId,
           channel_id: channel.id,
           role: 'member'
-        }))
+        }));
 
         const { error: membersError } = await supabase
           .from('chat_channel_members')
-          .insert(memberInserts)
+          .insert(memberInserts);
 
         if (membersError) {
-          console.error('Additional members error:', membersError)
-          // Don't throw here, channel was created successfully
+          console.error('Additional members error:', membersError);
         }
-      }
-
-      // If this is a group channel, automatically add users based on their roles
-      if (['admin_group', 'intern_group', 'parent_group', 'student_group'].includes(channel.channel_type)) {
-        await addUsersToGroupChannel(channel.id, channel.channel_type)
       }
 
       setNewChannelData({
@@ -670,16 +644,16 @@ export default function AdminCommunicationHub() {
         description: '',
         channel_type: 'public',
         selectedUsers: []
-      })
-      setShowCreateDialog(false)
-      loadChannels()
+      });
+      setShowCreateDialog(false);
+      loadChannels();
       
-      console.log('Channel creation completed successfully')
+      console.log('Channel creation completed successfully');
     } catch (error) {
-      console.error('Error creating channel:', error)
-      alert(`Failed to create channel: ${error.message}`)
+      console.error('Error creating channel:', error);
+      alert(`Failed to create channel: ${error.message}`);
     }
-  }
+  };
 
   const handleDeleteChannel = async () => {
     if (!channelToDelete) return
@@ -767,78 +741,6 @@ export default function AdminCommunicationHub() {
     return matchesSearch && matchesType
   })
 
-  // Function to get users by role
-  const getUsersByRole = async (role: string) => {
-    try {
-      const { data: users, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, role')
-        .eq('role', role)
-      
-      if (error) {
-        console.error('Error fetching users by role:', error)
-        return []
-      }
-      
-      return users || []
-    } catch (error) {
-      console.error('Error in getUsersByRole:', error)
-      return []
-    }
-  }
-
-  // Function to automatically add users to group channels
-  const addUsersToGroupChannel = async (channelId: string, channelType: string) => {
-    try {
-      let targetRole = ''
-      
-      // Map channel types to roles
-      switch (channelType) {
-        case 'admin_group':
-          targetRole = 'admin'
-          break
-        case 'intern_group':
-          targetRole = 'intern'
-          break
-        case 'parent_group':
-          targetRole = 'parent'
-          break
-        case 'student_group':
-          targetRole = 'student'
-          break
-        default:
-          return // Not a group channel
-      }
-      
-      // Get all users with the target role
-      const users = await getUsersByRole(targetRole)
-      
-      if (users.length === 0) {
-        console.log(`No users found with role: ${targetRole}`)
-        return
-      }
-      
-      // Add all users to the channel
-      const memberInserts = users.map(user => ({
-        channel_id: channelId,
-        user_id: user.id,
-        role: 'member'
-      }))
-      
-      const { error } = await supabase
-        .from('chat_channel_members')
-        .insert(memberInserts)
-      
-      if (error) {
-        console.error('Error adding users to group channel:', error)
-      } else {
-        console.log(`Added ${users.length} users to ${channelType} channel`)
-      }
-    } catch (error) {
-      console.error('Error in addUsersToGroupChannel:', error)
-    }
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -922,15 +824,8 @@ export default function AdminCommunicationHub() {
                               <SelectItem value="public">Public</SelectItem>
                               <SelectItem value="private">Private</SelectItem>
                               <SelectItem value="group">Group</SelectItem>
-                              {/* Only admins can create announcement and role-specific channels */}
                               {(userRole === 'admin' || userRole === 'super_admin') && (
-                                <>
-                                  <SelectItem value="announcement">Announcement</SelectItem>
-                                  <SelectItem value="admin_group">Admin Group</SelectItem>
-                                  <SelectItem value="intern_group">Intern Group</SelectItem>
-                                  <SelectItem value="parent_group">Parent Group</SelectItem>
-                                  <SelectItem value="student_group">Student Group</SelectItem>
-                                </>
+                                <SelectItem value="announcement">Announcement</SelectItem>
                               )}
                             </SelectContent>
                           </Select>
@@ -1008,10 +903,6 @@ export default function AdminCommunicationHub() {
                     <SelectItem value="private">Private</SelectItem>
                     <SelectItem value="group">Group</SelectItem>
                     <SelectItem value="announcement">Announcement</SelectItem>
-                    <SelectItem value="admin_group">Admin Group</SelectItem>
-                    <SelectItem value="intern_group">Intern Group</SelectItem>
-                    <SelectItem value="parent_group">Parent Group</SelectItem>
-                    <SelectItem value="student_group">Student Group</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
