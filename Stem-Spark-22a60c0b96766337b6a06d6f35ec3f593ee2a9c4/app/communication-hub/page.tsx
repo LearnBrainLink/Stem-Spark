@@ -27,7 +27,8 @@ import {
   Paperclip,
   Reply,
   Download,
-  FileText
+  FileText,
+  Crown
 } from 'lucide-react'
 
 interface Message {
@@ -54,6 +55,7 @@ interface Message {
   sender?: {
     full_name: string
     avatar_url?: string
+    role?: string
   }
 }
 
@@ -112,8 +114,32 @@ export default function CommunicationHub() {
     }
   }, [currentSubscription])
 
+  // URL persistence for selected channel
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const channelId = urlParams.get('channel')
+      
+      if (channelId && channels.length > 0) {
+        const channel = channels.find(c => c.id === channelId)
+        if (channel && selectedChannel?.id !== channel.id) {
+          setSelectedChannel(channel)
+        }
+      } else if (channels.length > 0 && !selectedChannel) {
+        setSelectedChannel(channels[0])
+      }
+    }
+  }, [channels, selectedChannel])
+
   useEffect(() => {
     if (selectedChannel) {
+      // Update URL with selected channel
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location)
+        url.searchParams.set('channel', selectedChannel.id)
+        window.history.replaceState({}, '', url.toString())
+      }
+      
       loadMessages(selectedChannel.id)
       
       if (currentSubscription) {
@@ -231,9 +257,6 @@ export default function CommunicationHub() {
       )
       
       setChannels(channelsWithMemberCount.sort((a, b) => a.name.localeCompare(b.name)));
-      if (channelsWithMemberCount.length > 0 && !selectedChannel) {
-        setSelectedChannel(channelsWithMemberCount[0])
-      }
     } catch (error) {
       console.error('Error loading channels:', error)
     }
@@ -285,7 +308,7 @@ export default function CommunicationHub() {
       const senderIds = [...new Set(messages?.map(msg => msg.sender_id).filter(Boolean) || [])]
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, full_name, avatar_url')
+        .select('id, full_name, avatar_url, role')
         .in('id', senderIds)
 
       const profilesMap = new Map(profiles?.map(p => [p.id, p]) || [])
@@ -327,7 +350,8 @@ export default function CommunicationHub() {
           } : undefined,
           sender: {
             full_name: sender?.full_name || 'Unknown User',
-            avatar_url: sender?.avatar_url
+            avatar_url: sender?.avatar_url,
+            role: sender?.role
           }
         }
       })
@@ -353,7 +377,7 @@ export default function CommunicationHub() {
           // Get sender profile for the new message
           const { data: sender } = await supabase
             .from('profiles')
-            .select('full_name, avatar_url')
+            .select('full_name, avatar_url, role')
             .eq('id', newMessage.sender_id)
             .single()
           
@@ -374,7 +398,8 @@ export default function CommunicationHub() {
             reply_to_id: newMessage.reply_to_id,
             sender: {
               full_name: sender?.full_name || 'Unknown User',
-              avatar_url: sender?.avatar_url
+              avatar_url: sender?.avatar_url,
+              role: sender?.role
             }
           }
           
@@ -672,6 +697,14 @@ export default function CommunicationHub() {
     }
   }
 
+  const isOwnMessage = (message: Message) => {
+    return message.sender_id === user?.id
+  }
+
+  const isAdminUser = (message: Message) => {
+    return message.sender?.role === 'admin' || message.sender?.role === 'super_admin'
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -862,108 +895,127 @@ export default function CommunicationHub() {
                   <div className="space-y-4">
                     {/* Messages */}
                     <div className="space-y-4 max-h-96 overflow-y-auto">
-                      {messages.map((message) => (
-                        <div key={message.id} id={`message-${message.id}`} className="flex space-x-3">
-                          <div className="flex-shrink-0">
-                            <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
-                              {message.sender_name.charAt(0).toUpperCase()}
-                            </div>
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm font-medium text-gray-900">
-                                {message.sender_name}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {new Date(message.created_at).toLocaleString()}
-                              </span>
-                              {message.message_type === 'system' && (
-                                <Badge variant="secondary" className="text-xs">System</Badge>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleReply(message)}
-                                className="h-6 w-6 p-0"
-                              >
-                                <Reply className="w-3 h-3" />
-                              </Button>
-                              {message.sender_id === user.id && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteMessage(message.id)}
-                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
-                                >
-                                  <X className="w-3 h-3" />
-                                </Button>
-                              )}
-                            </div>
-                            
-                            {/* Reply to message */}
-                            {message.reply_to && (
-                              <div 
-                                className="bg-gray-50 border-l-2 border-blue-500 pl-3 py-1 mb-2 rounded cursor-pointer"
-                                onClick={() => {
-                                  const repliedMessageEl = document.getElementById(`message-${message.reply_to_id}`);
-                                  if (repliedMessageEl) {
-                                    repliedMessageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                    repliedMessageEl.classList.add('bg-blue-100', 'transition-colors', 'duration-1000');
-                                    setTimeout(() => {
-                                      repliedMessageEl.classList.remove('bg-blue-100');
-                                    }, 1000);
-                                  }
-                                }}
-                              >
-                                <div className="text-xs text-gray-600">
-                                  Replying to {message.reply_to.sender?.full_name || 'Unknown'}
-                                </div>
-                                <div className="text-sm text-gray-700 truncate">
-                                  {message.reply_to.content}
-                                </div>
+                      {messages.map((message) => {
+                        const isOwn = isOwnMessage(message)
+                        const isAdmin = isAdminUser(message)
+                        
+                        return (
+                          <div key={message.id} id={`message-${message.id}`} className={`flex space-x-3 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                            <div className="flex-shrink-0">
+                              <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
+                                isOwn ? 'bg-green-500' : isAdmin ? 'bg-purple-500' : 'bg-blue-500'
+                              }`}>
+                                {isAdmin && <Crown className="w-3 h-3 mr-1" />}
+                                {message.sender_name.charAt(0).toUpperCase()}
                               </div>
-                            )}
-                            
-                            {/* Message content */}
-                            <div className="mt-1">
-                              {message.message_type === 'image' && message.image_url ? (
-                                <div className="space-y-2">
-                                  <img 
-                                    src={message.image_url} 
-                                    alt={message.image_caption || 'Image'} 
-                                    className="max-w-xs rounded-lg cursor-pointer hover:opacity-80"
-                                    onClick={() => window.open(message.image_url, '_blank')}
-                                  />
-                                  {message.content && message.content !== '📷 Image' && (
-                                    <p className="text-sm text-gray-700">{message.content}</p>
-                                  )}
-                                </div>
-                              ) : message.message_type === 'file' && message.file_url ? (
-                                <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded-lg">
-                                  <FileText className="w-5 h-5 text-blue-500" />
-                                  <div className="flex-1">
-                                    <div className="text-sm font-medium text-gray-900">
-                                      {message.file_name}
-                                    </div>
-                                    <div className="text-xs text-gray-500">
-                                      {formatFileSize(message.file_size || 0)}
-                                    </div>
-                                  </div>
+                            </div>
+                            <div className={`flex-1 ${isOwn ? 'text-right' : ''}`}>
+                              <div className={`flex items-center space-x-2 ${isOwn ? 'justify-end' : ''}`}>
+                                <span className="text-sm font-medium text-gray-900">
+                                  {message.sender_name}
+                                  {isAdmin && <Crown className="w-3 h-3 ml-1 text-purple-500" />}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {new Date(message.created_at).toLocaleString()}
+                                </span>
+                                {message.message_type === 'system' && (
+                                  <Badge variant="secondary" className="text-xs">System</Badge>
+                                )}
+                                {!isOwn && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => window.open(message.file_url, '_blank')}
+                                    onClick={() => handleReply(message)}
+                                    className="h-6 w-6 p-0"
                                   >
-                                    <Download className="w-4 h-4" />
+                                    <Reply className="w-3 h-3" />
                                   </Button>
+                                )}
+                                {isOwn && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDeleteMessage(message.id)}
+                                    className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                )}
+                              </div>
+                              
+                              {/* Reply to message */}
+                              {message.reply_to && (
+                                <div 
+                                  className={`bg-gray-50 border-l-2 border-blue-500 pl-3 py-1 mb-2 rounded cursor-pointer ${isOwn ? 'text-right' : ''}`}
+                                  onClick={() => {
+                                    const repliedMessageEl = document.getElementById(`message-${message.reply_to_id}`);
+                                    if (repliedMessageEl) {
+                                      repliedMessageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                      repliedMessageEl.classList.add('bg-blue-100', 'transition-colors', 'duration-1000');
+                                      setTimeout(() => {
+                                        repliedMessageEl.classList.remove('bg-blue-100');
+                                      }, 1000);
+                                    }
+                                  }}
+                                >
+                                  <div className="text-xs text-gray-600">
+                                    Replying to {message.reply_to.sender?.full_name || 'Unknown'}
+                                  </div>
+                                  <div className="text-sm text-gray-700 truncate">
+                                    {message.reply_to.content}
+                                  </div>
                                 </div>
-                              ) : (
-                                <p className="text-sm text-gray-700">{message.content}</p>
                               )}
+                              
+                              {/* Message content */}
+                              <div className={`mt-1 ${isOwn ? 'text-right' : ''}`}>
+                                {message.message_type === 'image' && message.image_url ? (
+                                  <div className={`space-y-2 ${isOwn ? 'text-right' : ''}`}>
+                                    <img 
+                                      src={message.image_url} 
+                                      alt={message.image_caption || 'Image'} 
+                                      className="max-w-xs rounded-lg cursor-pointer hover:opacity-80"
+                                      onClick={() => window.open(message.image_url, '_blank')}
+                                    />
+                                    {message.content && message.content !== '📷 Image' && (
+                                      <p className="text-sm text-gray-700">{message.content}</p>
+                                    )}
+                                  </div>
+                                ) : message.message_type === 'file' && message.file_url ? (
+                                  <div className={`flex items-center space-x-2 p-2 bg-gray-50 rounded-lg ${isOwn ? 'justify-end' : ''}`}>
+                                    <FileText className="w-5 h-5 text-blue-500" />
+                                    <div className="flex-1">
+                                      <div className="text-sm font-medium text-gray-900">
+                                        {message.file_name}
+                                      </div>
+                                      <div className="text-xs text-gray-500">
+                                        {formatFileSize(message.file_size || 0)}
+                                      </div>
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => window.open(message.file_url, '_blank')}
+                                    >
+                                      <Download className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className={`inline-block p-3 rounded-lg ${
+                                    isOwn 
+                                      ? 'bg-green-500 text-white' 
+                                      : isAdmin 
+                                        ? 'bg-purple-100 text-purple-900' 
+                                        : 'bg-gray-100 text-gray-900'
+                                  }`}>
+                                    <p className="text-sm">{message.content}</p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                       <div ref={messagesEndRef} />
                     </div>
 

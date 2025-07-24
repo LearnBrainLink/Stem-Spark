@@ -157,30 +157,42 @@ export default function AdminCommunicationHub() {
     checkAuth()
   }, [])
 
-  // Cleanup effect for component unmounting
+  // URL persistence for selected channel
   useEffect(() => {
-    return () => {
-      if (currentSubscription) {
-        currentSubscription.unsubscribe()
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const channelId = urlParams.get('channel')
+      
+      if (channelId && channels.length > 0) {
+        const channel = channels.find(c => c.id === channelId)
+        if (channel && selectedChannel?.id !== channel.id) {
+          setSelectedChannel(channel)
+        }
+      } else if (channels.length > 0 && !selectedChannel) {
+        setSelectedChannel(channels[0])
       }
     }
-  }, [currentSubscription])
+  }, [channels, selectedChannel])
 
   useEffect(() => {
     if (selectedChannel) {
+      // Update URL with selected channel
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location)
+        url.searchParams.set('channel', selectedChannel.id)
+        window.history.replaceState({}, '', url.toString())
+      }
+      
       loadMessages(selectedChannel.id)
       
-      // Unsubscribe from previous subscription if it exists
       if (currentSubscription) {
         currentSubscription.unsubscribe()
       }
       
-      // Create new subscription
       const subscription = subscribeToMessages(selectedChannel.id)
       setCurrentSubscription(subscription)
     }
     
-    // Cleanup function to unsubscribe when component unmounts or selectedChannel changes
     return () => {
       if (currentSubscription) {
         currentSubscription.unsubscribe()
