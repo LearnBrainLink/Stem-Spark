@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from './supabase/client';
 import { Database } from './database.types';
 import AdminProtection from './admin-protection';
 import { EmailServiceIntegration } from './email-service-integration';
@@ -36,14 +36,9 @@ export interface VolunteerHoursStats {
 }
 
 class VolunteerHoursService {
-  private supabase;
   private adminProtection;
 
   constructor() {
-    this.supabase = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
     this.adminProtection = new AdminProtection();
   }
 
@@ -66,7 +61,7 @@ class VolunteerHoursService {
       }
 
       // Check if intern exists and has intern role
-      const { data: intern, error: internError } = await this.supabase
+      const { data: intern, error: internError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', submission.intern_id)
@@ -78,7 +73,7 @@ class VolunteerHoursService {
       }
 
       // Create volunteer hours record
-      const { data: volunteerHours, error } = await this.supabase
+      const { data: volunteerHours, error } = await supabase
         .from('volunteer_hours')
         .insert({
           intern_id: submission.intern_id,
@@ -135,7 +130,7 @@ class VolunteerHoursService {
       }
 
       // Get volunteer hours record
-      const { data: volunteerHours, error: fetchError } = await this.supabase
+      const { data: volunteerHours, error: fetchError } = await supabase
         .from('volunteer_hours')
         .select('*, intern:profiles!volunteer_hours_intern_id_fkey(*)')
         .eq('id', hoursId)
@@ -150,7 +145,7 @@ class VolunteerHoursService {
       }
 
       // Update volunteer hours status
-      const { data: updatedHours, error: updateError } = await this.supabase
+      const { data: updatedHours, error: updateError } = await supabase
         .from('volunteer_hours')
         .update({
           status: 'approved',
@@ -214,7 +209,7 @@ class VolunteerHoursService {
       }
 
       // Get volunteer hours record
-      const { data: volunteerHours, error: fetchError } = await this.supabase
+      const { data: volunteerHours, error: fetchError } = await supabase
         .from('volunteer_hours')
         .select('*, intern:profiles!volunteer_hours_intern_id_fkey(*)')
         .eq('id', hoursId)
@@ -229,7 +224,7 @@ class VolunteerHoursService {
       }
 
       // Update volunteer hours status
-      const { data: updatedHours, error: updateError } = await this.supabase
+      const { data: updatedHours, error: updateError } = await supabase
         .from('volunteer_hours')
         .update({
           status: 'rejected',
@@ -267,7 +262,7 @@ class VolunteerHoursService {
     error?: string;
   }> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await supabase
         .from('volunteer_hours')
         .select('*')
         .eq('intern_id', internId)
@@ -294,7 +289,7 @@ class VolunteerHoursService {
     error?: string;
   }> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await supabase
         .from('volunteer_hours')
         .select(`
           *,
@@ -324,7 +319,7 @@ class VolunteerHoursService {
     error?: string;
   }> {
     try {
-      const { data: hours, error } = await this.supabase
+      const { data: hours, error } = await supabase
         .from('volunteer_hours')
         .select('*')
         .eq('intern_id', internId);
@@ -381,7 +376,7 @@ class VolunteerHoursService {
   }> {
     try {
       // Verify tutoring session exists and is completed
-      const { data: session, error: sessionError } = await this.supabase
+      const { data: session, error: sessionError } = await supabase
         .from('tutoring_sessions')
         .select('*')
         .eq('id', sessionId)
@@ -394,7 +389,7 @@ class VolunteerHoursService {
       }
 
       // Check if hours already exist for this session
-      const { data: existingHours } = await this.supabase
+      const { data: existingHours } = await supabase
         .from('volunteer_hours')
         .select('*')
         .eq('reference_id', sessionId)
@@ -405,7 +400,7 @@ class VolunteerHoursService {
       }
 
       // Create volunteer hours record
-      const { data: volunteerHours, error } = await this.supabase
+      const { data: volunteerHours, error } = await supabase
         .from('volunteer_hours')
         .insert({
           intern_id: internId,
@@ -441,7 +436,7 @@ class VolunteerHoursService {
    */
   private async updateInternTotalHours(internId: string): Promise<void> {
     try {
-      const { data: hours } = await this.supabase
+      const { data: hours } = await supabase
         .from('volunteer_hours')
         .select('hours')
         .eq('intern_id', internId)
@@ -449,7 +444,7 @@ class VolunteerHoursService {
 
       const totalHours = hours?.reduce((sum, h) => sum + h.hours, 0) || 0;
 
-      await this.supabase
+      await supabase
         .from('profiles')
         .update({ total_volunteer_hours: totalHours })
         .eq('id', internId);
@@ -467,7 +462,7 @@ class VolunteerHoursService {
   ): Promise<void> {
     try {
       // Get all admin users
-      const { data: admins } = await this.supabase
+      const { data: admins } = await supabase
         .from('profiles')
         .select('email, full_name')
         .eq('role', 'admin');

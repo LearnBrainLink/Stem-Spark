@@ -1,9 +1,8 @@
-import { createClient } from '@/lib/supabase/server'
+import { supabase } from '@/lib/supabase/client'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function validateAdminAccess(request: NextRequest) {
   try {
-    const supabase = createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
     if (authError || !user) {
@@ -75,11 +74,9 @@ export function withSuperAdminProtection(handler: Function) {
 }
 
 class AdminProtectionService {
-  private supabase = createClient()
-
   async getAdminActionLogs(limit: number = 100) {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await supabase
         .from('admin_actions_log')
         .select(`
           *,
@@ -106,7 +103,7 @@ class AdminProtectionService {
     reason?: string
   ) {
     try {
-      const { error } = await this.supabase
+      const { error } = await supabase
         .from('admin_actions_log')
         .insert({
           action_type: actionType,
@@ -126,7 +123,7 @@ class AdminProtectionService {
 
   async validateAdminAccess(userId: string) {
     try {
-      const { data: profile, error } = await this.supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('role, is_super_admin')
         .eq('id', userId)
@@ -150,7 +147,7 @@ class AdminProtectionService {
   async canEditUser(currentUserId: string, targetUserId: string) {
     try {
       // Get current user's role
-      const { data: currentUser, error: currentError } = await this.supabase
+      const { data: currentUser, error: currentError } = await supabase
         .from('profiles')
         .select('role, is_super_admin')
         .eq('id', currentUserId)
@@ -171,7 +168,7 @@ class AdminProtectionService {
       }
 
       // Get target user's role
-      const { data: targetUser, error: targetError } = await this.supabase
+      const { data: targetUser, error: targetError } = await supabase
         .from('profiles')
         .select('role, is_super_admin')
         .eq('id', targetUserId)

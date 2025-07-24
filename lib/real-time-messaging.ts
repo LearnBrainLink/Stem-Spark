@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from './supabase/client';
 import { Database } from './database.types';
 import AdminProtectionService from './admin-protection';
 
@@ -39,14 +39,9 @@ export interface ChannelWithMembers extends ChatChannel {
 }
 
 class RealTimeMessagingService {
-  private supabase;
   private adminProtection;
 
   constructor() {
-    this.supabase = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
     this.adminProtection = new AdminProtectionService();
   }
 
@@ -72,7 +67,7 @@ class RealTimeMessagingService {
       }
 
       // Check if channel name already exists
-      const { data: existingChannel } = await this.supabase
+      const { data: existingChannel } = await supabase
         .from('chat_channels')
         .select('id')
         .eq('name', request.name)
@@ -83,7 +78,7 @@ class RealTimeMessagingService {
       }
 
       // Create channel
-      const { data: channel, error } = await this.supabase
+      const { data: channel, error } = await supabase
         .from('chat_channels')
         .insert({
           name: request.name,
@@ -100,7 +95,7 @@ class RealTimeMessagingService {
       }
 
       // Add creator as admin member
-      await this.supabase
+      await supabase
         .from('chat_channel_members')
         .insert({
           channel_id: channel.id,
@@ -131,7 +126,7 @@ class RealTimeMessagingService {
       }
 
       // Check if user is a member of the channel
-      const { data: membership } = await this.supabase
+      const { data: membership } = await supabase
         .from('chat_channel_members')
         .select('*')
         .eq('channel_id', request.channel_id)
@@ -143,7 +138,7 @@ class RealTimeMessagingService {
       }
 
       // Create message
-      const { data: message, error } = await this.supabase
+      const { data: message, error } = await supabase
         .from('chat_messages')
         .insert({
           channel_id: request.channel_id,
@@ -177,7 +172,7 @@ class RealTimeMessagingService {
   }> {
     try {
       // Check if already a member
-      const { data: existingMember } = await this.supabase
+      const { data: existingMember } = await supabase
         .from('chat_channel_members')
         .select('*')
         .eq('channel_id', request.channel_id)
@@ -189,7 +184,7 @@ class RealTimeMessagingService {
       }
 
       // Add member
-      const { data: member, error } = await this.supabase
+      const { data: member, error } = await supabase
         .from('chat_channel_members')
         .insert({
           channel_id: request.channel_id,
@@ -221,7 +216,7 @@ class RealTimeMessagingService {
   }> {
     try {
       // Check if user is the channel creator
-      const { data: channel } = await this.supabase
+      const { data: channel } = await supabase
         .from('chat_channels')
         .select('created_by')
         .eq('id', channelId)
@@ -232,7 +227,7 @@ class RealTimeMessagingService {
       }
 
       // Remove member
-      const { error } = await this.supabase
+      const { error } = await supabase
         .from('chat_channel_members')
         .delete()
         .eq('channel_id', channelId)
@@ -263,7 +258,7 @@ class RealTimeMessagingService {
     error?: string;
   }> {
     try {
-      const { data: messages, error } = await this.supabase
+      const { data: messages, error } = await supabase
         .from('chat_messages')
         .select(`
           *,
@@ -294,7 +289,7 @@ class RealTimeMessagingService {
     error?: string;
   }> {
     try {
-      const { data: channels, error } = await this.supabase
+      const { data: channels, error } = await supabase
         .from('chat_channels')
         .select(`
           *,
@@ -314,7 +309,7 @@ class RealTimeMessagingService {
       // Get message count for each channel
       const channelsWithCounts = await Promise.all(
         (channels || []).map(async (channel) => {
-          const { count } = await this.supabase
+          const { count } = await supabase
             .from('chat_messages')
             .select('*', { count: 'exact', head: true })
             .eq('channel_id', channel.id);
@@ -342,7 +337,7 @@ class RealTimeMessagingService {
     error?: string;
   }> {
     try {
-      const { data: channels, error } = await this.supabase
+      const { data: channels, error } = await supabase
         .from('chat_channels')
         .select(`
           *,
@@ -362,7 +357,7 @@ class RealTimeMessagingService {
       // Get message count for each channel
       const channelsWithCounts = await Promise.all(
         (channels || []).map(async (channel) => {
-          const { count } = await this.supabase
+          const { count } = await supabase
             .from('chat_messages')
             .select('*', { count: 'exact', head: true })
             .eq('channel_id', channel.id);
@@ -397,7 +392,7 @@ class RealTimeMessagingService {
       console.log('Channel deletion attempted by:', deletedBy);
 
       // Check if user is channel creator or admin
-      const { data: channel } = await this.supabase
+      const { data: channel } = await supabase
         .from('chat_channels')
         .select('created_by')
         .eq('id', channelId)
@@ -414,7 +409,7 @@ class RealTimeMessagingService {
       }
 
       // Delete channel (cascade will handle messages and members)
-      const { error } = await this.supabase
+      const { error } = await supabase
         .from('chat_channels')
         .delete()
         .eq('id', channelId);
@@ -436,7 +431,7 @@ class RealTimeMessagingService {
    */
   async updateUserLastActive(userId: string): Promise<void> {
     try {
-      await this.supabase
+      await supabase
         .from('profiles')
         .update({ last_active: new Date().toISOString() })
         .eq('id', userId);
@@ -455,7 +450,7 @@ class RealTimeMessagingService {
   }> {
     try {
       // Get channel members
-      const { data: members, error: membersError } = await this.supabase
+      const { data: members, error: membersError } = await supabase
         .from('chat_channel_members')
         .select('user_id')
         .eq('channel_id', channelId);
@@ -473,7 +468,7 @@ class RealTimeMessagingService {
       // Get users who were active in the last 5 minutes
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
-      const { data: onlineUsers, error: usersError } = await this.supabase
+      const { data: onlineUsers, error: usersError } = await supabase
         .from('profiles')
         .select('id, full_name, avatar_url, last_active')
         .in('id', userIds)
@@ -497,7 +492,7 @@ class RealTimeMessagingService {
     channelId: string,
     callback: (payload: any) => void
   ) {
-    return this.supabase
+    return supabase
       .channel(`chat:${channelId}`)
       .on(
         'postgres_changes',
@@ -520,7 +515,7 @@ class RealTimeMessagingService {
     userId: string,
     callback: (payload: any) => void
   ) {
-    return this.supabase
+    return supabase
       .channel(`presence:${channelId}`)
       .on('presence', { event: 'sync' }, callback)
       .on('presence', { event: 'join' }, callback)
