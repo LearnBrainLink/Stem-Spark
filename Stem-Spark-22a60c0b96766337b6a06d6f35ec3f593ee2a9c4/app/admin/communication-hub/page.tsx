@@ -481,15 +481,28 @@ export default function AdminCommunicationHub() {
       const { data, error } = await supabase
         .from('chat_messages')
         .insert(messageData)
-        .select(`
-          *,
-          profiles:profiles(full_name, avatar_url),
-          reply_to:chat_messages!reply_to_id(content, profiles(full_name))
-        `)
+        .select('*')
         .single()
 
       if (error) throw error
 
+      // Get sender profile separately
+      const { data: sender } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', data.sender_id)
+        .single()
+
+      const messageWithSender = {
+        ...data,
+        sender_name: sender?.full_name || 'Unknown User',
+        sender: {
+          full_name: sender?.full_name || 'Unknown User',
+          avatar_url: sender?.avatar_url
+        }
+      }
+
+      setMessages(prev => [...prev, messageWithSender])
       setNewMessage('')
       setSelectedFile(null)
       setReplyToMessage(null)

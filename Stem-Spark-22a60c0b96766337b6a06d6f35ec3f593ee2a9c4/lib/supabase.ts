@@ -1,32 +1,21 @@
-import { createClient } from "@supabase/supabase-js"
+import { supabase as clientSupabase, createClient } from "./supabase/client"
 
-// Validate environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl) {
-  throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL environment variable")
-}
-
-if (!supabaseAnonKey) {
-  throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable")
-}
-
-// Client-side Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-  },
-})
+// Re-export the singleton client
+export const supabase = clientSupabase
 
 // Server-side Supabase client
 export const createServerClient = () => {
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  
   if (!supabaseServiceKey) {
     console.error("❌ Missing SUPABASE_SERVICE_ROLE_KEY - using anon key instead")
-    return createClient(supabaseUrl, supabaseAnonKey)
+    return clientSupabase
+  }
+
+  // For server-side operations, we need to create a new client with service key
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!supabaseUrl) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL environment variable")
   }
 
   return createClient(supabaseUrl, supabaseServiceKey, {

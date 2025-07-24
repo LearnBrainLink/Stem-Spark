@@ -1,16 +1,14 @@
 import { createBrowserClient } from '@supabase/ssr'
 
-let supabaseClient: ReturnType<typeof createBrowserClient> | null = null
+// Create a single instance that persists across the entire application
+const supabaseClient = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 export function createClient() {
-  if (!supabaseClient) {
-    supabaseClient = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-  }
   return supabaseClient
 }
 
-// Export a default instance for direct imports
-export const supabase = createClient() 
+// Export the singleton instance for direct imports
+export const supabase = supabaseClient 
