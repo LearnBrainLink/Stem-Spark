@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '@/lib/supabase/client'
+import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -210,14 +210,14 @@ export default function CommunicationHub() {
         return
       }
 
-      const memberChannelData = memberChannels?.map(m => m.chat_channels).filter(c => c !== null) as Channel[] || [];
-      const publicChannelIds = new Set(memberChannelData.map(c => c.id));
+      const memberChannelData = memberChannels?.map(m => m.chat_channels).filter(c => c !== null) || [];
+      const publicChannelIds = new Set(memberChannelData.map((c: any) => c.id));
       const uniquePublicChannels = publicChannels?.filter(c => !publicChannelIds.has(c.id)) || [];
       
       const allChannels = [...memberChannelData, ...uniquePublicChannels];
 
       const channelsWithMemberCount = await Promise.all(
-        allChannels.map(async (channel) => {
+        allChannels.map(async (channel: any) => {
           const { count, error: countError } = await supabase
             .from('chat_channel_members')
             .select('*', { count: 'exact', head: true })
@@ -268,18 +268,43 @@ export default function CommunicationHub() {
         .from('chat_messages')
         .select(`
           *,
-          sender:profiles!chat_messages_sender_id_fkey(full_name, avatar_url),
-          reply_to:chat_messages!reply_to_id(content, sender:profiles!chat_messages_sender_id_fkey(full_name))
+          sender:profiles!chat_messages_sender_id_fkey(full_name, avatar_url)
         `)
         .eq('channel_id', channelId)
         .eq('is_deleted', false)
         .order('created_at', { ascending: true })
 
       if (!error && data) {
-        setMessages(data.map(msg => ({
-          ...msg,
-          sender_name: msg.sender?.full_name || 'Unknown'
-        })))
+        // Load reply messages separately to avoid the foreign key issue
+        const messagesWithReplies = await Promise.all(
+          data.map(async (msg) => {
+            if (msg.reply_to_id) {
+              const { data: replyData } = await supabase
+                .from('chat_messages')
+                .select(`
+                  content,
+                  sender:profiles!chat_messages_sender_id_fkey(full_name)
+                `)
+                .eq('id', msg.reply_to_id)
+                .single()
+              
+              return {
+                ...msg,
+                sender_name: msg.sender?.full_name || 'Unknown',
+                reply_to: replyData ? {
+                  content: replyData.content,
+                  sender: { full_name: replyData.sender?.full_name || 'Unknown' }
+                } : null
+              }
+            }
+            return {
+              ...msg,
+              sender_name: msg.sender?.full_name || 'Unknown'
+            }
+          })
+        )
+        
+        setMessages(messagesWithReplies)
       } else if (error) {
         console.error('Error loading messages:', error)
       }
@@ -296,13 +321,39 @@ export default function CommunicationHub() {
         schema: 'public',
         table: 'chat_messages',
         filter: `channel_id=eq.${channelId}`
-      }, (payload) => {
+      }, async (payload) => {
         if (payload.eventType === 'INSERT') {
           const newMessage = payload.new as any
-          setMessages(prev => [...prev, {
-            ...newMessage,
-            sender_name: newMessage.sender?.full_name || 'Unknown'
-          }])
+          
+          // Get sender profile for the new message
+          const { data: sender } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url')
+            .eq('id', newMessage.sender_id)
+            .single()
+          
+          const formattedMessage: Message = {
+            id: newMessage.id,
+            content: newMessage.content,
+            sender_id: newMessage.sender_id,
+            sender_name: sender?.full_name || 'Unknown User',
+            channel_id: newMessage.channel_id,
+            created_at: newMessage.created_at,
+            message_type: newMessage.message_type || 'text',
+            file_url: newMessage.file_url,
+            image_url: newMessage.image_url,
+            image_caption: newMessage.image_caption,
+            file_name: newMessage.file_name,
+            file_size: newMessage.file_size,
+            file_type: newMessage.file_type,
+            reply_to_id: newMessage.reply_to_id,
+            sender: {
+              full_name: sender?.full_name || 'Unknown User',
+              avatar_url: sender?.avatar_url
+            }
+          }
+          
+          setMessages(prev => [...prev, formattedMessage])
         } else if (payload.eventType === 'DELETE') {
           setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
         }
