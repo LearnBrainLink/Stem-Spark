@@ -29,8 +29,13 @@ export interface RolePermissions {
 }
 
 class AdminProtectionService {
-  private supabase = supabase
-  private supabaseAdmin = createServerClient()
+  private getSupabaseAdmin() {
+    // This function ensures the admin client is only created on the server
+    if (typeof window !== 'undefined') {
+      throw new Error('Admin client should not be used on the client-side.');
+    }
+    return createServerClient();
+  }
 
   // Role permission definitions
   private readonly rolePermissions: Record<string, RolePermissions> = {
@@ -109,7 +114,8 @@ class AdminProtectionService {
   // Get user permissions
   async getUserPermissions(userId: string): Promise<{ success: boolean; permissions?: RolePermissions; error?: string }> {
     try {
-      const { data: user, error } = await this.supabase
+      const supabase = this.getSupabaseAdmin();
+      const { data: user, error } = await supabase
         .from('profiles')
         .select('role, is_super_admin')
         .eq('id', userId)
@@ -146,6 +152,7 @@ class AdminProtectionService {
     targetUserId?: string
   ): Promise<{ success: boolean; allowed: boolean; reason?: string; error?: string }> {
     try {
+      const supabase = this.getSupabaseAdmin();
       // Get performer's permissions
       const { success: permSuccess, permissions: performerPerms, error: permError } = 
         await this.getUserPermissions(performerId)
@@ -157,7 +164,7 @@ class AdminProtectionService {
       // Get target user if provided
       let targetUser: Profile | null = null
       if (targetUserId) {
-        const { data: user, error: userError } = await this.supabase
+        const { data: user, error: userError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', targetUserId)
@@ -282,6 +289,7 @@ class AdminProtectionService {
     isSuperAdmin: boolean = false
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      const supabase = this.getSupabaseAdmin();
       // Check if promoter can promote users
       const { success: canPromote, allowed } = await this.canPerformAdminAction(
         promotedBy,
@@ -303,7 +311,7 @@ class AdminProtectionService {
         updateData.is_super_admin = true
       }
 
-      const { error } = await this.supabase
+      const { error } = await supabase
         .from('profiles')
         .update(updateData)
         .eq('id', userId)
@@ -326,6 +334,7 @@ class AdminProtectionService {
     demotedBy: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      const supabase = this.getSupabaseAdmin();
       // Check if demoter can demote users
       const { success: canDemote, allowed } = await this.canPerformAdminAction(
         demotedBy,
@@ -338,7 +347,7 @@ class AdminProtectionService {
       }
 
       // Get target user
-      const { data: targetUser, error: userError } = await this.supabase
+      const { data: targetUser, error: userError } = await supabase
         .from('profiles')
         .select('role, is_super_admin')
         .eq('id', userId)
@@ -355,7 +364,7 @@ class AdminProtectionService {
       }
 
       // Demote to intern role
-      const { error } = await this.supabase
+      const { error } = await supabase
         .from('profiles')
         .update({
           role: 'intern',
@@ -382,7 +391,8 @@ class AdminProtectionService {
     offset: number = 0
   ): Promise<{ success: boolean; logs?: AdminAction[]; error?: string }> {
     try {
-      const { data: logs, error } = await this.supabase
+      const supabase = this.getSupabaseAdmin();
+      const { data: logs, error } = await supabase
         .from('admin_actions_log')
         .select('*')
         .order('created_at', { ascending: false })
@@ -406,7 +416,8 @@ class AdminProtectionService {
     reason?: string
   ): Promise<void> {
     try {
-      await this.supabase
+      const supabase = this.getSupabaseAdmin();
+      await supabase
         .from('admin_actions_log')
         .insert({
           action_type: actionType,
@@ -423,13 +434,14 @@ class AdminProtectionService {
   // Get admin statistics
   async getAdminStats(): Promise<{ success: boolean; stats?: any; error?: string }> {
     try {
-      const { data: users, error: usersError } = await this.supabase
+      const supabase = this.getSupabaseAdmin();
+      const { data: users, error: usersError } = await supabase
         .from('profiles')
         .select('role, is_super_admin')
 
       if (usersError) throw usersError
 
-      const { data: logs, error: logsError } = await this.supabase
+      const { data: logs, error: logsError } = await supabase
         .from('admin_actions_log')
         .select('*')
 
