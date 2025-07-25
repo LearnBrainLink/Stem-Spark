@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
@@ -16,10 +15,7 @@ import {
   Users,
   MessageCircle,
   Search,
-  Plus,
-  UserPlus,
-  Bell,
-  Settings
+  Bell
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -33,7 +29,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
@@ -51,7 +46,6 @@ interface Message {
   created_at: string;
   updated_at?: string;
   message_type?: string;
-  original_message_id?: string;
   sender?: {
     id: string;
     email: string;
@@ -73,18 +67,10 @@ interface User {
   full_name?: string;
 }
 
-interface ChannelMember {
-  id: string;
-  channel_id: string;
-  user_id: string;
-  joined_at: string;
-}
-
-export default function CommunicationHub() {
+export default function UserCommunicationHub() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [channelMembers, setChannelMembers] = useState<ChannelMember[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<string>('');
   const [newMessage, setNewMessage] = useState('');
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
@@ -94,13 +80,11 @@ export default function CommunicationHub() {
   const [forwardTarget, setForwardTarget] = useState<{ channelId?: string; userId?: string }>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [addMemberDialogOpen, setAddMemberDialogOpen] = useState(false);
-  const [selectedUserForInvite, setSelectedUserForInvite] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const realtimeSubscription = useRef<any>(null);
 
-  // Enhanced real-time messaging with WebSocket-like functionality
+  // Enhanced real-time messaging
   const setupRealtimeMessaging = useCallback((channelId: string) => {
     if (realtimeSubscription.current) {
       supabase.removeChannel(realtimeSubscription.current);
@@ -122,7 +106,6 @@ export default function CommunicationHub() {
           if (payload.eventType === 'INSERT') {
             const newMessage = payload.new as Message;
             setMessages(prev => {
-              // Check if message already exists to prevent duplicates
               if (prev.find(msg => msg.id === newMessage.id)) {
                 return prev;
               }
@@ -139,19 +122,6 @@ export default function CommunicationHub() {
             const deletedMessage = payload.old as Message;
             setMessages(prev => prev.filter(msg => msg.id !== deletedMessage.id));
           }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'chat_channel_members',
-          filter: `channel_id=eq.${channelId}`,
-        },
-        (payload) => {
-          console.log('Real-time member update:', payload);
-          fetchChannelMembers(channelId);
         }
       )
       .subscribe((status) => {
@@ -172,51 +142,8 @@ export default function CommunicationHub() {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error) throw error;
       setCurrentUser(user);
-      
-      // Auto-invite to announcement channels for new users
-      if (user) {
-        await autoInviteToAnnouncementChannels(user.id);
-      }
     } catch (error) {
       console.error('Error getting current user:', error);
-    }
-  };
-
-  const autoInviteToAnnouncementChannels = async (userId: string) => {
-    try {
-      // Get all announcement channels
-      const { data: announcementChannels, error: channelsError } = await supabase
-        .from('chat_channels')
-        .select('*')
-        .eq('is_announcement', true);
-
-      if (channelsError) throw channelsError;
-
-      // Check if user is already a member of these channels
-      for (const channel of announcementChannels || []) {
-        const { data: existingMember, error: memberError } = await supabase
-          .from('chat_channel_members')
-          .select('*')
-          .eq('channel_id', channel.id)
-          .eq('user_id', userId)
-          .single();
-
-        if (memberError && memberError.code === 'PGRST116') {
-          // User is not a member, add them
-          const { error: insertError } = await supabase
-            .from('chat_channel_members')
-            .insert({
-              channel_id: channel.id,
-              user_id: userId,
-            });
-
-          if (!insertError) {
-            console.log(`Auto-invited user ${userId} to announcement channel ${channel.name}`);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error auto-inviting to announcement channels:', error);
     }
   };
 
@@ -260,20 +187,6 @@ export default function CommunicationHub() {
     }
   };
 
-  const fetchChannelMembers = async (channelId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('chat_channel_members')
-        .select('*')
-        .eq('channel_id', channelId);
-
-      if (error) throw error;
-      setChannelMembers(data || []);
-    } catch (error) {
-      console.error('Error fetching channel members:', error);
-    }
-  };
-
   const fetchMessages = async (channelId: string) => {
     try {
       setIsLoading(true);
@@ -291,9 +204,6 @@ export default function CommunicationHub() {
       
       // Setup real-time messaging
       setupRealtimeMessaging(channelId);
-      
-      // Fetch channel members
-      fetchChannelMembers(channelId);
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast({
@@ -414,36 +324,6 @@ export default function CommunicationHub() {
     }
   };
 
-  const addMemberToChannel = async () => {
-    if (!selectedUserForInvite || !selectedChannel) return;
-
-    try {
-      const { error } = await supabase
-        .from('chat_channel_members')
-        .insert({
-          channel_id: selectedChannel,
-          user_id: selectedUserForInvite,
-        });
-
-      if (error) throw error;
-
-      setAddMemberDialogOpen(false);
-      setSelectedUserForInvite('');
-      fetchChannelMembers(selectedChannel);
-      toast({
-        title: "Success",
-        description: "Member added to channel",
-      });
-    } catch (error) {
-      console.error('Error adding member:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add member",
-        variant: "destructive",
-      });
-    }
-  };
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -487,7 +367,7 @@ export default function CommunicationHub() {
       <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
         <div className="p-4 border-b border-gray-200">
           <h1 className="text-xl font-bold text-gray-900">Communication Hub</h1>
-          <p className="text-sm text-gray-600">Real-time messaging system</p>
+          <p className="text-sm text-gray-600">Connect with your community</p>
         </div>
 
         {/* Search */}
@@ -506,15 +386,10 @@ export default function CommunicationHub() {
         {/* Channels */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-gray-700 flex items-center">
-                <MessageCircle className="h-4 w-4 mr-2" />
-                Channels
-              </h2>
-              <Button size="sm" variant="ghost" onClick={() => setAddMemberDialogOpen(true)}>
-                <UserPlus className="h-4 w-4" />
-              </Button>
-            </div>
+            <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+              <MessageCircle className="h-4 w-4 mr-2" />
+              Channels
+            </h2>
             {isLoading ? (
               <div className="text-center py-4">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
@@ -574,7 +449,7 @@ export default function CommunicationHub() {
                     {currentChannel?.name}
                   </h2>
                   <p className="text-sm text-gray-600">
-                    {messages.length} messages • {channelMembers.length} members
+                    {messages.length} messages
                   </p>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -661,37 +536,39 @@ export default function CommunicationHub() {
                         )}
                       </div>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => {
-                          setEditingMessage(message.id);
-                          setEditContent(message.content);
-                        }}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit Message
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => {
-                          setForwardingMessage(message);
-                          setForwardDialogOpen(true);
-                        }}>
-                          <Forward className="h-4 w-4 mr-2" />
-                          Forward Message
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          onClick={() => deleteMessage(message.id)}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete Message
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {message.sender_id === currentUser?.id && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            setEditingMessage(message.id);
+                            setEditContent(message.content);
+                          }}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit Message
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            setForwardingMessage(message);
+                            setForwardDialogOpen(true);
+                          }}>
+                            <Forward className="h-4 w-4 mr-2" />
+                            Forward Message
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => deleteMessage(message.id)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Message
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 ))
               )}
@@ -782,44 +659,6 @@ export default function CommunicationHub() {
                 disabled={!forwardTarget.channelId && !forwardTarget.userId}
               >
                 Forward
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Member Dialog */}
-      <Dialog open={addMemberDialogOpen} onOpenChange={setAddMemberDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Member to Channel</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-gray-700">Select User</label>
-              <select
-                className="mt-1 w-full p-2 border border-gray-300 rounded-md"
-                value={selectedUserForInvite}
-                onChange={(e) => setSelectedUserForInvite(e.target.value)}
-              >
-                <option value="">Select a user</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.full_name || user.email}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setAddMemberDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={addMemberToChannel}
-                disabled={!selectedUserForInvite}
-              >
-                Add Member
               </Button>
             </div>
           </div>
