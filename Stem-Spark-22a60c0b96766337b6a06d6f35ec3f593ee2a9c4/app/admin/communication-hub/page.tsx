@@ -393,8 +393,8 @@ export default function AdminCommunicationHub() {
           sender: sender ? {
             full_name: sender.full_name,
             avatar_url: sender.avatar_url,
-            role: sender.role
-          } : undefined,
+            role: sender.role // Make sure to include the role
+          } : { full_name: 'Unknown User', role: 'student' }, // Provide a default sender object
           reply_to: msg.reply_to_id ? replyMap.get(msg.reply_to_id) : undefined
         }
       })
@@ -419,7 +419,7 @@ export default function AdminCommunicationHub() {
           const newMessage = payload.new as any;
           const { data: sender } = await supabase
             .from('profiles')
-            .select('full_name, avatar_url, role')
+            .select('full_name, avatar_url, role') // Ensure role is fetched
             .eq('id', newMessage.sender_id)
             .single();
 
@@ -429,7 +429,7 @@ export default function AdminCommunicationHub() {
             sender: {
               full_name: sender?.full_name || 'Unknown User',
               avatar_url: sender?.avatar_url,
-              role: sender?.role
+              role: sender?.role // Include role in the sender object
             }
           };
           setMessages(prev => [...prev, messageWithSender]);
