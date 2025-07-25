@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -105,18 +105,51 @@ export default function CommunicationHub() {
   const currentChannelRef = useRef<string>('');
   const isSubscribing = useRef(false);
 
-  // Cleanup function for real-time subscription
-  const cleanupSubscription = useCallback(() => {
+  // Simple cleanup function without useCallback
+  const cleanupSubscription = () => {
     if (realtimeSubscription.current) {
       console.log('Cleaning up subscription for channel:', currentChannelRef.current);
       supabase.removeChannel(realtimeSubscription.current);
       realtimeSubscription.current = null;
       isSubscribing.current = false;
     }
-  }, []);
+  };
 
-  // Enhanced real-time messaging with proper cleanup
-  const setupRealtimeMessaging = useCallback((channelId: string) => {
+  // Fetch complete message with sender information
+  const fetchMessageWithSender = async (messageId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select(`
+          *,
+          sender:profiles(id, email, full_name)
+        `)
+        .eq('id', messageId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setMessages(prev => {
+          // Check if message already exists
+          if (prev.find(msg => msg.id === data.id)) {
+            return prev;
+          }
+          return [...prev, data];
+        });
+        
+        // Remove from queue
+        messageQueue.current.delete(messageId);
+      }
+    } catch (error) {
+      console.error('Error fetching message with sender:', error);
+      // Remove from queue even if error
+      messageQueue.current.delete(messageId);
+    }
+  };
+
+  // Setup real-time messaging without useCallback
+  const setupRealtimeMessaging = (channelId: string) => {
     console.log('Setting up real-time messaging for channel:', channelId);
     
     // Prevent multiple subscriptions
@@ -225,39 +258,6 @@ export default function CommunicationHub() {
       });
 
     return realtimeSubscription.current;
-  }, [cleanupSubscription]);
-
-  // Fetch complete message with sender information
-  const fetchMessageWithSender = async (messageId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select(`
-          *,
-          sender:profiles(id, email, full_name)
-        `)
-        .eq('id', messageId)
-        .single();
-
-      if (error) throw error;
-
-      if (data) {
-        setMessages(prev => {
-          // Check if message already exists
-          if (prev.find(msg => msg.id === data.id)) {
-            return prev;
-          }
-          return [...prev, data];
-        });
-        
-        // Remove from queue
-        messageQueue.current.delete(messageId);
-      }
-    } catch (error) {
-      console.error('Error fetching message with sender:', error);
-      // Remove from queue even if error
-      messageQueue.current.delete(messageId);
-    }
   };
 
   const getCurrentUser = async () => {
@@ -628,7 +628,7 @@ export default function CommunicationHub() {
     return () => {
       cleanupSubscription();
     };
-  }, [cleanupSubscription]);
+  }, []); // Empty dependency array
 
   // Handle channel selection
   useEffect(() => {
@@ -637,14 +637,14 @@ export default function CommunicationHub() {
       currentChannelRef.current = selectedChannel;
       fetchMessages(selectedChannel);
     }
-  }, [selectedChannel]);
+  }, [selectedChannel]); // Only depend on selectedChannel
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (!isInitialLoad.current) {
       scrollToBottom();
     }
-  }, [messages]);
+  }, [messages]); // Only depend on messages
 
   const filteredMessages = messages.filter(message =>
     message.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
