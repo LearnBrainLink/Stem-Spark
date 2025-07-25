@@ -184,6 +184,29 @@ export default function CommunicationHub() {
 
   const autoInviteToAnnouncementChannels = async (userId: string) => {
     try {
+      console.log('Auto-inviting user to announcement channels:', userId);
+      
+      // Call the database function to auto-join announcement channels
+      const { error } = await supabase.rpc('auto_join_announcement_channels', {
+        user_uuid: userId
+      });
+
+      if (error) {
+        console.error('Error calling auto_join_announcement_channels:', error);
+        // Fallback: manually add to announcement channels
+        await manualAddToAnnouncementChannels(userId);
+      } else {
+        console.log('Successfully auto-joined announcement channels');
+      }
+    } catch (error) {
+      console.error('Error auto-inviting to announcement channels:', error);
+      // Fallback: manually add to announcement channels
+      await manualAddToAnnouncementChannels(userId);
+    }
+  };
+
+  const manualAddToAnnouncementChannels = async (userId: string) => {
+    try {
       // Get all announcement channels
       const { data: announcementChannels, error: channelsError } = await supabase
         .from('chat_channels')
@@ -216,7 +239,7 @@ export default function CommunicationHub() {
         }
       }
     } catch (error) {
-      console.error('Error auto-inviting to announcement channels:', error);
+      console.error('Error manually adding to announcement channels:', error);
     }
   };
 
@@ -310,21 +333,34 @@ export default function CommunicationHub() {
     if (!newMessage.trim() || !selectedChannel || !currentUser) return;
 
     try {
-      const { error } = await supabase
+      console.log('Sending message:', {
+        content: newMessage.trim(),
+        sender_id: currentUser.id,
+        channel_id: selectedChannel,
+      });
+
+      const { data, error } = await supabase
         .from('chat_messages')
         .insert({
           content: newMessage.trim(),
           sender_id: currentUser.id,
           channel_id: selectedChannel,
-        });
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      console.log('Message sent successfully:', data);
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
         title: "Error",
-        description: "Failed to send message",
+        description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
     }
