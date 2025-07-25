@@ -101,8 +101,10 @@ export default function CommunicationHub() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const realtimeSubscription = useRef<any>(null);
   const messageQueue = useRef<Set<string>>(new Set());
+  const isInitialLoad = useRef(true);
+  const currentChannelRef = useRef<string>('');
 
-  // Enhanced real-time messaging with immediate updates
+  // Enhanced real-time messaging with stable state management
   const setupRealtimeMessaging = useCallback((channelId: string) => {
     console.log('Setting up real-time messaging for channel:', channelId);
     
@@ -386,16 +388,20 @@ export default function CommunicationHub() {
       if (error) throw error;
       
       console.log('Fetched messages:', data);
-      setMessages(data || []);
+      
+      // Only update messages if we're still on the same channel
+      if (currentChannelRef.current === channelId) {
+        setMessages(data || []);
+      }
       
       // Clear message queue for new channel
       messageQueue.current.clear();
       
-      // Setup real-time messaging
-      setupRealtimeMessaging(channelId);
-      
-      // Fetch channel members
-      fetchChannelMembers(channelId);
+      // Setup real-time messaging only if we're still on the same channel
+      if (currentChannelRef.current === channelId) {
+        setupRealtimeMessaging(channelId);
+        fetchChannelMembers(channelId);
+      }
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast({
@@ -594,20 +600,28 @@ export default function CommunicationHub() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Initialize on component mount
   useEffect(() => {
     getCurrentUser();
     fetchChannels();
     fetchUsers();
+    isInitialLoad.current = false;
   }, []);
 
+  // Handle channel selection
   useEffect(() => {
-    if (selectedChannel) {
+    if (selectedChannel && selectedChannel !== currentChannelRef.current) {
+      console.log('Channel changed from', currentChannelRef.current, 'to', selectedChannel);
+      currentChannelRef.current = selectedChannel;
       fetchMessages(selectedChannel);
     }
   }, [selectedChannel]);
 
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    scrollToBottom();
+    if (!isInitialLoad.current) {
+      scrollToBottom();
+    }
   }, [messages]);
 
   // Cleanup realtime subscription on unmount
