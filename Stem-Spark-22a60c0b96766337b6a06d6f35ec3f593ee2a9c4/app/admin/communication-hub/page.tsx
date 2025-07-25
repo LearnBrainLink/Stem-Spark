@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -37,7 +37,10 @@ import {
   Smile,
   Reply,
   Eye,
-  EyeOff
+  EyeOff,
+  Wifi,
+  WifiOff,
+  Crown
 } from 'lucide-react'
 
 interface Message {
@@ -63,10 +66,10 @@ interface Message {
   is_deleted?: boolean
   reactions?: Record<string, string[]>
   read_by?: string[]
-  sender?: { // Added for consistency
+  sender?: {
     full_name: string
     avatar_url?: string
-    role?: string // Added for role-based styling
+    role?: string
   }
 }
 
@@ -87,6 +90,15 @@ interface User {
   email: string
   role: string
   avatar_url?: string
+}
+
+// Connection status enum for better state management
+enum ConnectionStatus {
+  CONNECTING = 'connecting',
+  CONNECTED = 'connected',
+  RECONNECTING = 'reconnecting',
+  DISCONNECTED = 'disconnected',
+  ERROR = 'error'
 }
 
 export default function AdminCommunicationHub() {
@@ -110,109 +122,301 @@ export default function AdminCommunicationHub() {
   const [userRole, setUserRole] = useState<string>('')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedChannelType, setSelectedChannelType] = useState('all')
-  const subscriptionRef = useRef<any>(null)
   
-  // New state for enhanced features
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [editingMessage, setEditingMessage] = useState<Message | null>(null)
-  const [replyToMessage, setReplyToMessage] = useState<Message | null>(null)
+  // Enhanced realtime features
   const [showForwardDialog, setShowForwardDialog] = useState(false)
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null)
   const [targetChannelId, setTargetChannelId] = useState('')
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null)
+  const [replyToMessage, setReplyToMessage] = useState<Message | null>(null)
   const [showReactions, setShowReactions] = useState<string | null>(null)
+  
+  // Enhanced connection state management
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.CONNECTING)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [reconnectAttempts, setReconnectAttempts] = useState(0)
+  const [lastHeartbeat, setLastHeartbeat] = useState<Date | null>(null)
+  
+  // Performance optimization refs
+  const subscriptionRef = useRef<any>(null)
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const messageQueueRef = useRef<Message[]>([])
+  const throttleTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const handleDebugCreateChannel = async () => {
-    if (!user) {
-      alert('You must be logged in to perform this action.');
-      return;
-    }
-  
-    try {
-      const response = await fetch('/api/admin/debug/create-channel-as-admin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...newChannelData,
-          user_id: user.id,
-        }),
-      });
-  
-      const result = await response.json();
-  
-      if (!response.ok) {
-        throw new Error(result.error || 'An unknown error occurred');
-      }
-  
-      alert('Debug channel created successfully!');
-      await loadChannels();
-      setShowCreateDialog(false);
-    } catch (error: any) {
-      alert(`Debug channel creation failed: ${error.message}`);
-      console.error(error);
-    }
-  };
+  // Constants for optimization
+  const MAX_RECONNECT_ATTEMPTS = 5
+  const HEARTBEAT_INTERVAL = 30000 // 30 seconds
+  const RECONNECT_DELAY = 3000 // 3 seconds
+  const MESSAGE_BATCH_SIZE = 10
+  const MESSAGE_THROTTLE_DELAY = 100 // 100ms
 
+  // Initialize component
   useEffect(() => {
     checkAuthAndLoadData()
+    setupNetworkListeners()
 
-    // Cleanup subscription on unmount
     return () => {
-      if (subscriptionRef.current) {
-        subscriptionRef.current.unsubscribe()
-      }
+      cleanup()
     }
   }, [])
 
+  // Enhanced connection management
   useEffect(() => {
-    // This effect handles URL persistence and ensures a channel is selected when channels load.
-    if (channels.length === 0 || selectedChannel) return;
+    if (!selectedChannel || !user) return
 
+    // Clean up previous connections
+    cleanup()
+    
+    // Load messages and setup new connection
+    loadMessages(selectedChannel.id)
+    setupRealtimeSubscription(selectedChannel.id)
+    
+    // Update URL for persistence
     if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const channelIdFromUrl = urlParams.get('channel');
-      
-      const channelToSelect = channelIdFromUrl 
-        ? channels.find(c => c.id === channelIdFromUrl)
-        : channels[0];
-      
-      if (channelToSelect) {
-        setSelectedChannel(channelToSelect);
+      const url = new URL(window.location.href)
+      url.searchParams.set('channel', selectedChannel.id)
+      window.history.replaceState({ path: url.href }, '', url.href)
+    }
+  }, [selectedChannel?.id, user?.id])
+
+  // Network status monitoring
+  const setupNetworkListeners = useCallback(() => {
+    const handleOnline = () => {
+      setIsOnline(true)
+      if (connectionStatus === ConnectionStatus.DISCONNECTED && selectedChannel) {
+        setupRealtimeSubscription(selectedChannel.id)
       }
     }
-  }, [channels, selectedChannel]);
 
-
-  useEffect(() => {
-    // This effect manages subscriptions and loads messages when the selectedChannel changes.
-    // It's crucial that this is separate from the channel initialization logic.
-    if (!selectedChannel) return;
-    
-    // Update URL
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      url.searchParams.set('channel', selectedChannel.id);
-      window.history.replaceState({ path: url.href }, '', url.href);
+    const handleOffline = () => {
+      setIsOnline(false)
+      setConnectionStatus(ConnectionStatus.DISCONNECTED)
     }
 
-    // Unsubscribe from the previous channel before subscribing to a new one
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [connectionStatus, selectedChannel])
+
+  // Enhanced realtime subscription with robust error handling
+  const setupRealtimeSubscription = useCallback((channelId: string) => {
+    if (!channelId || !user?.id) return
+
+    console.log(`Admin setting up subscription for channel: ${channelId}`)
+    setConnectionStatus(ConnectionStatus.CONNECTING)
+
+    const channel = supabase
+      .channel(`admin-messages:${channelId}:${user.id}`, {
+        config: {
+          broadcast: { ack: true },
+          presence: { key: user.id }
+        }
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'chat_messages',
+        filter: `channel_id=eq.${channelId}`
+      }, handleRealtimeMessage)
+      .on('presence', { event: 'sync' }, () => {
+        console.log('Admin presence synced')
+      })
+      .subscribe((status, err) => {
+        console.log(`Admin subscription status: ${status}`)
+        
+        switch (status) {
+          case 'SUBSCRIBED':
+            setConnectionStatus(ConnectionStatus.CONNECTED)
+            setReconnectAttempts(0)
+            startHeartbeat()
+            break
+          case 'CHANNEL_ERROR':
+            console.error('Admin channel error:', err)
+            setConnectionStatus(ConnectionStatus.ERROR)
+            scheduleReconnect()
+            break
+          case 'TIMED_OUT':
+            console.warn('Admin subscription timed out')
+            setConnectionStatus(ConnectionStatus.RECONNECTING)
+            scheduleReconnect()
+            break
+          case 'CLOSED':
+            console.log('Admin channel closed')
+            setConnectionStatus(ConnectionStatus.DISCONNECTED)
+            if (isOnline) {
+              scheduleReconnect()
+            }
+            break
+        }
+      })
+
+    subscriptionRef.current = channel
+  }, [user?.id, isOnline])
+
+  // Enhanced message handler with optimistic updates
+  const handleRealtimeMessage = useCallback(async (payload: any) => {
+    console.log('Admin realtime message received:', payload)
+    
+    try {
+      if (payload.eventType === 'INSERT') {
+        const newMessage = payload.new as Message
+        
+        // Fetch sender information
+        const { data: sender } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url, role')
+          .eq('id', newMessage.sender_id)
+          .single()
+
+        const messageWithSender = {
+          ...newMessage,
+          sender_name: sender?.full_name || 'Unknown User',
+          sender: {
+            full_name: sender?.full_name || 'Unknown User',
+            avatar_url: sender?.avatar_url,
+            role: sender?.role
+          }
+        }
+
+        // Add to message queue for batch processing
+        addMessageToQueue(messageWithSender)
+        
+      } else if (payload.eventType === 'UPDATE') {
+        setMessages(prev => prev.map(msg => 
+          msg.id === payload.new.id 
+            ? { ...msg, ...payload.new }
+            : msg
+        ))
+      } else if (payload.eventType === 'DELETE') {
+        setMessages(prev => prev.filter(msg => msg.id !== payload.old.id))
+      }
+    } catch (error) {
+      console.error('Error handling admin realtime message:', error)
+    }
+  }, [])
+
+  // Message batching for performance
+  const addMessageToQueue = useCallback((message: Message) => {
+    messageQueueRef.current.push(message)
+    
+    // Clear existing timeout
+    if (throttleTimeoutRef.current) {
+      clearTimeout(throttleTimeoutRef.current)
+    }
+    
+    // Process queue after delay or when batch size is reached
+    if (messageQueueRef.current.length >= MESSAGE_BATCH_SIZE) {
+      processMessageQueue()
+    } else {
+      throttleTimeoutRef.current = setTimeout(processMessageQueue, MESSAGE_THROTTLE_DELAY)
+    }
+  }, [])
+
+  // Process queued messages in batches
+  const processMessageQueue = useCallback(() => {
+    if (messageQueueRef.current.length === 0) return
+
+    const queuedMessages = [...messageQueueRef.current]
+    messageQueueRef.current = []
+
+    setMessages(prev => {
+      const newMessages = [...prev]
+      queuedMessages.forEach(message => {
+        // Avoid duplicates
+        if (!newMessages.find(m => m.id === message.id)) {
+          newMessages.push(message)
+        }
+      })
+      return newMessages.sort((a, b) => 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+    })
+
+    // Auto-scroll to bottom
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 50)
+  }, [])
+
+  // Heartbeat mechanism
+  const startHeartbeat = useCallback(() => {
+    stopHeartbeat()
+    
+    heartbeatIntervalRef.current = setInterval(() => {
+      if (subscriptionRef.current) {
+        try {
+          subscriptionRef.current.send({
+            type: 'heartbeat',
+            timestamp: new Date().toISOString()
+          })
+          setLastHeartbeat(new Date())
+        } catch (error) {
+          console.error('Admin heartbeat failed:', error)
+          setConnectionStatus(ConnectionStatus.ERROR)
+          scheduleReconnect()
+        }
+      }
+    }, HEARTBEAT_INTERVAL)
+  }, [])
+
+  const stopHeartbeat = useCallback(() => {
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current)
+      heartbeatIntervalRef.current = null
+    }
+  }, [])
+
+  // Intelligent reconnection with exponential backoff
+  const scheduleReconnect = useCallback(() => {
+    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS || !isOnline) {
+      console.log('Admin: Max reconnect attempts reached or offline')
+      setConnectionStatus(ConnectionStatus.DISCONNECTED)
+      return
+    }
+
+    const delay = Math.min(RECONNECT_DELAY * Math.pow(2, reconnectAttempts), 30000)
+    console.log(`Admin: Scheduling reconnect in ${delay}ms (attempt ${reconnectAttempts + 1})`)
+    
+    setConnectionStatus(ConnectionStatus.RECONNECTING)
+    setReconnectAttempts(prev => prev + 1)
+
+    reconnectTimeoutRef.current = setTimeout(() => {
+      if (selectedChannel && isOnline) {
+        setupRealtimeSubscription(selectedChannel.id)
+      }
+    }, delay)
+  }, [reconnectAttempts, selectedChannel, isOnline])
+
+  // Enhanced cleanup
+  const cleanup = useCallback(() => {
     if (subscriptionRef.current) {
-      subscriptionRef.current.unsubscribe();
+      console.log('Admin: Cleaning up subscription')
+      subscriptionRef.current.unsubscribe()
+      subscriptionRef.current = null
     }
     
-    // Load messages for the new channel
-    loadMessages(selectedChannel.id);
+    stopHeartbeat()
     
-    // Subscribe to new messages for the selected channel
-    const subscription = subscribeToMessages(selectedChannel.id);
-    subscriptionRef.current = subscription;
-
-  }, [selectedChannel?.id]); // Depend only on the ID to avoid re-running due to object reference changes
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current)
+      reconnectTimeoutRef.current = null
+    }
+    
+    if (throttleTimeoutRef.current) {
+      clearTimeout(throttleTimeoutRef.current)
+      throttleTimeoutRef.current = null
+    }
+    
+    messageQueueRef.current = []
+  }, [stopHeartbeat])
 
   const checkAuthAndLoadData = async () => {
     try {
@@ -223,9 +427,8 @@ export default function AdminCommunicationHub() {
         return
       }
       
-      // Load user profile and then all other data
-      await loadUserProfile(authUser.id);
-      await loadCommunicationData(authUser.id);
+      await loadUserProfile(authUser.id)
+      await loadCommunicationData(authUser.id)
     } catch (error) {
       console.error('Error in checkAuthAndLoadData:', error)
     } finally {
@@ -243,7 +446,7 @@ export default function AdminCommunicationHub() {
 
       if (error) {
         console.error('Error loading profile:', error)
-        throw error;
+        throw error
       }
 
       setUser(profile)
@@ -273,7 +476,7 @@ export default function AdminCommunicationHub() {
         .order('created_at', { ascending: false })
 
       if (channelError) {
-        throw channelError;
+        throw channelError
       }
       
       if (channelData) {
@@ -290,7 +493,7 @@ export default function AdminCommunicationHub() {
             }
           })
         )
-        setChannels(channelsWithMemberCount);
+        setChannels(channelsWithMemberCount)
       }
     } catch (error) {
       console.error('Error loading channels:', error)
@@ -304,7 +507,7 @@ export default function AdminCommunicationHub() {
         .select('id, full_name, email, role, avatar_url')
         .order('full_name')
 
-      if (error) throw error;
+      if (error) throw error
       
       if (userData) {
         setUsers(userData)
@@ -316,8 +519,6 @@ export default function AdminCommunicationHub() {
 
   const loadUnreadCounts = async (userId: string) => {
     try {
-      // This would need to be implemented based on your unread message tracking
-      // For now, we'll set empty counts
       setUnreadCounts({})
     } catch (error) {
       console.error('Error loading unread counts:', error)
@@ -330,17 +531,17 @@ export default function AdminCommunicationHub() {
         .from('chat_messages')
         .select('*')
         .eq('channel_id', channelId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
 
       if (messagesError) {
-        console.error('Error loading messages:', messagesError);
-        setMessages([]);
-        return;
+        console.error('Error loading messages:', messagesError)
+        setMessages([])
+        return
       }
 
       if (!messagesData || messagesData.length === 0) {
-        setMessages([]);
-        return;
+        setMessages([])
+        return
       }
 
       const senderIds = [...new Set(messagesData.map(msg => msg.sender_id).filter(Boolean))]
@@ -365,7 +566,7 @@ export default function AdminCommunicationHub() {
           .in('id', replyIds)
 
         const replySenderIds = [...new Set(replyMessages?.map(msg => msg.sender_id).filter(Boolean))]
-        if (replySenderIds.length > 0 && profiles) {
+        if (replySenderIds.length > 0) {
            const { data: replyProfiles } = await supabase
             .from('profiles')
             .select('id, full_name')
@@ -393,189 +594,71 @@ export default function AdminCommunicationHub() {
           sender: sender ? {
             full_name: sender.full_name,
             avatar_url: sender.avatar_url,
-            role: sender.role // Make sure to include the role
-          } : { full_name: 'Unknown User', role: 'student' }, // Provide a default sender object
+            role: sender.role
+          } : { full_name: 'Unknown User', role: 'student' },
           reply_to: msg.reply_to_id ? replyMap.get(msg.reply_to_id) : undefined
         }
       })
 
-      setMessages(formattedMessages);
+      setMessages(formattedMessages)
     } catch (error) {
-      console.error('Error in loadMessages:', error);
-      setMessages([]);
-    }
-  };
-
-  const subscribeToMessages = (channelId: string) => {
-    const subscription = supabase
-      .channel(`admin-messages:${channelId}`) // Using a unique channel name for admin
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'chat_messages',
-        filter: `channel_id=eq.${channelId}`
-      }, async (payload) => {
-        if (payload.eventType === 'INSERT') {
-          const newMessage = payload.new as any;
-          const { data: sender } = await supabase
-            .from('profiles')
-            .select('full_name, avatar_url, role') // Ensure role is fetched
-            .eq('id', newMessage.sender_id)
-            .single();
-
-          const messageWithSender = {
-            ...newMessage,
-            sender_name: sender?.full_name || 'Unknown User',
-            sender: {
-              full_name: sender?.full_name || 'Unknown User',
-              avatar_url: sender?.avatar_url,
-              role: sender?.role // Include role in the sender object
-            }
-          };
-          setMessages(prev => [...prev, messageWithSender]);
-        } else if (payload.eventType === 'UPDATE') {
-          const updatedMessage = payload.new as any;
-           setMessages(prev => prev.map(msg => 
-            msg.id === updatedMessage.id ? { ...msg, ...updatedMessage, content: updatedMessage.content, edited_at: updatedMessage.edited_at } : msg
-          ));
-        }
-        else if (payload.eventType === 'DELETE') {
-          setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
-        }
-      })
-      .subscribe((status) => {
-        console.log(`Admin subscription status for ${channelId}:`, status)
-        if (status === 'CHANNEL_ERROR') {
-          console.error('Subscription failed, retrying...');
-          setTimeout(() => subscribeToMessages(channelId), 5000);
-        }
-      });
-
-    return subscription
-  }
-
-  // File upload handling
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      setSelectedFile(file)
+      console.error('Error in loadMessages:', error)
+      setMessages([])
     }
   }
 
-  const uploadFile = async (file: File): Promise<string> => {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('type', file.type.startsWith('image/') ? 'image' : 'file')
-
-    const response = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData
-    })
-
-    if (!response.ok) {
-      throw new Error('Upload failed')
-    }
-
-    const data = await response.json()
-    return data.url
-  }
-
-  // Enhanced message sending
+  // Enhanced message sending with optimistic updates
   const handleSendMessage = async () => {
-    if ((!newMessage.trim() && !selectedFile) || !user || !selectedChannel) return
+    if (!newMessage.trim() || !user || !selectedChannel) return
+
+    const tempId = `temp-${Date.now()}`
+    const tempMessage: Message = {
+      id: tempId,
+      content: newMessage.trim(),
+      sender_id: user.id,
+      sender_name: user.full_name,
+      channel_id: selectedChannel.id,
+      created_at: new Date().toISOString(),
+      message_type: 'text',
+      sender: {
+        full_name: user.full_name,
+        avatar_url: user.avatar_url,
+        role: user.role
+      }
+    }
+
+    // Optimistic update
+    setMessages(prev => [...prev, tempMessage])
+    setNewMessage('')
+    setReplyToMessage(null)
 
     try {
-      setUploading(true)
-      let fileUrl = ''
-      let imageUrl = ''
-      let messageType: 'text' | 'file' | 'image' = 'text'
-      let fileName = ''
-      let fileSize = 0
-      let fileType = ''
-
-      if (selectedFile) {
-        // NOTE: The uploadFile function is a placeholder and should be implemented
-        // with a proper backend endpoint for handling file uploads.
-        // For now, we'll simulate the upload.
-        // fileUrl = await uploadFile(selectedFile) 
-        fileName = selectedFile.name
-        fileSize = selectedFile.size
-        fileType = selectedFile.type
-        
-        if (selectedFile.type.startsWith('image/')) {
-          // You would get the real URL from your upload service
-          // imageUrl = fileUrl 
-          messageType = 'image'
-        } else {
-          messageType = 'file'
-        }
-      }
-
-      const messageData: any = {
+      const messageData = {
         content: newMessage.trim(),
         channel_id: selectedChannel.id,
-        sender_id: user.id, // Ensure sender_id is set
-        message_type: messageType
+        sender_id: user.id,
+        message_type: 'text' as const,
+        ...(replyToMessage && { reply_to_id: replyToMessage.id })
       }
 
-      if (fileUrl) messageData.file_url = fileUrl
-      if (imageUrl) messageData.image_url = imageUrl
-      if (fileName) messageData.file_name = fileName
-      if (fileSize) messageData.file_size = fileSize
-      if (fileType) messageData.file_type = fileType
-      if (replyToMessage) messageData.reply_to_id = replyToMessage.id
-
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('chat_messages')
         .insert(messageData)
-        .select(`*, sender:sender_id(*)`)
-        .single()
 
       if (error) throw error
 
-      const messageWithSender = {
-        ...data,
-        sender_name: data.sender?.full_name || 'Unknown User',
-        sender: {
-          ...data.sender,
-          role: data.sender?.role || 'student'
-        }
-      } as Message
-      
-      setMessages(prev => [...prev, messageWithSender])
-      
-      setNewMessage('')
-      setSelectedFile(null)
-      setReplyToMessage(null)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      if (imageInputRef.current) imageInputRef.current.value = ''
+      // Remove temporary message (real message will come via subscription)
+      setMessages(prev => prev.filter(msg => msg.id !== tempId))
+
     } catch (error) {
       console.error('Error sending message:', error)
-      alert('Failed to send message')
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  // Message editing
-  const handleEditMessage = async (messageId: string, newContent: string) => {
-    try {
-      const response = await fetch(`/api/messaging/messages/${messageId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newContent })
-      })
-
-      if (!response.ok) throw new Error('Failed to edit message')
-
-      const updatedMessage = await response.json()
-      setMessages(prev => prev.map(msg => 
-        msg.id === messageId ? { ...msg, ...updatedMessage } : msg
-      ))
-      setEditingMessage(null)
-    } catch (error) {
-      console.error('Error editing message:', error)
-      alert('Failed to edit message')
+      
+      // Remove optimistic update on error
+      setMessages(prev => prev.filter(msg => msg.id !== tempId))
+      
+      // Restore message for retry
+      setNewMessage(newMessage.trim())
+      alert('Failed to send message. Please try again.')
     }
   }
 
@@ -604,7 +687,6 @@ export default function AdminCommunicationHub() {
     if (!forwardingMessage || !targetChannelId) return
 
     try {
-      // Create a new message with forwarded content
       const forwardedContent = `🔄 Forwarded from #${selectedChannel?.name}:\n\n${forwardingMessage.content}`
       
       const { error } = await supabase
@@ -677,7 +759,6 @@ export default function AdminCommunicationHub() {
 
       console.log('Creating channel with user:', user.email)
 
-      // Get user profile to determine their role
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role')
@@ -695,7 +776,6 @@ export default function AdminCommunicationHub() {
 
       console.log('User role confirmed:', profile.role)
 
-      // Create channel directly using Supabase
       const { data: channel, error: channelError } = await supabase
         .from('chat_channels')
         .insert({
@@ -714,7 +794,6 @@ export default function AdminCommunicationHub() {
 
       console.log('Channel created:', channel)
 
-      // Add creator as admin member (channel creator is always admin of their channel)
       const { error: memberError } = await supabase
         .from('chat_channel_members')
         .insert({
@@ -724,11 +803,10 @@ export default function AdminCommunicationHub() {
         })
 
       if (memberError) {
-        console.error('Member creation error:', memberError);
+        console.error('Member creation error:', memberError)
       }
 
       if (newChannelData.selectedUsers.length > 0) {
-        // Filter out the creator if they are already in the selected users list
         const memberIdsToAdd = newChannelData.selectedUsers.filter(userId => userId !== user.id)
         
         if (memberIdsToAdd.length > 0) {
@@ -736,14 +814,14 @@ export default function AdminCommunicationHub() {
             user_id: userId,
             channel_id: channel.id,
             role: 'member'
-          }));
+          }))
 
           const { error: membersError } = await supabase
             .from('chat_channel_members')
-            .insert(memberInserts);
+            .insert(memberInserts)
 
           if (membersError) {
-            console.error('Additional members error:', membersError);
+            console.error('Additional members error:', membersError)
           }
         }
       }
@@ -753,34 +831,31 @@ export default function AdminCommunicationHub() {
         description: '',
         channel_type: 'public',
         selectedUsers: []
-      });
-      setShowCreateDialog(false);
-      loadChannels();
+      })
+      setShowCreateDialog(false)
+      loadChannels()
       
-      console.log('Channel creation completed successfully');
+      console.log('Channel creation completed successfully')
     } catch (error) {
-      console.error('Error creating channel:', error);
-      alert(`Failed to create channel: ${error.message}`);
+      console.error('Error creating channel:', error)
+      alert(`Failed to create channel: ${error.message}`)
     }
-  };
+  }
 
   const handleDeleteChannel = async () => {
     if (!channelToDelete) return
 
     try {
-      // Delete all messages in the channel
       await supabase
         .from('chat_messages')
         .delete()
         .eq('channel_id', channelToDelete.id)
 
-      // Delete all channel members
       await supabase
         .from('chat_channel_members')
         .delete()
         .eq('channel_id', channelToDelete.id)
 
-      // Delete the channel
       const { error } = await supabase
         .from('chat_channels')
         .delete()
@@ -798,30 +873,29 @@ export default function AdminCommunicationHub() {
   }
 
   const handleAddMembers = async (channelId: string) => {
-    if (newChannelData.selectedUsers.length === 0) return;
+    if (newChannelData.selectedUsers.length === 0) return
 
     try {
       const memberInserts = newChannelData.selectedUsers.map(userId => ({
         channel_id: channelId,
         user_id: userId,
         role: 'member'
-      }));
+      }))
 
       const { error } = await supabase
         .from('chat_channel_members')
-        .insert(memberInserts);
+        .insert(memberInserts)
 
-      if (error) throw error;
+      if (error) throw error
 
-      // Reset selection and reload channels to update member count
-      setNewChannelData(prev => ({ ...prev, selectedUsers: [] }));
-      await loadChannels();
-      alert('Members added successfully!');
+      setNewChannelData(prev => ({ ...prev, selectedUsers: [] }))
+      await loadChannels()
+      alert('Members added successfully!')
     } catch (error) {
-      console.error('Error adding members:', error);
-      alert('Failed to add members.');
+      console.error('Error adding members:', error)
+      alert('Failed to add members.')
     }
-  };
+  }
 
   const toggleUserSelection = (userId: string) => {
     setNewChannelData(prev => ({
@@ -833,12 +907,10 @@ export default function AdminCommunicationHub() {
   }
 
   const canCreateChannel = () => {
-    // Allow all authenticated users to create channels
     return !!user
   }
 
   const canDeleteChannel = (channel: Channel) => {
-    // Only admins and super_admins can delete channels
     return userRole === 'admin' || userRole === 'super_admin'
   }
 
@@ -849,7 +921,6 @@ export default function AdminCommunicationHub() {
     return true
   }
 
-  // Function to get the appropriate dashboard URL based on user role
   const getDashboardUrl = () => {
     switch (userRole) {
       case 'admin':
@@ -876,6 +947,36 @@ export default function AdminCommunicationHub() {
     return matchesSearch && matchesType
   })
 
+  // Connection status indicator
+  const ConnectionStatusIndicator = useMemo(() => {
+    const getStatusConfig = () => {
+      switch (connectionStatus) {
+        case ConnectionStatus.CONNECTED:
+          return { icon: Wifi, color: 'text-green-500', text: 'Connected' }
+        case ConnectionStatus.CONNECTING:
+          return { icon: Wifi, color: 'text-yellow-500', text: 'Connecting...' }
+        case ConnectionStatus.RECONNECTING:
+          return { icon: Wifi, color: 'text-orange-500', text: `Reconnecting... (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})` }
+        case ConnectionStatus.DISCONNECTED:
+          return { icon: WifiOff, color: 'text-red-500', text: 'Disconnected' }
+        case ConnectionStatus.ERROR:
+          return { icon: WifiOff, color: 'text-red-600', text: 'Connection Error' }
+        default:
+          return { icon: WifiOff, color: 'text-gray-500', text: 'Unknown' }
+      }
+    }
+
+    const { icon: StatusIcon, color, text } = getStatusConfig()
+
+    return (
+      <div className={`flex items-center space-x-2 ${color}`}>
+        <StatusIcon className="w-4 h-4" />
+        <span className="text-sm">{text}</span>
+        {!isOnline && <span className="text-xs">(Offline)</span>}
+      </div>
+    )
+  }, [connectionStatus, reconnectAttempts, isOnline])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -889,8 +990,11 @@ export default function AdminCommunicationHub() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Communication Hub</h1>
-          <p className="text-gray-600">Manage messaging channels and communications</p>
+          <h1 className="text-3xl font-bold text-gray-900">Admin Communication Hub</h1>
+          <div className="flex items-center space-x-4 mt-1">
+            <p className="text-gray-600">Manage messaging channels and communications</p>
+            {ConnectionStatusIndicator}
+          </div>
         </div>
         <Button 
           variant="outline" 
@@ -1116,7 +1220,7 @@ export default function AdminCommunicationHub() {
                             <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
                               isOwn ? 'bg-green-500' : isAdmin ? 'bg-purple-500' : 'bg-blue-500'
                             }`}>
-                              {isAdmin && <Shield className="w-4 h-4" />}
+                              {isAdmin && <Crown className="w-4 h-4" />}
                               {!isAdmin && message.sender_name.charAt(0).toUpperCase()}
                             </div>
                           </div>
@@ -1124,7 +1228,7 @@ export default function AdminCommunicationHub() {
                             <div className={`flex items-center space-x-2 ${isOwn ? 'justify-end' : ''}`}>
                               <span className="text-sm font-medium text-gray-900">
                                 {message.sender_name}
-                                {isAdmin && <Shield className="w-3 h-3 ml-1 text-purple-500" />}
+                                {isAdmin && <Crown className="w-3 h-3 ml-1 text-purple-500" />}
                               </span>
                               <span className="text-xs text-gray-500">
                                 {new Date(message.created_at).toLocaleString()}
@@ -1140,6 +1244,39 @@ export default function AdminCommunicationHub() {
                                   : 'bg-gray-100 text-gray-900'
                             }`}>
                               <p className="text-sm">{message.content}</p>
+                            </div>
+
+                            {/* Message actions */}
+                            <div className="flex items-center space-x-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {!isOwn && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setReplyToMessage(message)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Reply className="w-3 h-3" />
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setForwardingMessage(message)
+                                  setShowForwardDialog(true)
+                                }}
+                                className="h-6 w-6 p-0"
+                              >
+                                <Forward className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteMessage(message.id)}
+                                className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
                             </div>
                           </div>
                         </div>
@@ -1161,17 +1298,13 @@ export default function AdminCommunicationHub() {
                             handleSendMessage()
                           }
                         }}
-                        disabled={uploading}
+                        disabled={!canSendMessage(selectedChannel)}
                       />
                       <Button
                         onClick={handleSendMessage}
-                        disabled={uploading || !newMessage.trim()}
+                        disabled={!newMessage.trim() || !canSendMessage(selectedChannel)}
                       >
-                        {uploading ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <Send className="w-4 h-4" />
-                        )}
+                        <Send className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>

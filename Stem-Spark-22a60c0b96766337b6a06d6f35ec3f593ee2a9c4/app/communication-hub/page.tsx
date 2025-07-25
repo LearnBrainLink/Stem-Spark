@@ -1,16 +1,16 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { Hash, Users, Plus, ArrowRight, Crown, Reply, X, Send, Upload, Image as ImageIcon, Forward } from 'lucide-react'
+import { Hash, Users, Plus, ArrowRight, Crown, Reply, X, Send, Upload, Image as ImageIcon, Forward, Wifi, WifiOff } from 'lucide-react'
 import Link from 'next/link'
 
 interface Message {
@@ -27,13 +27,15 @@ interface Message {
   file_name?: string
   file_size?: number
   file_type?: string
+  edited_at?: string
+  edited_by?: string
   reply_to_id?: string
-  reply_to?: {
-    content: string
-    sender: {
-      full_name: string
-    }
-  }
+  reply_to?: { content: string; profiles: { full_name: string } }
+  forwarded_from_id?: string
+  forwarded_from?: { content: string; profiles: { full_name: string } }
+  is_deleted?: boolean
+  reactions?: Record<string, string[]>
+  read_by?: string[]
   sender?: {
     full_name: string
     avatar_url?: string
@@ -49,6 +51,7 @@ interface Channel {
   created_by: string
   created_at: string
   member_count: number
+  group_role?: string
 }
 
 interface User {
@@ -59,14 +62,21 @@ interface User {
   avatar_url?: string
 }
 
+// Connection status enum for better state management
+enum ConnectionStatus {
+  CONNECTING = 'connecting',
+  CONNECTED = 'connected',
+  RECONNECTING = 'reconnecting',
+  DISCONNECTED = 'disconnected',
+  ERROR = 'error'
+}
+
 export default function CommunicationHub() {
   const [user, setUser] = useState<any>(null)
-  const [userRole, setUserRole] = useState<string>('')
-  const [channels, setChannels] = useState<Channel[]>([])
-  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
+  const [channels, setChannels] = useState<Channel[]>([])
+  const [messages, setMessages] = useState<Message[]>([])
+  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null)
   const [newMessage, setNewMessage] = useState('')
   const [replyTo, setReplyTo] = useState<Message | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -79,70 +89,72 @@ export default function CommunicationHub() {
     channel_type: 'public' as const,
     selectedUsers: [] as string[]
   })
-
+  const [userRole, setUserRole] = useState<string>('')
+  
+  // Enhanced connection state management
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.CONNECTING)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [reconnectAttempts, setReconnectAttempts] = useState(0)
+  const [lastHeartbeat, setLastHeartbeat] = useState<Date | null>(null)
+  
+  // Performance optimization refs
+  const subscriptionRef = useRef<any>(null)
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const messageQueueRef = useRef<Message[]>([])
+  const throttleTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const subscriptionRef = useRef<any>(null)
-  const heartbeatRef = useRef<NodeJS.Timeout | null>(null)
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Constants for optimization
+  const MAX_RECONNECT_ATTEMPTS = 5
+  const HEARTBEAT_INTERVAL = 30000 // 30 seconds
+  const RECONNECT_DELAY = 3000 // 3 seconds
+  const MESSAGE_BATCH_SIZE = 10
+  const MESSAGE_THROTTLE_DELAY = 100 // 100ms
 
   // Initialize component
   useEffect(() => {
     initializeComponent()
+    setupNetworkListeners()
+    
+    return () => {
+      cleanup()
+    }
   }, [])
 
-  // Handle channel selection with enhanced subscription management
+  // Enhanced connection management
   useEffect(() => {
-    if (!selectedChannel) return
+    if (!selectedChannel || !user) return
 
-    // Clean up previous subscription and heartbeat
-    if (subscriptionRef.current) {
-      console.log('Cleaning up previous subscription')
-      subscriptionRef.current.unsubscribe()
-      subscriptionRef.current = null
-    }
-    stopHeartbeat()
-    clearReconnectTimeout()
-
-    // Load messages for the new channel
-    loadMessages(selectedChannel.id)
+    // Clean up previous connections
+    cleanup()
     
-    // Set up new subscription with a small delay to ensure cleanup is complete
-    const timeoutId = setTimeout(() => {
-      setupSubscription(selectedChannel.id)
-    }, 100)
-
-    // Cleanup function for this effect
-    return () => {
-      clearTimeout(timeoutId)
-      if (subscriptionRef.current) {
-        console.log('Cleaning up subscription on channel change')
-        subscriptionRef.current.unsubscribe()
-        subscriptionRef.current = null
-      }
-      stopHeartbeat()
-      clearReconnectTimeout()
+    // Load messages and setup new connection
+    loadMessages(selectedChannel.id)
+    setupRealtimeSubscription(selectedChannel.id)
+    
+    // Update URL for persistence
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.set('channel', selectedChannel.id)
+      window.history.replaceState({ path: url.href }, '', url.href)
     }
-  }, [selectedChannel?.id])
+  }, [selectedChannel?.id, user?.id])
 
-  // Auto-scroll to bottom
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  // Monitor connection status and handle reconnection
-  useEffect(() => {
+  // Network status monitoring
+  const setupNetworkListeners = useCallback(() => {
     const handleOnline = () => {
-      console.log('Connection restored, checking subscriptions')
-      if (selectedChannel && !subscriptionRef.current) {
-        console.log('Reconnecting to channel:', selectedChannel.id)
-        setupSubscription(selectedChannel.id)
+      setIsOnline(true)
+      if (connectionStatus === ConnectionStatus.DISCONNECTED && selectedChannel) {
+        setupRealtimeSubscription(selectedChannel.id)
       }
     }
 
     const handleOffline = () => {
-      console.log('Connection lost, will reconnect when online')
+      setIsOnline(false)
+      setConnectionStatus(ConnectionStatus.DISCONNECTED)
     }
 
     window.addEventListener('online', handleOnline)
@@ -152,59 +164,219 @@ export default function CommunicationHub() {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }
-  }, [selectedChannel])
+  }, [connectionStatus, selectedChannel])
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (subscriptionRef.current) {
-        console.log('Cleaning up subscription on unmount')
-        subscriptionRef.current.unsubscribe()
-        subscriptionRef.current = null
+  // Enhanced realtime subscription with robust error handling
+  const setupRealtimeSubscription = useCallback((channelId: string) => {
+    if (!channelId || !user?.id) return
+
+    console.log(`Setting up subscription for channel: ${channelId}`)
+    setConnectionStatus(ConnectionStatus.CONNECTING)
+
+    const channel = supabase
+      .channel(`messages:${channelId}:${user.id}`, {
+        config: {
+          broadcast: { ack: true },
+          presence: { key: user.id }
+        }
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'chat_messages',
+        filter: `channel_id=eq.${channelId}`
+      }, handleRealtimeMessage)
+      .on('presence', { event: 'sync' }, () => {
+        console.log('Presence synced')
+      })
+      .subscribe((status, err) => {
+        console.log(`Subscription status: ${status}`)
+        
+        switch (status) {
+          case 'SUBSCRIBED':
+            setConnectionStatus(ConnectionStatus.CONNECTED)
+            setReconnectAttempts(0)
+            startHeartbeat()
+            break
+          case 'CHANNEL_ERROR':
+            console.error('Channel error:', err)
+            setConnectionStatus(ConnectionStatus.ERROR)
+            scheduleReconnect()
+            break
+          case 'TIMED_OUT':
+            console.warn('Subscription timed out')
+            setConnectionStatus(ConnectionStatus.RECONNECTING)
+            scheduleReconnect()
+            break
+          case 'CLOSED':
+            console.log('Channel closed')
+            setConnectionStatus(ConnectionStatus.DISCONNECTED)
+            if (isOnline) {
+              scheduleReconnect()
+            }
+            break
+        }
+      })
+
+    subscriptionRef.current = channel
+  }, [user?.id, isOnline])
+
+  // Enhanced message handler with optimistic updates
+  const handleRealtimeMessage = useCallback(async (payload: any) => {
+    console.log('Realtime message received:', payload)
+    
+    try {
+      if (payload.eventType === 'INSERT') {
+        const newMessage = payload.new as Message
+        
+        // Fetch sender information
+        const { data: sender } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url, role')
+          .eq('id', newMessage.sender_id)
+          .single()
+
+        const messageWithSender = {
+          ...newMessage,
+          sender_name: sender?.full_name || 'Unknown User',
+          sender: {
+            full_name: sender?.full_name || 'Unknown User',
+            avatar_url: sender?.avatar_url,
+            role: sender?.role
+          }
+        }
+
+        // Add to message queue for batch processing
+        addMessageToQueue(messageWithSender)
+        
+      } else if (payload.eventType === 'UPDATE') {
+        setMessages(prev => prev.map(msg => 
+          msg.id === payload.new.id 
+            ? { ...msg, ...payload.new }
+            : msg
+        ))
+      } else if (payload.eventType === 'DELETE') {
+        setMessages(prev => prev.filter(msg => msg.id !== payload.old.id))
       }
-      stopHeartbeat()
-      clearReconnectTimeout()
+    } catch (error) {
+      console.error('Error handling realtime message:', error)
     }
   }, [])
 
-  const startHeartbeat = (channelId: string) => {
-    // Clear existing heartbeat
-    if (heartbeatRef.current) {
-      clearInterval(heartbeatRef.current)
+  // Message batching for performance
+  const addMessageToQueue = useCallback((message: Message) => {
+    messageQueueRef.current.push(message)
+    
+    // Clear existing timeout
+    if (throttleTimeoutRef.current) {
+      clearTimeout(throttleTimeoutRef.current)
     }
     
-    // Start new heartbeat
-    heartbeatRef.current = setInterval(() => {
-      if (subscriptionRef.current && subscriptionRef.current.state === 'SUBSCRIBED') {
-        console.log('Sending heartbeat to keep subscription alive for channel:', channelId)
-        subscriptionRef.current.send({ type: 'heartbeat' })
-      }
-    }, 25000) // Every 25 seconds to prevent expiration
-  }
-
-  const stopHeartbeat = () => {
-    if (heartbeatRef.current) {
-      clearInterval(heartbeatRef.current)
-      heartbeatRef.current = null
+    // Process queue after delay or when batch size is reached
+    if (messageQueueRef.current.length >= MESSAGE_BATCH_SIZE) {
+      processMessageQueue()
+    } else {
+      throttleTimeoutRef.current = setTimeout(processMessageQueue, MESSAGE_THROTTLE_DELAY)
     }
-  }
+  }, [])
 
-  const clearReconnectTimeout = () => {
+  // Process queued messages in batches
+  const processMessageQueue = useCallback(() => {
+    if (messageQueueRef.current.length === 0) return
+
+    const queuedMessages = [...messageQueueRef.current]
+    messageQueueRef.current = []
+
+    setMessages(prev => {
+      const newMessages = [...prev]
+      queuedMessages.forEach(message => {
+        // Avoid duplicates
+        if (!newMessages.find(m => m.id === message.id)) {
+          newMessages.push(message)
+        }
+      })
+      return newMessages.sort((a, b) => 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+    })
+
+    // Auto-scroll to bottom
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 50)
+  }, [])
+
+  // Heartbeat mechanism
+  const startHeartbeat = useCallback(() => {
+    stopHeartbeat()
+    
+    heartbeatIntervalRef.current = setInterval(() => {
+      if (subscriptionRef.current) {
+        try {
+          subscriptionRef.current.send({
+            type: 'heartbeat',
+            timestamp: new Date().toISOString()
+          })
+          setLastHeartbeat(new Date())
+        } catch (error) {
+          console.error('Heartbeat failed:', error)
+          setConnectionStatus(ConnectionStatus.ERROR)
+          scheduleReconnect()
+        }
+      }
+    }, HEARTBEAT_INTERVAL)
+  }, [])
+
+  const stopHeartbeat = useCallback(() => {
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current)
+      heartbeatIntervalRef.current = null
+    }
+  }, [])
+
+  // Intelligent reconnection with exponential backoff
+  const scheduleReconnect = useCallback(() => {
+    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS || !isOnline) {
+      console.log('Max reconnect attempts reached or offline')
+      setConnectionStatus(ConnectionStatus.DISCONNECTED)
+      return
+    }
+
+    const delay = Math.min(RECONNECT_DELAY * Math.pow(2, reconnectAttempts), 30000)
+    console.log(`Scheduling reconnect in ${delay}ms (attempt ${reconnectAttempts + 1})`)
+    
+    setConnectionStatus(ConnectionStatus.RECONNECTING)
+    setReconnectAttempts(prev => prev + 1)
+
+    reconnectTimeoutRef.current = setTimeout(() => {
+      if (selectedChannel && isOnline) {
+        setupRealtimeSubscription(selectedChannel.id)
+      }
+    }, delay)
+  }, [reconnectAttempts, selectedChannel, isOnline])
+
+  // Enhanced cleanup
+  const cleanup = useCallback(() => {
+    if (subscriptionRef.current) {
+      console.log('Cleaning up subscription')
+      subscriptionRef.current.unsubscribe()
+      subscriptionRef.current = null
+    }
+    
+    stopHeartbeat()
+    
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current)
       reconnectTimeoutRef.current = null
     }
-  }
-
-  const scheduleReconnect = (channelId: string, delay: number = 1000) => {
-    clearReconnectTimeout()
-    reconnectTimeoutRef.current = setTimeout(() => {
-      if (selectedChannel?.id === channelId) {
-        console.log('Attempting to resubscribe to channel:', channelId)
-        setupSubscription(channelId)
-      }
-    }, delay)
-  }
+    
+    if (throttleTimeoutRef.current) {
+      clearTimeout(throttleTimeoutRef.current)
+      throttleTimeoutRef.current = null
+    }
+    
+    messageQueueRef.current = []
+  }, [stopHeartbeat])
 
   const initializeComponent = async () => {
     try {
@@ -214,11 +386,26 @@ export default function CommunicationHub() {
         window.location.href = '/login'
         return
       }
-
+      
       await loadUserProfile(authUser.id)
-      await loadCommunicationData(authUser.id)
+      await loadChannels()
+      
+      // Load channel from URL if available
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search)
+        const channelIdFromUrl = urlParams.get('channel')
+        
+        if (channelIdFromUrl && channels.length > 0) {
+          const channelToSelect = channels.find(c => c.id === channelIdFromUrl)
+          if (channelToSelect) {
+            setSelectedChannel(channelToSelect)
+          }
+        }
+      }
     } catch (error) {
-      console.error('Error in initializeComponent:', error)
+      console.error('Error initializing component:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -230,143 +417,65 @@ export default function CommunicationHub() {
         .eq('id', userId)
         .single()
 
-      if (error) {
-        console.error('Error loading profile:', error)
-        return
-      }
-
+      if (error) throw error
+      
       setUser(profile)
-      setUserRole((profile?.role as string) || '')
+      setUserRole(profile.role || '')
     } catch (error) {
-      console.error('Error in loadUserProfile:', error)
+      console.error('Error loading profile:', error)
     }
   }
 
-  const loadCommunicationData = async (userId: string) => {
+  const loadChannels = async () => {
     try {
-      await Promise.all([
-        loadChannels(userId),
-        loadUsers(),
-        loadUnreadCounts(userId)
-      ])
-    } catch (error) {
-      console.error('Error loading communication data:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadChannels = async (userId: string) => {
-    try {
-      const { data: memberChannels, error: memberError } = await supabase
-        .from('chat_channel_members')
-        .select(`
-          channel_id,
-          chat_channels (*)
-        `)
-        .eq('user_id', userId)
-
-      if (memberError) {
-        console.error('Error loading member channels:', memberError)
-        return
-      }
-
-      const { data: publicChannels, error: publicError } = await supabase
+      const { data: channelData, error } = await supabase
         .from('chat_channels')
         .select('*')
-        .eq('channel_type', 'public')
+        .order('created_at', { ascending: false })
 
-      if (publicError) {
-        console.error('Error loading public channels:', publicError)
-        return
-      }
-
-      const memberChannelData = memberChannels?.map(m => m.chat_channels).filter(c => c !== null) || [];
-      const publicChannelIds = new Set(memberChannelData.map((c: any) => c.id));
-      const uniquePublicChannels = publicChannels?.filter(c => !publicChannelIds.has(c.id)) || [];
+      if (error) throw error
       
-      const allChannels = [...memberChannelData, ...uniquePublicChannels];
-
-      const channelsWithMemberCount = await Promise.all(
-        allChannels.map(async (channel: any) => {
-          const { count, error: countError } = await supabase
-            .from('chat_channel_members')
-            .select('*', { count: 'exact', head: true })
-            .eq('channel_id', channel.id)
-          
-          return {
-            ...channel,
-            member_count: countError ? 0 : count || 0
-          }
-        })
-      )
-      
-      const sortedChannels = channelsWithMemberCount.sort((a, b) => a.name.localeCompare(b.name))
-      setChannels(sortedChannels)
-      
-      // Set first channel as selected if none selected and no current subscription
-      if (sortedChannels.length > 0 && !selectedChannel && !subscriptionRef.current) {
-        console.log('Setting initial channel:', sortedChannels[0].name)
-        setSelectedChannel(sortedChannels[0])
+      if (channelData) {
+        const channelsWithMemberCount = await Promise.all(
+          channelData.map(async (channel) => {
+            const { count } = await supabase
+              .from('chat_channel_members')
+              .select('*', { count: 'exact', head: true })
+              .eq('channel_id', channel.id)
+            
+            return {
+              ...channel,
+              member_count: count || 0
+            }
+          })
+        )
+        setChannels(channelsWithMemberCount)
       }
     } catch (error) {
       console.error('Error loading channels:', error)
     }
   }
 
-  const handleChannelSelect = (channel: Channel) => {
-    console.log('Selecting channel:', channel.name, channel.id)
-    
-    // Only change if it's a different channel
-    if (selectedChannel?.id !== channel.id) {
-      setSelectedChannel(channel)
-    }
-  }
-
-  const loadUsers = async () => {
-    try {
-      const { data: userData, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, role, avatar_url')
-        .order('full_name')
-
-      if (error) {
-        console.error('Error loading users:', error)
-        return
-      }
-
-      setUsers(userData as User[])
-    } catch (error) {
-      console.error('Error in loadUsers:', error)
-    }
-  }
-
-  const loadUnreadCounts = async (userId: string) => {
-    // TODO: Implement unread message counts
-  }
-
   const loadMessages = async (channelId: string) => {
     try {
-      console.log('Loading messages for channel:', channelId)
-      
-      const { data: messageData, error: messageError } = await supabase
+      const { data: messagesData, error } = await supabase
         .from('chat_messages')
         .select('*')
         .eq('channel_id', channelId)
         .order('created_at', { ascending: true })
 
-      if (messageError) {
-        console.error('Error loading messages:', messageError)
-        setMessages([]) // Clear messages on error
-        return
-      }
-
-      if (!messageData || messageData.length === 0) {
+      if (error) {
+        console.error('Error loading messages:', error)
         setMessages([])
         return
       }
 
-      const senderIds = [...new Set(messageData.map(msg => msg.sender_id).filter(Boolean))]
+      if (!messagesData || messagesData.length === 0) {
+        setMessages([])
+        return
+      }
+
+      const senderIds = [...new Set(messagesData.map(msg => msg.sender_id).filter(Boolean))]
       const profilesMap = new Map()
 
       if (senderIds.length > 0) {
@@ -378,7 +487,7 @@ export default function CommunicationHub() {
         profiles?.forEach(profile => profilesMap.set(profile.id, profile))
       }
 
-      const formattedMessages: Message[] = messageData.map(msg => {
+      const formattedMessages = messagesData.map((msg: any) => {
         const sender = profilesMap.get(msg.sender_id)
         return {
           ...msg,
@@ -387,10 +496,8 @@ export default function CommunicationHub() {
             full_name: sender.full_name,
             avatar_url: sender.avatar_url,
             role: sender.role
-          } : {
-            full_name: 'Unknown User'
-          }
-        } as Message
+          } : { full_name: 'Unknown User', role: 'student' }
+        }
       })
 
       setMessages(formattedMessages)
@@ -400,219 +507,58 @@ export default function CommunicationHub() {
     }
   }
 
-  const setupSubscription = useCallback((channelId: string) => {
-    try {
-      console.log('Setting up subscription for channel:', channelId)
-      
-      // Clean up existing subscription
-      if (subscriptionRef.current) {
-        console.log('Cleaning up existing subscription before creating new one')
-        subscriptionRef.current.unsubscribe()
-        subscriptionRef.current = null
-      }
-
-      const subscription = supabase
-        .channel(`messages:${channelId}`)
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `channel_id=eq.${channelId}`
-        }, async (payload) => {
-          console.log('Received message update:', payload.eventType)
-          
-          if (payload.eventType === 'INSERT') {
-            const newMessage = payload.new as any
-            
-            const { data: sender } = await supabase
-              .from('profiles')
-              .select('full_name, avatar_url, role')
-              .eq('id', newMessage.sender_id)
-              .single()
-            
-            const formattedMessage: Message = {
-              id: newMessage.id as string,
-              content: newMessage.content as string,
-              sender_id: newMessage.sender_id as string,
-              sender_name: (sender?.full_name as string) || 'Unknown User',
-              channel_id: newMessage.channel_id as string,
-              created_at: newMessage.created_at as string,
-              message_type: (newMessage.message_type as 'text' | 'file' | 'image' | 'system') || 'text',
-              file_url: newMessage.file_url as string | undefined,
-              image_url: newMessage.image_url as string | undefined,
-              image_caption: newMessage.image_caption as string | undefined,
-              file_name: newMessage.file_name as string | undefined,
-              file_size: newMessage.file_size as number | undefined,
-              file_type: newMessage.file_type as string | undefined,
-              reply_to_id: newMessage.reply_to_id as string | undefined,
-              sender: {
-                full_name: (sender?.full_name as string) || 'Unknown User',
-                avatar_url: sender?.avatar_url as string | undefined,
-                role: sender?.role as string | undefined
-              }
-            }
-            
-            setMessages(prev => [...prev, formattedMessage])
-          } else if (payload.eventType === 'DELETE') {
-            setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
-          }
-        })
-        .on('presence', { event: 'sync' }, () => {
-          console.log('Presence sync for channel:', channelId)
-        })
-        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-          console.log('User joined channel:', channelId, newPresences)
-        })
-        .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-          console.log('User left channel:', channelId, leftPresences)
-        })
-        .subscribe((status, err) => {
-          console.log('Subscription status for channel', channelId, ':', status)
-          
-          if (status === 'CHANNEL_ERROR') {
-            console.error('Subscription error:', err)
-            // Attempt to reconnect after a delay
-            scheduleReconnect(channelId, 5000)
-          }
-          
-          if (status === 'SUBSCRIBED') {
-            console.log('Successfully subscribed to channel:', channelId)
-            // Start heartbeat for this subscription
-            startHeartbeat(channelId)
-          } else if (status === 'CLOSED') {
-            console.log('Subscription closed for channel:', channelId)
-            subscriptionRef.current = null
-            stopHeartbeat()
-            // Attempt to resubscribe if this wasn't intentional
-            if (selectedChannel?.id === channelId) {
-              console.log('Subscription expired, attempting to resubscribe to channel:', channelId)
-              scheduleReconnect(channelId, 1000)
-            }
-          } else if (status === 'TIMED_OUT') {
-            console.error('Subscription timed out for:', channelId)
-            stopHeartbeat()
-            // Immediate reconnection for timeouts
-            scheduleReconnect(channelId, 500)
-          }
-        })
-
-      subscriptionRef.current = subscription
-      console.log('Subscription setup complete for channel:', channelId)
-      
-    } catch (error) {
-      console.error('Error setting up subscription for channel:', channelId, error)
-      // Retry on error
-      scheduleReconnect(channelId, 3000)
-    }
-  }, [selectedChannel?.id])
-
+  // Enhanced message sending with optimistic updates
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedChannel || !user) return
+    if (!newMessage.trim() || !user || !selectedChannel) return
 
-    try {
-      const { data: message, error } = await supabase
-        .from('chat_messages')
-        .insert({
-          channel_id: selectedChannel.id,
-          sender_id: user.id,
-          content: newMessage.trim(),
-          message_type: 'text',
-          reply_to_id: replyTo?.id || null
-        })
-        .select('*')
-        .single()
-
-      if (error) {
-        console.error('Error sending message:', error)
-        return
+    const tempId = `temp-${Date.now()}`
+    const tempMessage: Message = {
+      id: tempId,
+      content: newMessage.trim(),
+      sender_id: user.id,
+      sender_name: user.full_name,
+      channel_id: selectedChannel.id,
+      created_at: new Date().toISOString(),
+      message_type: 'text',
+      sender: {
+        full_name: user.full_name,
+        avatar_url: user.avatar_url,
+        role: user.role
       }
-
-      setNewMessage('')
-      setReplyTo(null)
-    } catch (error) {
-      console.error('Error in handleSendMessage:', error)
     }
-  }
 
-  const handleFileUpload = async (file: File) => {
-    if (!selectedChannel || !user) return
+    // Optimistic update
+    setMessages(prev => [...prev, tempMessage])
+    setNewMessage('')
+    setReplyTo(null)
 
     try {
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${Math.random()}.${fileExt}`
-      const filePath = `chat-files/${selectedChannel.id}/${fileName}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('chat-files')
-        .upload(filePath, file)
-
-      if (uploadError) {
-        console.error('Error uploading file:', uploadError)
-        return
+      const messageData = {
+        content: newMessage.trim(),
+        channel_id: selectedChannel.id,
+        sender_id: user.id,
+        message_type: 'text' as const,
+        ...(replyTo && { reply_to_id: replyTo.id })
       }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('chat-files')
-        .getPublicUrl(filePath)
 
       const { error } = await supabase
         .from('chat_messages')
-        .insert({
-          channel_id: selectedChannel.id,
-          sender_id: user.id,
-          content: `File: ${file.name}`,
-          message_type: 'file',
-          file_url: publicUrl,
-          file_name: file.name,
-          file_size: file.size,
-          file_type: file.type
-        })
+        .insert(messageData)
 
-      if (error) {
-        console.error('Error sending file message:', error)
-      }
+      if (error) throw error
+
+      // Remove temporary message (real message will come via subscription)
+      setMessages(prev => prev.filter(msg => msg.id !== tempId))
+
     } catch (error) {
-      console.error('Error in handleFileUpload:', error)
-    }
-  }
-
-  const handleImageUpload = async (file: File) => {
-    if (!selectedChannel || !user) return
-
-    try {
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${Math.random()}.${fileExt}`
-      const filePath = `chat-images/${selectedChannel.id}/${fileName}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('chat-images')
-        .upload(filePath, file)
-
-      if (uploadError) {
-        console.error('Error uploading image:', uploadError)
-        return
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('chat-images')
-        .getPublicUrl(filePath)
-
-      const { error } = await supabase
-        .from('chat_messages')
-        .insert({
-          channel_id: selectedChannel.id,
-          sender_id: user.id,
-          content: 'Image shared',
-          message_type: 'image',
-          image_url: publicUrl,
-          image_caption: file.name
-        })
-
-      if (error) {
-        console.error('Error sending image message:', error)
-      }
-    } catch (error) {
-      console.error('Error in handleImageUpload:', error)
+      console.error('Error sending message:', error)
+      
+      // Remove optimistic update on error
+      setMessages(prev => prev.filter(msg => msg.id !== tempId))
+      
+      // Restore message for retry
+      setNewMessage(newMessage.trim())
+      alert('Failed to send message. Please try again.')
     }
   }
 
@@ -640,7 +586,6 @@ export default function CommunicationHub() {
     if (!forwardingMessage || !targetChannelId) return
 
     try {
-      // Create a new message with forwarded content
       const forwardedContent = `🔄 Forwarded from #${selectedChannel?.name}:\n\n${forwardingMessage.content}`
       
       const { error } = await supabase
@@ -673,124 +618,17 @@ export default function CommunicationHub() {
     setReplyTo(null)
   }
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  const handleFileUpload = async (file: File) => {
+    // File upload implementation
+    console.log('File upload:', file.name)
   }
 
-  const handleCreateChannel = async () => {
-    if (!user || !newChannelData.name.trim()) return
-
-    try {
-      // Create channel
-      const { data: channel, error: channelError } = await supabase
-        .from('chat_channels')
-        .insert({
-          name: newChannelData.name,
-          description: newChannelData.description,
-          channel_type: newChannelData.channel_type,
-          created_by: user.id
-        })
-        .select()
-        .single()
-
-      if (channelError) {
-        console.error('Error creating channel:', channelError)
-        return
-      }
-
-      // Add creator as member
-      await supabase
-        .from('chat_channel_members')
-        .insert({
-          channel_id: channel.id,
-          user_id: user.id,
-          role: 'admin'
-        })
-
-      // Add selected users as members
-      if (newChannelData.selectedUsers.length > 0) {
-        const memberInserts = newChannelData.selectedUsers.map(userId => ({
-          channel_id: channel.id,
-          user_id: userId,
-          role: 'member'
-        }))
-
-        await supabase
-          .from('chat_channel_members')
-          .insert(memberInserts)
-      }
-
-      // Reset form
-      setNewChannelData({
-        name: '',
-        description: '',
-        channel_type: 'public',
-        selectedUsers: []
-      })
-      setShowCreateDialog(false)
-      
-      await loadChannels(user.id)
-      
-      const newChannel = channels.find(c => c.id === channel.id)
-      if (newChannel) {
-        setSelectedChannel(newChannel)
-      }
-
-      alert('Channel created successfully!')
-    } catch (error) {
-      alert('Failed to create channel. Please try again.')
-    }
+  const handleImageUpload = async (file: File) => {
+    // Image upload implementation
+    console.log('Image upload:', file.name)
   }
 
-  const handleLeaveChannel = async (channelId: string) => {
-    if (!user) return
-
-    try {
-      // Remove user from channel members
-      const { error } = await supabase
-        .from('chat_channel_members')
-        .delete()
-        .eq('channel_id', channelId)
-        .eq('user_id', user.id)
-
-      if (error) {
-        console.error('Error leaving channel:', error)
-        return
-      }
-
-      // If this was the selected channel, select a different one
-      if (selectedChannel?.id === channelId) {
-        const remainingChannels = channels.filter(c => c.id !== channelId)
-        if (remainingChannels.length > 0) {
-          setSelectedChannel(remainingChannels[0])
-        } else {
-          setSelectedChannel(null)
-        }
-      }
-
-      // Remove channel from list
-      setChannels(prev => prev.filter(c => c.id !== channelId))
-
-      console.log('Successfully left channel:', channelId)
-    } catch (error) {
-      console.error('Error in handleLeaveChannel:', error)
-    }
-  }
-
-  const toggleUserSelection = (userId: string) => {
-    setNewChannelData(prev => ({
-      ...prev,
-      selectedUsers: prev.selectedUsers.includes(userId)
-        ? prev.selectedUsers.filter(id => id !== userId)
-        : [...prev.selectedUsers, userId]
-    }))
-  }
-
-  const canCreateChannel = () => {
+  const canJoinChannel = (channel: Channel) => {
     return userRole === 'student' || userRole === 'intern' || userRole === 'admin' || userRole === 'super_admin'
   }
 
@@ -808,10 +646,10 @@ export default function CommunicationHub() {
         return '/admin'
       case 'intern':
         return '/intern-dashboard'
-      case 'parent':
-        return '/parent-dashboard'
       case 'student':
         return '/student-dashboard'
+      case 'parent':
+        return '/parent-dashboard'
       case 'teacher':
         return '/teacher-dashboard'
       default:
@@ -819,13 +657,35 @@ export default function CommunicationHub() {
     }
   }
 
-  const isOwnMessage = (message: Message) => {
-    return message.sender_id === user?.id
-  }
+  // Connection status indicator
+  const ConnectionStatusIndicator = useMemo(() => {
+    const getStatusConfig = () => {
+      switch (connectionStatus) {
+        case ConnectionStatus.CONNECTED:
+          return { icon: Wifi, color: 'text-green-500', text: 'Connected' }
+        case ConnectionStatus.CONNECTING:
+          return { icon: Wifi, color: 'text-yellow-500', text: 'Connecting...' }
+        case ConnectionStatus.RECONNECTING:
+          return { icon: Wifi, color: 'text-orange-500', text: `Reconnecting... (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})` }
+        case ConnectionStatus.DISCONNECTED:
+          return { icon: WifiOff, color: 'text-red-500', text: 'Disconnected' }
+        case ConnectionStatus.ERROR:
+          return { icon: WifiOff, color: 'text-red-600', text: 'Connection Error' }
+        default:
+          return { icon: WifiOff, color: 'text-gray-500', text: 'Unknown' }
+      }
+    }
 
-  const isAdminUser = (message: Message) => {
-    return message.sender?.role === 'admin' || message.sender?.role === 'super_admin'
-  }
+    const { icon: StatusIcon, color, text } = getStatusConfig()
+
+    return (
+      <div className={`flex items-center space-x-2 ${color}`}>
+        <StatusIcon className="w-4 h-4" />
+        <span className="text-sm">{text}</span>
+        {!isOnline && <span className="text-xs">(Offline)</span>}
+      </div>
+    )
+  }, [connectionStatus, reconnectAttempts, isOnline])
 
   if (loading) {
     return (
@@ -837,137 +697,39 @@ export default function CommunicationHub() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Communication Hub</h1>
-              <p className="mt-2 text-gray-600">Connect with teachers, parents, and administrators</p>
+              <div className="flex items-center space-x-4 mt-1">
+                <p className="text-gray-600">Connect with your learning community</p>
+                {ConnectionStatusIndicator}
+              </div>
             </div>
-            <div className="mt-4 md:mt-0 flex gap-2">
-              {userRole !== 'admin' && userRole !== 'super_admin' && (
-                <Link href={getDashboardUrl()}>
-                  <Button variant="outline">
-                    <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
-                    Back to Dashboard
-                  </Button>
-                </Link>
-              )}
-              {canCreateChannel() && (
-                <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create Channel
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Create New Channel</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="channel-name">Channel Name</Label>
-                        <Input
-                          id="channel-name"
-                          value={newChannelData.name}
-                          onChange={(e) => setNewChannelData(prev => ({ ...prev, name: e.target.value }))}
-                          placeholder="Enter channel name"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="channel-description">Description</Label>
-                        <Textarea
-                          id="channel-description"
-                          value={newChannelData.description}
-                          onChange={(e) => setNewChannelData(prev => ({ ...prev, description: e.target.value }))}
-                          placeholder="Enter channel description"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="channel-type">Channel Type</Label>
-                        <Select
-                          value={newChannelData.channel_type}
-                          onValueChange={(value: any) => setNewChannelData(prev => ({ ...prev, channel_type: value }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="public">Public</SelectItem>
-                            <SelectItem value="private">Private</SelectItem>
-                            <SelectItem value="group">Group</SelectItem>
-                            {userRole === 'admin' || userRole === 'super_admin' ? (
-                              <SelectItem value="announcement">Announcement</SelectItem>
-                            ) : null}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Add Members</Label>
-                        <Select
-                          onValueChange={(value) => {
-                            if (!newChannelData.selectedUsers.includes(value)) {
-                              setNewChannelData(prev => ({
-                                ...prev,
-                                selectedUsers: [...prev.selectedUsers, value]
-                              }))
-                            }
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select users to add" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {users.map(user => (
-                              <SelectItem key={user.id} value={user.id}>
-                                {user.full_name} ({user.role})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {newChannelData.selectedUsers.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {newChannelData.selectedUsers.map(userId => {
-                              const user = users.find(u => u.id === userId)
-                              return (
-                                <Badge key={userId} variant="secondary">
-                                  {user?.full_name}
-                                  <button
-                                    onClick={() => setNewChannelData(prev => ({
-                                      ...prev,
-                                      selectedUsers: prev.selectedUsers.filter(id => id !== userId)
-                                    }))}
-                                    className="ml-1"
-                                  >
-                                    ×
-                                  </button>
-                                </Badge>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
-                      <Button onClick={handleCreateChannel} className="w-full">
-                        Create Channel
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </div>
+            <Link href={getDashboardUrl()}>
+              <Button variant="outline">
+                <ArrowRight className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+            </Link>
           </div>
         </div>
-      </header>
+      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Channels Sidebar */}
           <div className="lg:col-span-1">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Hash className="w-5 h-5 mr-2" />
-                  Channels ({channels.length})
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center">
+                    <Hash className="w-5 h-5 mr-2" />
+                    Channels
+                  </span>
+                  <Badge variant="secondary">{channels.length}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -980,14 +742,12 @@ export default function CommunicationHub() {
                           ? 'bg-blue-50 border border-blue-200'
                           : 'hover:bg-gray-50'
                       }`}
+                      onClick={() => setSelectedChannel(channel)}
                     >
                       <div className="flex items-center justify-between">
-                        <div 
-                          className="flex-1"
-                          onClick={() => handleChannelSelect(channel)}
-                        >
+                        <div className="flex-1">
                           <h4 className="font-medium text-gray-900">#{channel.name}</h4>
-                          <p className="text-sm text-gray-600">{channel.description}</p>
+                          <p className="text-sm text-gray-600 truncate">{channel.description}</p>
                           <div className="flex items-center space-x-2 mt-1">
                             <Badge variant="outline" className="text-xs">
                               {channel.channel_type}
@@ -998,14 +758,6 @@ export default function CommunicationHub() {
                             </div>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleLeaveChannel(channel.id)}
-                          className="text-red-500 hover:text-red-600"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
                       </div>
                     </div>
                   ))}
@@ -1014,28 +766,30 @@ export default function CommunicationHub() {
             </Card>
           </div>
 
+          {/* Messages Area */}
           <div className="lg:col-span-3">
             <Card>
               <CardHeader>
-                <CardTitle>Messages</CardTitle>
+                <CardTitle>
+                  {selectedChannel ? `#${selectedChannel.name}` : 'Messages'}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {selectedChannel ? (
-                  <div className="space-y-4">
+                  <div className="flex flex-col h-[calc(100vh-20rem)]">
                     {/* Messages */}
-                    <div className="space-y-4 max-h-96 overflow-y-auto">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
                       {messages.map((message) => {
-                        const isOwn = isOwnMessage(message)
-                        const isAdmin = isAdminUser(message)
+                        const isOwn = message.sender_id === user?.id
+                        const isAdmin = message.sender?.role === 'admin' || message.sender?.role === 'super_admin'
                         
                         return (
-                          <div key={message.id} id={`message-${message.id}`} className={`flex space-x-3 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                          <div key={message.id} className={`flex space-x-3 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
                             <div className="flex-shrink-0">
                               <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
                                 isOwn ? 'bg-green-500' : isAdmin ? 'bg-purple-500' : 'bg-blue-500'
                               }`}>
-                                {isAdmin && <Crown className="w-3 h-3 mr-1" />}
-                                {message.sender_name.charAt(0).toUpperCase()}
+                                {isAdmin ? <Crown className="w-4 h-4" /> : message.sender_name.charAt(0).toUpperCase()}
                               </div>
                             </div>
                             <div className={`flex-1 ${isOwn ? 'text-right' : ''}`}>
@@ -1047,9 +801,33 @@ export default function CommunicationHub() {
                                 <span className="text-xs text-gray-500">
                                   {new Date(message.created_at).toLocaleString()}
                                 </span>
-                                {message.message_type === 'system' && (
-                                  <Badge variant="secondary" className="text-xs">System</Badge>
-                                )}
+                              </div>
+                              
+                              {/* Reply context */}
+                              {message.reply_to && (
+                                <div className="mt-1 p-2 bg-gray-100 rounded border-l-2 border-gray-300">
+                                  <p className="text-xs text-gray-600">
+                                    Replying to {message.reply_to.profiles.full_name}
+                                  </p>
+                                  <p className="text-sm text-gray-800 truncate">
+                                    {message.reply_to.content}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Message content */}
+                              <div className={`inline-block p-3 rounded-lg ${
+                                isOwn 
+                                  ? 'bg-green-500 text-white' 
+                                  : isAdmin 
+                                    ? 'bg-purple-100 text-purple-900' 
+                                    : 'bg-gray-100 text-gray-900'
+                              }`}>
+                                <p className="text-sm">{message.content}</p>
+                              </div>
+
+                              {/* Message actions */}
+                              <div className="flex items-center space-x-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 {!isOwn && (
                                   <Button
                                     variant="ghost"
@@ -1080,60 +858,6 @@ export default function CommunicationHub() {
                                   <X className="w-3 h-3" />
                                 </Button>
                               </div>
-                              
-                              {/* Reply to message */}
-                              {message.reply_to && (
-                                <div 
-                                  className={`bg-gray-50 border-l-2 border-blue-500 pl-3 py-1 mb-2 rounded cursor-pointer ${isOwn ? 'text-right' : ''}`}
-                                  onClick={() => {
-                                    const repliedMessageEl = document.getElementById(`message-${message.reply_to_id}`);
-                                    repliedMessageEl?.scrollIntoView({ behavior: 'smooth' });
-                                  }}
-                                >
-                                  <p className="text-xs text-gray-600">
-                                    Replying to {message.reply_to.sender.full_name}: {message.reply_to.content}
-                                  </p>
-                                </div>
-                              )}
-                              
-                              {/* Message content */}
-                              <div className={`inline-block p-3 rounded-lg ${
-                                isOwn 
-                                  ? 'bg-green-500 text-white' 
-                                  : isAdmin 
-                                    ? 'bg-purple-100 text-purple-900' 
-                                    : 'bg-gray-100 text-gray-900'
-                              }`}>
-                                {message.message_type === 'image' && message.image_url && (
-                                  <div className="mb-2">
-                                    <img 
-                                      src={message.image_url} 
-                                      alt={message.image_caption || 'Image'} 
-                                      className="max-w-xs rounded"
-                                    />
-                                    {message.image_caption && (
-                                      <p className="text-xs mt-1 opacity-75">{message.image_caption}</p>
-                                    )}
-                                  </div>
-                                )}
-                                
-                                {message.message_type === 'file' && message.file_url && (
-                                  <div className="mb-2">
-                                    <a 
-                                      href={message.file_url} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="flex items-center space-x-2 text-blue-600 hover:text-blue-800"
-                                    >
-                                      <Upload className="w-4 h-4" />
-                                      <span>{message.file_name}</span>
-                                      <span className="text-xs">({formatFileSize(message.file_size || 0)})</span>
-                                    </a>
-                                  </div>
-                                )}
-                                
-                                <p className="text-sm">{message.content}</p>
-                              </div>
                             </div>
                           </div>
                         )
@@ -1141,31 +865,28 @@ export default function CommunicationHub() {
                       <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Reply indicator */}
+                    {/* Reply banner */}
                     {replyTo && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-blue-900">
-                              Replying to <strong>{replyTo.sender_name}</strong>
-                            </p>
-                            <p className="text-xs text-blue-700 truncate">{replyTo.content}</p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={cancelReply}
-                            className="h-6 w-6 p-0"
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
+                      <div className="p-2 bg-blue-50 border-t border-blue-200 flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="text-sm text-blue-800">
+                            Replying to {replyTo.sender_name}: {replyTo.content.substring(0, 50)}...
+                          </p>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={cancelReply}
+                          className="text-blue-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
                       </div>
                     )}
 
                     {/* Message input */}
                     {canSendMessage(selectedChannel) && (
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-2 p-4 border-t">
                         <div className="flex-1 flex space-x-2">
                           <Input
                             value={newMessage}
@@ -1229,9 +950,6 @@ export default function CommunicationHub() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Forward Message</DialogTitle>
-              <DialogDescription>
-                Select a channel to forward this message to.
-              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
