@@ -299,52 +299,31 @@ export default function UsersPage() {
     try {
       setActionLoading('delete')
       
-      // Delete user's messages
-      await supabase
-        .from('chat_messages')
-        .delete()
-        .eq('sender_id', userId)
-
-      // Remove user from all channels
-      await supabase
-        .from('chat_channel_members')
-        .delete()
-        .eq('user_id', userId)
-
-      // Delete user's volunteer hours
-      await supabase
-        .from('volunteer_hours')
-        .delete()
-        .eq('intern_id', userId)
-
-      // Delete user's tutoring sessions
-      await supabase
-        .from('tutoring_sessions')
-        .delete()
-        .eq('student_id', userId)
-
-      // Delete user's tutoring sessions as intern
-      await supabase
-        .from('tutoring_sessions')
-        .delete()
-        .eq('intern_id', userId)
-
-      // Delete user's intern applications
+      // Get the user's email before deleting the profile
       const userToDelete = users.find(u => u.id === userId)
-      if (userToDelete) {
-        await supabase
-          .from('intern_applications')
-          .delete()
-          .eq('email', userToDelete.email)
+      if (!userToDelete) {
+        throw new Error('User not found')
       }
-
-      // Delete user profile
-      const { error: deleteError } = await supabase
+      const userEmail = userToDelete.email;
+      
+      // Delete user from auth
+      const { error: authError } = await supabase.auth.admin.deleteUser(userId)
+      if (authError) throw authError
+      
+      // Delete user's profile
+      const { error: profileError } = await supabase
         .from('profiles')
         .delete()
         .eq('id', userId)
-
-      if (deleteError) throw deleteError
+      if (profileError) throw profileError
+      
+      // Delete associated data
+      await supabase.from('chat_messages').delete().eq('sender_id', userId)
+      await supabase.from('chat_channel_members').delete().eq('user_id', userId)
+      await supabase.from('volunteer_hours').delete().eq('intern_id', userId)
+      await supabase.from('tutoring_sessions').delete().eq('student_id', userId)
+      await supabase.from('tutoring_sessions').delete().eq('intern_id', userId)
+      await supabase.from('intern_applications').delete().eq('email', userEmail)
 
       // Log the admin action
       await supabase
@@ -617,14 +596,13 @@ export default function UsersPage() {
                         )}
                         {canDeleteUser(user) && (
                           <Button
-                            variant="outline"
+                            variant="destructive"
                             size="sm"
                             onClick={() => {
                               setSelectedUser(user)
                               setShowDeleteModal(true)
                             }}
                             disabled={actionLoading !== null}
-                            className="text-red-600 hover:text-red-900"
                           >
                             <Trash2 className="w-4 h-4 mr-1" />
                             Delete

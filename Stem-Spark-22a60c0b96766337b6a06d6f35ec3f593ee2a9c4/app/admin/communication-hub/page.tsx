@@ -786,6 +786,32 @@ export default function AdminCommunicationHub() {
     }
   }
 
+  const handleAddMembers = async (channelId: string) => {
+    if (newChannelData.selectedUsers.length === 0) return;
+
+    try {
+      const memberInserts = newChannelData.selectedUsers.map(userId => ({
+        channel_id: channelId,
+        user_id: userId,
+        role: 'member'
+      }));
+
+      const { error } = await supabase
+        .from('chat_channel_members')
+        .insert(memberInserts);
+
+      if (error) throw error;
+
+      // Reset selection and reload channels to update member count
+      setNewChannelData(prev => ({ ...prev, selectedUsers: [] }));
+      await loadChannels();
+      alert('Members added successfully!');
+    } catch (error) {
+      console.error('Error adding members:', error);
+      alert('Failed to add members.');
+    }
+  };
+
   const toggleUserSelection = (userId: string) => {
     setNewChannelData(prev => ({
       ...prev,
@@ -923,13 +949,19 @@ export default function AdminCommunicationHub() {
                               <SelectItem value="private">Private</SelectItem>
                               <SelectItem value="group">Group</SelectItem>
                               {(userRole === 'admin' || userRole === 'super_admin') && (
-                                <SelectItem value="announcement">Announcement</SelectItem>
+                                <SelectItem value="announcement">Announcement (Admins only)</SelectItem>
                               )}
                             </SelectContent>
                           </Select>
                         </div>
                         <div>
                           <Label>Add Members</Label>
+                          <div className="flex space-x-2 mb-2">
+                            <Button size="sm" variant="outline" onClick={() => setNewChannelData(prev => ({ ...prev, selectedUsers: users.map(u => u.id) }))}>Select All</Button>
+                            <Button size="sm" variant="outline" onClick={() => setNewChannelData(prev => ({ ...prev, selectedUsers: users.filter(u => u.role === 'student').map(u => u.id) }))}>Students</Button>
+                            <Button size="sm" variant="outline" onClick={() => setNewChannelData(prev => ({ ...prev, selectedUsers: users.filter(u => u.role === 'parent').map(u => u.id) }))}>Parents</Button>
+                            <Button size="sm" variant="outline" onClick={() => setNewChannelData(prev => ({ ...prev, selectedUsers: users.filter(u => u.role === 'intern').map(u => u.id) }))}>Interns</Button>
+                          </div>
                           <Select
                             onValueChange={(value) => {
                               if (!newChannelData.selectedUsers.includes(value)) {
