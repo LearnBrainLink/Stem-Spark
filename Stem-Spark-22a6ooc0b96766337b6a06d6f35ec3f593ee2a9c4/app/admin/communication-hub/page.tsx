@@ -19,7 +19,9 @@ import {
   Plus,
   UserPlus,
   Bell,
-  Settings
+  Settings,
+  Shield,
+  AlertCircle
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -71,6 +73,7 @@ interface User {
   id: string;
   email: string;
   full_name?: string;
+  role?: string;
 }
 
 interface ChannelMember {
@@ -98,12 +101,40 @@ export default function CommunicationHub() {
   const [selectedUserForInvite, setSelectedUserForInvite] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const realtimeSubscription = useRef<any>(null);
   const isInitialLoad = useRef(true);
   const currentChannelRef = useRef<string>('');
+  const messageQueue = useRef<Set<string>>(new Set());
 
-  // WebSocket-like real-time messaging setup
+  // Check if user is admin
+  const checkAdminStatus = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+      
+      setIsAdmin(data?.role === 'admin');
+      return data?.role === 'admin';
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      setIsAdmin(false);
+      return false;
+    }
+  };
+
+  // Check if current user can send messages in announcement channel
+  const canSendInAnnouncementChannel = (channel: Channel | undefined) => {
+    if (!channel?.is_announcement) return true;
+    return isAdmin;
+  };
+
+  // WebSocket-like real-time messaging setup with immediate updates
   const setupRealtimeConnection = (channelId: string) => {
     console.log('🔌 Setting up real-time connection for channel:', channelId);
     
@@ -131,6 +162,33 @@ export default function CommunicationHub() {
           console.log('📨 New message received:', payload);
           const newMessage = payload.new as Message;
           
+          // Prevent duplicate messages
+          if (messageQueue.current.has(newMessage.id)) {
+            console.log('Message already in queue, skipping:', newMessage.id);
+            return;
+          }
+          
+          // Add to queue to prevent duplicates
+          messageQueue.current.add(newMessage.id);
+          
+          // Immediately add message to UI with optimistic data
+          const optimisticMessage: Message = {
+            ...newMessage,
+            sender: {
+              id: newMessage.sender_id,
+              email: 'Loading...',
+              full_name: 'Loading...'
+            }
+          };
+          
+          setMessages(prev => {
+            // Check if message already exists
+            if (prev.find(msg => msg.id === newMessage.id)) {
+              return prev;
+            }
+            return [...prev, optimisticMessage];
+          });
+          
           // Fetch complete message with sender info
           fetchMessageWithSender(newMessage.id);
         }
@@ -147,7 +205,7 @@ export default function CommunicationHub() {
           console.log('✏️ Message updated:', payload);
           const updatedMessage = payload.new as Message;
           
-          // Update message in state
+          // Update message in state immediately
           setMessages(prev => 
             prev.map(msg => 
               msg.id === updatedMessage.id ? updatedMessage : msg
@@ -167,7 +225,7 @@ export default function CommunicationHub() {
           console.log('🗑️ Message deleted:', payload);
           const deletedMessage = payload.old as Message;
           
-          // Remove message from state
+          // Remove message from state immediately
           setMessages(prev => prev.filter(msg => msg.id !== deletedMessage.id));
         }
       )
@@ -221,15 +279,19 @@ export default function CommunicationHub() {
 
       if (data) {
         setMessages(prev => {
-          // Check if message already exists to prevent duplicates
-          if (prev.find(msg => msg.id === data.id)) {
-            return prev;
-          }
-          return [...prev, data];
+          // Update the message with complete sender info
+          return prev.map(msg => 
+            msg.id === data.id ? data : msg
+          );
         });
+        
+        // Remove from queue
+        messageQueue.current.delete(messageId);
       }
     } catch (error) {
       console.error('Error fetching message with sender:', error);
+      // Remove from queue even if error
+      messageQueue.current.delete(messageId);
     }
   };
 
@@ -239,8 +301,10 @@ export default function CommunicationHub() {
       if (error) throw error;
       setCurrentUser(user);
       
-      // Auto-invite to announcement channels for new users
       if (user) {
+        // Check admin status
+        await checkAdminStatus(user.id);
+        // Auto-invite to announcement channels for new users
         await autoInviteToAnnouncementChannels(user.id);
       }
     } catch (error) {
@@ -339,7 +403,7 @@ export default function CommunicationHub() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, full_name')
+        .select('id, email, full_name, role')
         .order('full_name', { ascending: true });
 
       if (error) throw error;
@@ -385,6 +449,9 @@ export default function CommunicationHub() {
       if (currentChannelRef.current === channelId) {
         setMessages(data || []);
         
+        // Clear message queue for new channel
+        messageQueue.current.clear();
+        
         // Setup real-time connection for this channel
         setupRealtimeConnection(channelId);
         fetchChannelMembers(channelId);
@@ -401,9 +468,21 @@ export default function CommunicationHub() {
     }
   };
 
-  // WebSocket-like message sending
+  // WebSocket-like message sending with immediate updates
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedChannel || !currentUser) return;
+
+    const currentChannelData = channels.find(c => c.id === selectedChannel);
+    
+    // Check if user can send in announcement channel
+    if (!canSendInAnnouncementChannel(currentChannelData)) {
+      toast({
+        title: "Access Denied",
+        description: "Only admins can send messages in announcement channels",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       console.log('📤 Sending message:', {
@@ -628,6 +707,7 @@ export default function CommunicationHub() {
   );
 
   const currentChannel = channels.find(c => c.id === selectedChannel);
+  const canSendInCurrentChannel = canSendInAnnouncementChannel(currentChannel);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -642,6 +722,12 @@ export default function CommunicationHub() {
               {isConnected ? 'Connected' : 'Disconnected'}
             </span>
           </div>
+          {isAdmin && (
+            <div className="flex items-center mt-1">
+              <Shield className="h-3 w-3 text-blue-500 mr-1" />
+              <span className="text-xs text-blue-600">Admin</span>
+            </div>
+          )}
         </div>
 
         {/* Search */}
@@ -736,6 +822,12 @@ export default function CommunicationHub() {
                     <Badge variant="secondary" className="flex items-center">
                       <Bell className="h-3 w-3 mr-1" />
                       Announcement
+                    </Badge>
+                  )}
+                  {!canSendInCurrentChannel && (
+                    <Badge variant="outline" className="flex items-center text-orange-600">
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      Read Only
                     </Badge>
                   )}
                   <Badge variant="secondary">
@@ -857,18 +949,27 @@ export default function CommunicationHub() {
 
             {/* Message Input */}
             <div className="bg-white border-t border-gray-200 p-4">
-              <div className="flex space-x-2">
-                <Input
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type your message..."
-                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                  className="flex-1"
-                />
-                <Button onClick={sendMessage} disabled={!newMessage.trim()}>
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
+              {!canSendInCurrentChannel ? (
+                <div className="flex items-center justify-center p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-orange-500 mr-2" />
+                  <span className="text-sm text-orange-700">
+                    Only admins can send messages in announcement channels
+                  </span>
+                </div>
+              ) : (
+                <div className="flex space-x-2">
+                  <Input
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Type your message..."
+                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                    className="flex-1"
+                  />
+                  <Button onClick={sendMessage} disabled={!newMessage.trim()}>
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
           </>
         ) : (
