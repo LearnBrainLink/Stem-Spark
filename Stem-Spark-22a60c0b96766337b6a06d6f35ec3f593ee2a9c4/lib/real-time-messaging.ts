@@ -1,7 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-import { Database } from './database.types'
-import { RealtimeChannel } from '@supabase/supabase-js'
-import { supabase } from './supabase/client'
+import { supabase } from "./supabase/client"
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type Message = Database['public']['Tables']['chat_messages']['Row']
@@ -30,6 +27,7 @@ export interface MessagePermissions {
 }
 
 class RealTimeMessagingService {
+  private supabase = supabase
   private channels: Map<string, RealtimeChannel> = new Map()
 
   // Channel Management

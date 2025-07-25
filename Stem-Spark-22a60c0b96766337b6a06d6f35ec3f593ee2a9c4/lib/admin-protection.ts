@@ -1,4 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase/client'
+import { createServerClient } from '@/lib/supabase/server'
 import { Database } from './database.types'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -28,14 +29,8 @@ export interface RolePermissions {
 }
 
 class AdminProtectionService {
-  private supabase
-
-  constructor() {
-    this.supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-  }
+  private supabase = supabase
+  private supabaseAdmin = createServerClient()
 
   // Role permission definitions
   private readonly rolePermissions: Record<string, RolePermissions> = {

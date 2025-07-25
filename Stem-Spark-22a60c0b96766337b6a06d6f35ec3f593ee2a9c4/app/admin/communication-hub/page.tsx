@@ -722,18 +722,23 @@ export default function AdminCommunicationHub() {
       }
 
       if (newChannelData.selectedUsers.length > 0) {
-        const memberInserts = newChannelData.selectedUsers.map(userId => ({
-          user_id: userId,
-          channel_id: channel.id,
-          role: 'member'
-        }));
+        // Filter out the creator if they are already in the selected users list
+        const memberIdsToAdd = newChannelData.selectedUsers.filter(userId => userId !== user.id)
+        
+        if (memberIdsToAdd.length > 0) {
+          const memberInserts = memberIdsToAdd.map(userId => ({
+            user_id: userId,
+            channel_id: channel.id,
+            role: 'member'
+          }));
 
-        const { error: membersError } = await supabase
-          .from('chat_channel_members')
-          .insert(memberInserts);
+          const { error: membersError } = await supabase
+            .from('chat_channel_members')
+            .insert(memberInserts);
 
-        if (membersError) {
-          console.error('Additional members error:', membersError);
+          if (membersError) {
+            console.error('Additional members error:', membersError);
+          }
         }
       }
 

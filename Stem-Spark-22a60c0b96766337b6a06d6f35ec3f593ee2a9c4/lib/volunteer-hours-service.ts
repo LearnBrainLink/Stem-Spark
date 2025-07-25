@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from "./supabase/client"
 import { Database } from './database.types'
 import { emailService } from './email-service-integration'
 
@@ -30,14 +30,7 @@ export interface VolunteerHoursSummary {
 }
 
 class VolunteerHoursService {
-  private supabase
-
-  constructor() {
-    this.supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-  }
+  private supabase = supabase
 
   // Submit volunteer hours
   async submitVolunteerHours(
