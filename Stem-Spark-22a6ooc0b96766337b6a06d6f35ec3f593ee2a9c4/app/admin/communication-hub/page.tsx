@@ -103,18 +103,35 @@ export default function CommunicationHub() {
   const messageQueue = useRef<Set<string>>(new Set());
   const isInitialLoad = useRef(true);
   const currentChannelRef = useRef<string>('');
+  const isSubscribing = useRef(false);
 
-  // Enhanced real-time messaging with stable state management
+  // Cleanup function for real-time subscription
+  const cleanupSubscription = useCallback(() => {
+    if (realtimeSubscription.current) {
+      console.log('Cleaning up subscription for channel:', currentChannelRef.current);
+      supabase.removeChannel(realtimeSubscription.current);
+      realtimeSubscription.current = null;
+      isSubscribing.current = false;
+    }
+  }, []);
+
+  // Enhanced real-time messaging with proper cleanup
   const setupRealtimeMessaging = useCallback((channelId: string) => {
     console.log('Setting up real-time messaging for channel:', channelId);
     
-    // Clean up existing subscription
-    if (realtimeSubscription.current) {
-      console.log('Removing existing subscription');
-      supabase.removeChannel(realtimeSubscription.current);
+    // Prevent multiple subscriptions
+    if (isSubscribing.current) {
+      console.log('Already subscribing, skipping...');
+      return;
     }
 
-    // Create new subscription
+    // Clean up existing subscription first
+    cleanupSubscription();
+    
+    isSubscribing.current = true;
+    currentChannelRef.current = channelId;
+
+    // Create new subscription with proper error handling
     realtimeSubscription.current = supabase
       .channel(`messages:${channelId}`)
       .on(
@@ -190,6 +207,7 @@ export default function CommunicationHub() {
       .subscribe((status) => {
         console.log('Realtime subscription status:', status);
         setIsConnected(status === 'SUBSCRIBED');
+        isSubscribing.current = false;
         
         if (status === 'SUBSCRIBED') {
           toast({
@@ -202,11 +220,12 @@ export default function CommunicationHub() {
             description: "Real-time connection failed",
             variant: "destructive",
           });
+          isSubscribing.current = false;
         }
       });
 
     return realtimeSubscription.current;
-  }, []);
+  }, [cleanupSubscription]);
 
   // Fetch complete message with sender information
   const fetchMessageWithSender = async (messageId: string) => {
@@ -392,13 +411,11 @@ export default function CommunicationHub() {
       // Only update messages if we're still on the same channel
       if (currentChannelRef.current === channelId) {
         setMessages(data || []);
-      }
-      
-      // Clear message queue for new channel
-      messageQueue.current.clear();
-      
-      // Setup real-time messaging only if we're still on the same channel
-      if (currentChannelRef.current === channelId) {
+        
+        // Clear message queue for new channel
+        messageQueue.current.clear();
+        
+        // Setup real-time messaging only if we're still on the same channel
         setupRealtimeMessaging(channelId);
         fetchChannelMembers(channelId);
       }
@@ -606,7 +623,12 @@ export default function CommunicationHub() {
     fetchChannels();
     fetchUsers();
     isInitialLoad.current = false;
-  }, []);
+
+    // Cleanup on unmount
+    return () => {
+      cleanupSubscription();
+    };
+  }, [cleanupSubscription]);
 
   // Handle channel selection
   useEffect(() => {
@@ -623,15 +645,6 @@ export default function CommunicationHub() {
       scrollToBottom();
     }
   }, [messages]);
-
-  // Cleanup realtime subscription on unmount
-  useEffect(() => {
-    return () => {
-      if (realtimeSubscription.current) {
-        supabase.removeChannel(realtimeSubscription.current);
-      }
-    };
-  }, []);
 
   const filteredMessages = messages.filter(message =>
     message.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
