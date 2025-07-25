@@ -100,19 +100,109 @@ export default function CommunicationHub() {
   const [isConnected, setIsConnected] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const realtimeSubscription = useRef<any>(null);
-  const messageQueue = useRef<Set<string>>(new Set());
   const isInitialLoad = useRef(true);
   const currentChannelRef = useRef<string>('');
-  const isSubscribing = useRef(false);
 
-  // Simple cleanup function without useCallback
-  const cleanupSubscription = () => {
+  // WebSocket-like real-time messaging setup
+  const setupRealtimeConnection = (channelId: string) => {
+    console.log('🔌 Setting up real-time connection for channel:', channelId);
+    
+    // Clean up existing connection
     if (realtimeSubscription.current) {
-      console.log('Cleaning up subscription for channel:', currentChannelRef.current);
+      console.log('🧹 Cleaning up existing connection');
       supabase.removeChannel(realtimeSubscription.current);
       realtimeSubscription.current = null;
-      isSubscribing.current = false;
     }
+
+    currentChannelRef.current = channelId;
+
+    // Create WebSocket-like connection using Supabase real-time
+    realtimeSubscription.current = supabase
+      .channel(`chat:${channelId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `channel_id=eq.${channelId}`,
+        },
+        (payload) => {
+          console.log('📨 New message received:', payload);
+          const newMessage = payload.new as Message;
+          
+          // Fetch complete message with sender info
+          fetchMessageWithSender(newMessage.id);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `channel_id=eq.${channelId}`,
+        },
+        (payload) => {
+          console.log('✏️ Message updated:', payload);
+          const updatedMessage = payload.new as Message;
+          
+          // Update message in state
+          setMessages(prev => 
+            prev.map(msg => 
+              msg.id === updatedMessage.id ? updatedMessage : msg
+            )
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `channel_id=eq.${channelId}`,
+        },
+        (payload) => {
+          console.log('🗑️ Message deleted:', payload);
+          const deletedMessage = payload.old as Message;
+          
+          // Remove message from state
+          setMessages(prev => prev.filter(msg => msg.id !== deletedMessage.id));
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_channel_members',
+          filter: `channel_id=eq.${channelId}`,
+        },
+        (payload) => {
+          console.log('👥 Member update:', payload);
+          fetchChannelMembers(channelId);
+        }
+      )
+      .subscribe((status) => {
+        console.log('🔗 Connection status:', status);
+        setIsConnected(status === 'SUBSCRIBED');
+        
+        if (status === 'SUBSCRIBED') {
+          toast({
+            title: "Connected",
+            description: "Real-time messaging active",
+          });
+        } else if (status === 'CHANNEL_ERROR') {
+          toast({
+            title: "Connection Error",
+            description: "Real-time connection failed",
+            variant: "destructive",
+          });
+        }
+      });
+
+    return realtimeSubscription.current;
   };
 
   // Fetch complete message with sender information
@@ -131,133 +221,16 @@ export default function CommunicationHub() {
 
       if (data) {
         setMessages(prev => {
-          // Check if message already exists
+          // Check if message already exists to prevent duplicates
           if (prev.find(msg => msg.id === data.id)) {
             return prev;
           }
           return [...prev, data];
         });
-        
-        // Remove from queue
-        messageQueue.current.delete(messageId);
       }
     } catch (error) {
       console.error('Error fetching message with sender:', error);
-      // Remove from queue even if error
-      messageQueue.current.delete(messageId);
     }
-  };
-
-  // Setup real-time messaging without useCallback
-  const setupRealtimeMessaging = (channelId: string) => {
-    console.log('Setting up real-time messaging for channel:', channelId);
-    
-    // Prevent multiple subscriptions
-    if (isSubscribing.current) {
-      console.log('Already subscribing, skipping...');
-      return;
-    }
-
-    // Clean up existing subscription first
-    cleanupSubscription();
-    
-    isSubscribing.current = true;
-    currentChannelRef.current = channelId;
-
-    // Create new subscription with proper error handling
-    realtimeSubscription.current = supabase
-      .channel(`messages:${channelId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `channel_id=eq.${channelId}`,
-        },
-        (payload) => {
-          console.log('New message received:', payload);
-          const newMessage = payload.new as Message;
-          
-          // Check if we already have this message (prevent duplicates)
-          if (messageQueue.current.has(newMessage.id)) {
-            console.log('Message already in queue, skipping:', newMessage.id);
-            return;
-          }
-          
-          // Add to queue to prevent duplicates
-          messageQueue.current.add(newMessage.id);
-          
-          // Fetch the complete message with sender info
-          fetchMessageWithSender(newMessage.id);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `channel_id=eq.${channelId}`,
-        },
-        (payload) => {
-          console.log('Message updated:', payload);
-          const updatedMessage = payload.new as Message;
-          setMessages(prev => 
-            prev.map(msg => 
-              msg.id === updatedMessage.id ? updatedMessage : msg
-            )
-          );
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `channel_id=eq.${channelId}`,
-        },
-        (payload) => {
-          console.log('Message deleted:', payload);
-          const deletedMessage = payload.old as Message;
-          setMessages(prev => prev.filter(msg => msg.id !== deletedMessage.id));
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'chat_channel_members',
-          filter: `channel_id=eq.${channelId}`,
-        },
-        (payload) => {
-          console.log('Member update:', payload);
-          fetchChannelMembers(channelId);
-        }
-      )
-      .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
-        setIsConnected(status === 'SUBSCRIBED');
-        isSubscribing.current = false;
-        
-        if (status === 'SUBSCRIBED') {
-          toast({
-            title: "Connected",
-            description: "Real-time messaging active",
-          });
-        } else if (status === 'CHANNEL_ERROR') {
-          toast({
-            title: "Connection Error",
-            description: "Real-time connection failed",
-            variant: "destructive",
-          });
-          isSubscribing.current = false;
-        }
-      });
-
-    return realtimeSubscription.current;
   };
 
   const getCurrentUser = async () => {
@@ -393,7 +366,7 @@ export default function CommunicationHub() {
   const fetchMessages = async (channelId: string) => {
     try {
       setIsLoading(true);
-      console.log('Fetching messages for channel:', channelId);
+      console.log('📥 Fetching messages for channel:', channelId);
       
       const { data, error } = await supabase
         .from('chat_messages')
@@ -406,17 +379,14 @@ export default function CommunicationHub() {
 
       if (error) throw error;
       
-      console.log('Fetched messages:', data);
+      console.log('📨 Fetched messages:', data);
       
       // Only update messages if we're still on the same channel
       if (currentChannelRef.current === channelId) {
         setMessages(data || []);
         
-        // Clear message queue for new channel
-        messageQueue.current.clear();
-        
-        // Setup real-time messaging only if we're still on the same channel
-        setupRealtimeMessaging(channelId);
+        // Setup real-time connection for this channel
+        setupRealtimeConnection(channelId);
         fetchChannelMembers(channelId);
       }
     } catch (error) {
@@ -431,17 +401,18 @@ export default function CommunicationHub() {
     }
   };
 
+  // WebSocket-like message sending
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedChannel || !currentUser) return;
 
     try {
-      console.log('Sending message:', {
+      console.log('📤 Sending message:', {
         content: newMessage.trim(),
         sender_id: currentUser.id,
         channel_id: selectedChannel,
       });
 
-      // Optimistically add message to UI immediately
+      // Optimistically add message to UI immediately (like socket.io)
       const optimisticMessage: Message = {
         id: `temp-${Date.now()}`,
         content: newMessage.trim(),
@@ -455,10 +426,11 @@ export default function CommunicationHub() {
         }
       };
 
+      // Add to UI immediately (WebSocket-like behavior)
       setMessages(prev => [...prev, optimisticMessage]);
       setNewMessage('');
 
-      // Send to database
+      // Send to database (this will trigger real-time update to all clients)
       const { data, error } = await supabase
         .from('chat_messages')
         .insert({
@@ -476,7 +448,7 @@ export default function CommunicationHub() {
         throw error;
       }
 
-      console.log('Message sent successfully:', data);
+      console.log('✅ Message sent successfully:', data);
       
       // Replace optimistic message with real message
       setMessages(prev => 
@@ -626,14 +598,17 @@ export default function CommunicationHub() {
 
     // Cleanup on unmount
     return () => {
-      cleanupSubscription();
+      if (realtimeSubscription.current) {
+        console.log('🧹 Cleaning up real-time connection on unmount');
+        supabase.removeChannel(realtimeSubscription.current);
+      }
     };
   }, []); // Empty dependency array
 
   // Handle channel selection
   useEffect(() => {
     if (selectedChannel && selectedChannel !== currentChannelRef.current) {
-      console.log('Channel changed from', currentChannelRef.current, 'to', selectedChannel);
+      console.log('🔄 Channel changed from', currentChannelRef.current, 'to', selectedChannel);
       currentChannelRef.current = selectedChannel;
       fetchMessages(selectedChannel);
     }
