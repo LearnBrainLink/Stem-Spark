@@ -528,10 +528,7 @@ export default function AdminCommunicationHub() {
       const { data, error } = await supabase
         .from('chat_messages')
         .insert(messageData)
-        .select(`
-          *,
-          sender:profiles(full_name, avatar_url, role)
-        `)
+        .select(`*, sender:sender_id(*)`)
         .single()
 
       if (error) throw error
@@ -539,10 +536,13 @@ export default function AdminCommunicationHub() {
       const messageWithSender = {
         ...data,
         sender_name: data.sender?.full_name || 'Unknown User',
+        sender: {
+          ...data.sender,
+          role: data.sender?.role || 'student'
+        }
       } as Message
-
-      // No need to manually add to state, subscription should handle it.
-      // setMessages(prev => [...prev, messageWithSender]) 
+      
+      setMessages(prev => [...prev, messageWithSender])
       
       setNewMessage('')
       setSelectedFile(null)
