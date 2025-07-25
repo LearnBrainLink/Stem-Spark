@@ -604,12 +604,18 @@ export default function AdminCommunicationHub() {
     if (!forwardingMessage || !targetChannelId) return
 
     try {
-      // This should be a server-side operation for security
-      const { error } = await supabase.rpc('forward_message', {
-        original_message_id: forwardingMessage.id,
-        target_channel_id: targetChannelId,
-        forwarding_user_id: user.id
-      })
+      // Create a new message with forwarded content
+      const forwardedContent = `🔄 Forwarded from #${selectedChannel?.name}:\n\n${forwardingMessage.content}`
+      
+      const { error } = await supabase
+        .from('chat_messages')
+        .insert({
+          content: forwardedContent,
+          channel_id: targetChannelId,
+          sender_id: user.id,
+          message_type: 'text',
+          forwarded_from_id: forwardingMessage.id
+        })
 
       if (error) throw error
 

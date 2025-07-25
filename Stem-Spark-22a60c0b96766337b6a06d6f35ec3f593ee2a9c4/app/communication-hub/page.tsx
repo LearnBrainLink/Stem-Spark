@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { Hash, Users, Plus, ArrowRight, Crown, Reply, X, Send, Upload, Image as ImageIcon } from 'lucide-react'
+import { Hash, Users, Plus, ArrowRight, Crown, Reply, X, Send, Upload, Image as ImageIcon, Forward } from 'lucide-react'
 import Link from 'next/link'
 
 interface Message {
@@ -70,6 +70,9 @@ export default function CommunicationHub() {
   const [newMessage, setNewMessage] = useState('')
   const [replyTo, setReplyTo] = useState<Message | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showForwardDialog, setShowForwardDialog] = useState(false)
+  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null)
+  const [targetChannelId, setTargetChannelId] = useState('')
   const [newChannelData, setNewChannelData] = useState({
     name: '',
     description: '',
@@ -614,18 +617,51 @@ export default function CommunicationHub() {
   }
 
   const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm('Are you sure you want to delete this message?')) return
+
     try {
       const { error } = await supabase
         .from('chat_messages')
         .delete()
         .eq('id', messageId)
-        .eq('sender_id', user?.id)
 
-      if (error) {
-        console.error('Error deleting message:', error)
-      }
+      if (error) throw error
+
+      // Optimistic update
+      setMessages(prev => prev.filter(msg => msg.id !== messageId))
     } catch (error) {
-      console.error('Error in handleDeleteMessage:', error)
+      console.error('Error deleting message:', error)
+      alert('Failed to delete message')
+    }
+  }
+
+  // Message forwarding
+  const handleForwardMessage = async () => {
+    if (!forwardingMessage || !targetChannelId) return
+
+    try {
+      // Create a new message with forwarded content
+      const forwardedContent = `🔄 Forwarded from #${selectedChannel?.name}:\n\n${forwardingMessage.content}`
+      
+      const { error } = await supabase
+        .from('chat_messages')
+        .insert({
+          content: forwardedContent,
+          channel_id: targetChannelId,
+          sender_id: user.id,
+          message_type: 'text',
+          forwarded_from_id: forwardingMessage.id
+        })
+
+      if (error) throw error
+
+      setShowForwardDialog(false)
+      setForwardingMessage(null)
+      setTargetChannelId('')
+      alert('Message forwarded successfully')
+    } catch (error) {
+      console.error('Error forwarding message:', error)
+      alert('Failed to forward message')
     }
   }
 
@@ -1024,16 +1060,25 @@ export default function CommunicationHub() {
                                     <Reply className="w-3 h-3" />
                                   </Button>
                                 )}
-                                {isOwn && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDeleteMessage(message.id)}
-                                    className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </Button>
-                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setForwardingMessage(message)
+                                    setShowForwardDialog(true)
+                                  }}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Forward className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteMessage(message.id)}
+                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
                               </div>
                               
                               {/* Reply to message */}
@@ -1178,6 +1223,46 @@ export default function CommunicationHub() {
             </Card>
           </div>
         </div>
+
+        {/* Forward Message Dialog */}
+        <Dialog open={showForwardDialog} onOpenChange={setShowForwardDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Forward Message</DialogTitle>
+              <DialogDescription>
+                Select a channel to forward this message to.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Select Channel</Label>
+                <Select value={targetChannelId} onValueChange={setTargetChannelId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a channel" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {channels.map((channel) => (
+                      <SelectItem key={channel.id} value={channel.id}>
+                        {channel.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowForwardDialog(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleForwardMessage}
+                  disabled={!targetChannelId}
+                >
+                  Forward
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
