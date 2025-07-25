@@ -66,6 +66,7 @@ interface Message {
   sender?: { // Added for consistency
     full_name: string
     avatar_url?: string
+    role?: string // Added for role-based styling
   }
 }
 
@@ -348,7 +349,7 @@ export default function AdminCommunicationHub() {
       if (senderIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('id, full_name, avatar_url')
+          .select('id, full_name, avatar_url, role')
           .in('id', senderIds)
         
         profiles?.forEach(profile => profilesMap.set(profile.id, profile))
@@ -391,7 +392,8 @@ export default function AdminCommunicationHub() {
           sender_name: sender?.full_name || 'Unknown User',
           sender: sender ? {
             full_name: sender.full_name,
-            avatar_url: sender.avatar_url
+            avatar_url: sender.avatar_url,
+            role: sender.role
           } : undefined,
           reply_to: msg.reply_to_id ? replyMap.get(msg.reply_to_id) : undefined
         }
@@ -417,7 +419,7 @@ export default function AdminCommunicationHub() {
           const newMessage = payload.new as any;
           const { data: sender } = await supabase
             .from('profiles')
-            .select('full_name, avatar_url')
+            .select('full_name, avatar_url, role')
             .eq('id', newMessage.sender_id)
             .single();
 
@@ -426,7 +428,8 @@ export default function AdminCommunicationHub() {
             sender_name: sender?.full_name || 'Unknown User',
             sender: {
               full_name: sender?.full_name || 'Unknown User',
-              avatar_url: sender?.avatar_url
+              avatar_url: sender?.avatar_url,
+              role: sender?.role
             }
           };
           setMessages(prev => [...prev, messageWithSender]);
@@ -527,7 +530,7 @@ export default function AdminCommunicationHub() {
         .insert(messageData)
         .select(`
           *,
-          sender:profiles(full_name, avatar_url)
+          sender:profiles(full_name, avatar_url, role)
         `)
         .single()
 
@@ -1058,261 +1061,68 @@ export default function AdminCommunicationHub() {
             </CardHeader>
             <CardContent>
               {selectedChannel ? (
-                <div className="space-y-4">
+                <div className="flex flex-col h-[calc(100vh-20rem)]">
                   {/* Messages */}
                   <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    {messages.map((message) => (
-                      <div key={message.id} className={`flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-xs lg:max-w-md ${message.sender_id === user?.id ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'} rounded-lg p-3 relative group`}>
-                          
-                          {/* Reply indicator */}
-                          {message.reply_to && (
-                            <div className="text-xs opacity-75 mb-1 border-l-2 border-current pl-2">
-                              Replying to {message.reply_to.profiles.full_name}: {message.reply_to.content.substring(0, 50)}...
-                            </div>
-                          )}
-
-                          {/* Forwarded indicator */}
-                          {message.forwarded_from && (
-                            <div className="text-xs opacity-75 mb-1">
-                              ↪ Forwarded from {message.forwarded_from.profiles.full_name}
-                            </div>
-                          )}
-
-                          {/* Message content */}
-                          <div className="break-words">
-                            {message.content}
-                          </div>
-
-                          {/* Image */}
-                          {message.image_url && (
-                            <div className="mt-2">
-                              <img 
-                                src={message.image_url} 
-                                alt="Message attachment"
-                                className="max-w-full rounded-lg cursor-pointer"
-                                onClick={() => window.open(message.image_url, '_blank')}
-                              />
-                              {message.image_caption && (
-                                <div className="text-xs mt-1 opacity-75">{message.image_caption}</div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* File attachment */}
-                          {message.file_url && message.message_type === 'file' && (
-                            <div className="mt-2 p-2 bg-black bg-opacity-10 rounded">
-                              <div className="flex items-center space-x-2">
-                                <Paperclip className="w-4 h-4" />
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium truncate">{message.file_name}</div>
-                                  <div className="text-xs opacity-75">
-                                    {message.file_size ? `${(message.file_size / 1024).toFixed(1)} KB` : ''}
-                                  </div>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => window.open(message.file_url, '_blank')}
-                                >
-                                  Download
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Edited indicator */}
-                          {message.edited_at && (
-                            <div className="text-xs opacity-75 mt-1">(edited)</div>
-                          )}
-
-                          {/* Message actions */}
-                          <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div className="flex space-x-1">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setShowReactions(showReactions === message.id ? null : message.id)}
-                              >
-                                <Smile className="w-3 h-3" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setReplyToMessage(message)}
-                              >
-                                <Reply className="w-3 h-3" />
-                              </Button>
-                              {message.sender_id === user?.id && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setEditingMessage(message)}
-                                  >
-                                    <Edit className="w-3 h-3" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleDeleteMessage(message.id)}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </Button>
-                                </>
-                              )}
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setForwardingMessage(message)
-                                  setShowForwardDialog(true)
-                                }}
-                              >
-                                <Forward className="w-3 h-3" />
-                              </Button>
+                    {messages.map((message) => {
+                      const isOwn = message.sender_id === user?.id
+                      const isAdmin = message.sender?.role === 'admin' || message.sender?.role === 'super_admin'
+                      return (
+                        <div key={message.id} id={`message-${message.id}`} className={`flex space-x-3 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                          <div className="flex-shrink-0">
+                            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
+                              isOwn ? 'bg-green-500' : isAdmin ? 'bg-purple-500' : 'bg-blue-500'
+                            }`}>
+                              {isAdmin && <Shield className="w-4 h-4" />}
+                              {!isAdmin && message.sender_name.charAt(0).toUpperCase()}
                             </div>
                           </div>
-
-                          {/* Reactions */}
-                          {message.reactions && Object.keys(message.reactions).length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {Object.entries(message.reactions).map(([userId, reactions]) => (
-                                reactions.map((reaction, index) => (
-                                  <Badge key={`${userId}-${index}`} variant="secondary" className="text-xs">
-                                    {reaction}
-                                  </Badge>
-                                ))
-                              ))}
+                          <div className={`flex-1 ${isOwn ? 'text-right' : ''}`}>
+                            <div className={`flex items-center space-x-2 ${isOwn ? 'justify-end' : ''}`}>
+                              <span className="text-sm font-medium text-gray-900">
+                                {message.sender_name}
+                                {isAdmin && <Shield className="w-3 h-3 ml-1 text-purple-500" />}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(message.created_at).toLocaleString()}
+                              </span>
                             </div>
-                          )}
-
-                          {/* Reaction picker */}
-                          {showReactions === message.id && (
-                            <div className="absolute bottom-full right-0 mb-2 bg-white border rounded-lg p-2 shadow-lg">
-                              <div className="flex space-x-1">
-                                {['👍', '❤️', '😄', '😮', '😢', '😡'].map((reaction) => (
-                                  <Button
-                                    key={reaction}
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => {
-                                      handleReaction(message.id, reaction)
-                                      setShowReactions(null)
-                                    }}
-                                  >
-                                    {reaction}
-                                  </Button>
-                                ))}
-                              </div>
+                            
+                            {/* Message content */}
+                            <div className={`inline-block p-3 rounded-lg ${
+                              isOwn 
+                                ? 'bg-green-500 text-white' 
+                                : isAdmin 
+                                  ? 'bg-purple-100 text-purple-900' 
+                                  : 'bg-gray-100 text-gray-900'
+                            }`}>
+                              <p className="text-sm">{message.content}</p>
                             </div>
-                          )}
-
-                          {/* Timestamp */}
-                          <div className="text-xs opacity-75 mt-1">
-                            {new Date(message.created_at).toLocaleTimeString()}
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                     <div ref={messagesEndRef} />
                   </div>
 
                   {/* Message Input */}
                   <div className="border-t p-4">
-                    {/* Reply indicator */}
-                    <div className="mb-2 p-2 bg-gray-100 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm">
-                          <span className="font-medium">Replying to:</span> {replyToMessage?.content.substring(0, 50)}...
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setReplyToMessage(null)}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Selected file indicator */}
-                    {selectedFile && (
-                      <div className="mb-2 p-2 bg-blue-100 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm">
-                            <span className="font-medium">File:</span> {selectedFile.name}
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setSelectedFile(null)
-                              if (fileInputRef.current) fileInputRef.current.value = ''
-                              if (imageInputRef.current) imageInputRef.current.value = ''
-                            }}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
                     <div className="flex items-center space-x-2">
-                      {/* File upload buttons */}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => imageInputRef.current?.click()}
+                      <Input
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Type a message..."
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            handleSendMessage()
+                          }
+                        }}
                         disabled={uploading}
-                      >
-                        <ImageIcon className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading}
-                      >
-                        <Paperclip className="w-4 h-4" />
-                      </Button>
-
-                      {/* Hidden file inputs */}
-                      <input
-                        ref={imageInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileSelect}
-                        className="hidden"
                       />
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".pdf,.doc,.docx,.txt,.zip"
-                        onChange={handleFileSelect}
-                        className="hidden"
-                      />
-
-                      {/* Message input */}
-                      <div className="flex-1">
-                        <Input
-                          value={newMessage}
-                          onChange={(e) => setNewMessage(e.target.value)}
-                          placeholder="Type a message..."
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault()
-                              handleSendMessage()
-                            }
-                          }}
-                          disabled={uploading}
-                        />
-                      </div>
-
-                      {/* Send button */}
                       <Button
                         onClick={handleSendMessage}
-                        disabled={uploading || (!newMessage.trim() && !selectedFile)}
+                        disabled={uploading || !newMessage.trim()}
                       >
                         {uploading ? (
                           <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
