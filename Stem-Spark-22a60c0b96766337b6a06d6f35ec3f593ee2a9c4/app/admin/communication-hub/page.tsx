@@ -641,14 +641,20 @@ export default function AdminCommunicationHub() {
         ...(replyToMessage && { reply_to_id: replyToMessage.id })
       }
 
-      const { error } = await supabase
+      const { data: insertedMessage, error } = await supabase
         .from('messages')
         .insert(messageData)
+        .select()
+        .single()
 
       if (error) throw error
 
-      // Remove temporary message (real message will come via subscription)
-      setMessages(prev => prev.filter(msg => msg.id !== tempId))
+      // Replace temporary message with the real one from the database
+      setMessages(prev => prev.map(msg => 
+        msg.id === tempId 
+          ? { ...insertedMessage, sender: tempMessage.sender, sender_name: tempMessage.sender_name } 
+          : msg
+      ))
 
     } catch (error) {
       console.error('Error sending message:', error)
