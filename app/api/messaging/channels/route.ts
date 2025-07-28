@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch channels that the user can see (public channels + channels they're members of)
     const { data: channels, error } = await supabase
-      .from('chat_channels')
+      .from('chats')
       .select('*')
       .order('created_at', { ascending: false })
 
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     // Check if channel name already exists
     const { data: existingChannel } = await supabase
-      .from('chat_channels')
+      .from('chats')
       .select('id')
       .eq('name', name)
       .single()
@@ -88,11 +88,11 @@ export async function POST(request: NextRequest) {
 
     // Create channel
     const { data: channel, error: channelError } = await supabase
-      .from('chat_channels')
+      .from('chats')
       .insert([{ 
         name, 
         description, 
-        channel_type: channel_type || 'public',
+        is_announcement: channel_type === 'announcement',
         created_by: user.id
       }])
       .select()
@@ -105,10 +105,10 @@ export async function POST(request: NextRequest) {
 
     // Add creator as admin member
     const { error: memberError } = await supabase
-      .from('chat_channel_members')
+      .from('chat_participants')
       .insert([{
         user_id: user.id,
-        channel_id: channel.id,
+        chat_id: channel.id,
         role: 'admin'
       }])
 

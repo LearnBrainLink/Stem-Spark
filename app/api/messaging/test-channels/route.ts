@@ -23,10 +23,10 @@ export async function GET(request: NextRequest) {
 
     // Fetch channels that the user can see
     const { data: channels, error } = await supabase
-      .from('chat_channels')
+      .from('chats')
       .select(`
         *,
-        members:chat_channel_members(
+        members:chat_participants(
           user_id,
           role
         )
@@ -45,9 +45,9 @@ export async function GET(request: NextRequest) {
     const channelsWithCounts = await Promise.all(
       (channels || []).map(async (channel) => {
         const { count } = await supabase
-          .from('chat_channel_members')
+          .from('chat_participants')
           .select('*', { count: 'exact', head: true })
-          .eq('channel_id', channel.id)
+          .eq('chat_id', channel.id)
 
         return {
           ...channel,

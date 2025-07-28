@@ -34,12 +34,12 @@ export async function GET(request: NextRequest) {
 
     // Fetch messages for the specified channel
     const { data: messages, error } = await supabase
-      .from('chat_messages')
+      .from('messages')
       .select(`
         *,
         profiles:profiles(full_name)
       `)
-      .eq('channel_id', channelId)
+      .eq('chat_id', channelId)
       .order('created_at', { ascending: true })
 
     if (error) {

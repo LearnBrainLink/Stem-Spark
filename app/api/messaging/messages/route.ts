@@ -16,12 +16,12 @@ export async function GET(request: NextRequest) {
     const supabase = createClient()
     
     const { data: messages, error } = await supabase
-      .from('chat_messages')
+      .from('messages')
       .select(`
         *,
         profiles:profiles(full_name)
       `)
-      .eq('channel_id', channelId)
+      .eq('chat_id', channelId)
       .order('created_at', { ascending: true })
 
     if (error) throw error
@@ -66,8 +66,8 @@ export async function POST(request: NextRequest) {
 
     // Get channel to check permissions
     const { data: channel } = await supabase
-      .from('chat_channels')
-      .select('channel_type')
+      .from('chats')
+      .select('is_announcement')
       .eq('id', channel_id)
       .single()
 
@@ -81,10 +81,7 @@ export async function POST(request: NextRequest) {
     // Check permissions based on channel type
     const isAdmin = profile.role === 'admin' || profile.is_super_admin
     const canSendMessage = 
-      channel.channel_type === 'public' ||
-      channel.channel_type === 'group' ||
-      (channel.channel_type === 'announcement' && isAdmin) ||
-      (channel.channel_type === 'private' && isAdmin)
+      !channel.is_announcement || isAdmin
 
     if (!canSendMessage) {
       return NextResponse.json(
@@ -94,11 +91,11 @@ export async function POST(request: NextRequest) {
     }
 
     const { data: message, error } = await supabase
-      .from('chat_messages')
+      .from('messages')
       .insert([{
         content,
         sender_id: user.id,
-        channel_id,
+        chat_id: channel_id,
         message_type: 'text'
       }])
       .select(`
