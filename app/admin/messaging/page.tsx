@@ -142,11 +142,11 @@ export default function AdminMessagingPage() {
 
   const fetchAllMessages = async () => {
     const { data, error } = await supabase
-      .from('chat_messages')
+      .from('messages')
       .select(`
         *,
         profiles:profiles(full_name),
-        chat_channels:chat_channels(name)
+        channels:channels(name)
       `)
       .order('created_at', { ascending: false })
       .limit(100)
@@ -155,18 +155,18 @@ export default function AdminMessagingPage() {
       setMessages(data.map(msg => ({
         ...msg,
         sender_name: msg.profiles?.full_name || 'Unknown',
-        channel_name: msg.chat_channels?.name || 'Unknown'
+        channel_name: msg.channels?.name || 'Unknown'
       })))
     }
   }
 
   const fetchMessages = async (channelId: string) => {
     const { data, error } = await supabase
-      .from('chat_messages')
+      .from('messages')
       .select(`
         *,
         profiles:profiles(full_name),
-        chat_channels:chat_channels(name)
+        channels:channels(name)
       `)
       .eq('channel_id', channelId)
       .order('created_at', { ascending: true })
@@ -175,7 +175,7 @@ export default function AdminMessagingPage() {
       setMessages(data.map(msg => ({
         ...msg,
         sender_name: msg.profiles?.full_name || 'Unknown',
-        channel_name: msg.chat_channels?.name || 'Unknown'
+        channel_name: msg.channels?.name || 'Unknown'
       })))
     }
   }
@@ -186,7 +186,7 @@ export default function AdminMessagingPage() {
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'chat_messages',
+        table: 'messages',
         filter: `channel_id=eq.${channelId}`
       }, (payload) => {
         const newMessage = payload.new as Message
@@ -203,7 +203,7 @@ export default function AdminMessagingPage() {
       if (!user) return
 
       const { data: channel, error } = await supabase
-        .from('chat_channels')
+        .from('channels')
         .insert({
           name: newChannelData.name,
           description: newChannelData.description,
@@ -256,7 +256,7 @@ export default function AdminMessagingPage() {
       if (!user || !adminMessageData.content.trim()) return
 
       const { error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .insert({
           channel_id: adminMessageData.channel_id,
           sender_id: user.id,
@@ -281,7 +281,7 @@ export default function AdminMessagingPage() {
   const deleteMessage = async (messageId: string) => {
     try {
       const { error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .delete()
         .eq('id', messageId)
 
@@ -297,7 +297,7 @@ export default function AdminMessagingPage() {
     try {
       // Delete all messages in the channel
       await supabase
-        .from('chat_messages')
+        .from('messages')
         .delete()
         .eq('channel_id', channelId)
 

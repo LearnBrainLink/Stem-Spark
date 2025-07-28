@@ -220,11 +220,11 @@ export default function AdminCommunicationHub() {
           presence: { key: user.id }
         }
       })
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'chat_messages',
-        filter: `channel_id=eq.${channelId}`
+              .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `channel_id=eq.${channelId}`
       }, handleRealtimeMessage)
       .on('presence', { event: 'sync' }, () => {
         console.log('Admin presence synced')
@@ -528,7 +528,7 @@ export default function AdminCommunicationHub() {
   const loadMessages = async (channelId: string) => {
     try {
       const { data: messagesData, error: messagesError } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .select('*')
         .eq('channel_id', channelId)
         .order('created_at', { ascending: true })

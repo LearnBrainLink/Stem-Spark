@@ -268,7 +268,7 @@ export default function CommunicationHub() {
       
       // First, get basic messages without complex relationships
       const { data, error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .select('*')
         .eq('channel_id', channelId)
         .order('created_at', { ascending: true })
@@ -323,7 +323,7 @@ export default function CommunicationHub() {
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
-          table: 'chat_messages',
+          table: 'messages',
           filter: `channel_id=eq.${channelId}`
         }, (payload) => {
           console.log('New message received:', payload.new)
@@ -373,7 +373,7 @@ export default function CommunicationHub() {
       setMessagesLoading(true)
       
       const { error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .insert([
           {
             content: newMessage,
