@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,23 @@ import {
   Bell,
   Shield,
   AlertCircle,
-  UserPlus
+  UserPlus,
+  Copy,
+  Reply,
+  Check,
+  CheckCheck,
+  Phone,
+  Video,
+  Settings,
+  Smile,
+  Paperclip,
+  Mic,
+  Plus,
+  X,
+  User,
+  Clock,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -32,6 +48,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
@@ -41,151 +58,204 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-interface Message {
-  id: string;
-  content: string;
-  sender_id: string;
-  channel_id: string;
-  created_at: string;
-  updated_at?: string;
-  message_type?: string;
-  original_message_id?: string;
-  sender?: {
-    id: string;
-    email: string;
-    full_name?: string;
-  };
-}
-
-interface Channel {
-  id: string;
-  name: string;
-  description?: string;
-  created_at: string;
-  is_announcement?: boolean;
-}
-
 interface User {
   id: string;
   email: string;
+  username?: string;
   full_name?: string;
+  avatar_url?: string;
+  last_seen: string;
+  is_online: boolean;
   role?: string;
 }
 
-interface ChannelMember {
+interface Chat {
   id: string;
-  channel_id: string;
-  user_id: string;
-  joined_at: string;
+  name?: string;
+  is_group: boolean;
+  is_announcement: boolean;
+  description?: string;
+  avatar_url?: string;
+  participants: string[];
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  last_message_at: string;
+  last_message?: Message;
+  unread_count?: number;
 }
 
-export default function UserCommunicationHub() {
+interface Message {
+  id: string;
+  chat_id: string;
+  sender_id: string;
+  content: string;
+  message_type: 'text' | 'image' | 'file' | 'system';
+  edited: boolean;
+  edited_at?: string;
+  seen_by: string[];
+  forwarded_from?: string;
+  reply_to?: string;
+  created_at: string;
+  updated_at: string;
+  sender?: User;
+  forwarded_message?: Message;
+  reply_message?: Message;
+}
+
+interface TypingStatus {
+  id: string;
+  chat_id: string;
+  user_id: string;
+  is_typing: boolean;
+  updated_at: string;
+  user?: User;
+}
+
+export default function WhatsAppCommunicationHub() {
+  // Main state
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [selectedChat, setSelectedChat] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
-  const [channels, setChannels] = useState<Channel[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [channelMembers, setChannelMembers] = useState<ChannelMember[]>([]);
-  const [selectedChannel, setSelectedChannel] = useState<string>('');
+  const [typingUsers, setTypingUsers] = useState<TypingStatus[]>([]);
+  
+  // UI state
   const [newMessage, setNewMessage] = useState('');
-  const [editingMessage, setEditingMessage] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState('');
-  const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
-  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
-  const [forwardTarget, setForwardTarget] = useState<{ channelId?: string; userId?: string }>({});
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [addMemberDialogOpen, setAddMemberDialogOpen] = useState(false);
-  const [selectedUserForInvite, setSelectedUserForInvite] = useState<string>('');
+  const [showUserInfo, setShowUserInfo] = useState(false);
+  
+  // Message actions state
+  const [editingMessage, setEditingMessage] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
+  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
+  const [selectedForwardChats, setSelectedForwardChats] = useState<string[]>([]);
+  
+  // Dialog state
+  const [newChatDialogOpen, setNewChatDialogOpen] = useState(false);
+  const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
+  const [chatInfoDialogOpen, setChatInfoDialogOpen] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [groupName, setGroupName] = useState('');
+  
+  // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageInputRef = useRef<HTMLInputElement>(null);
   const realtimeSubscription = useRef<any>(null);
-  const isInitialLoad = useRef(true);
-  const currentChannelRef = useRef<string>('');
+  const typingTimeout = useRef<NodeJS.Timeout | null>(null);
+  const presenceInterval = useRef<NodeJS.Timeout | null>(null);
+  const currentChatRef = useRef<string>('');
   const messageQueue = useRef<Set<string>>(new Set());
 
-  // Check if user is admin
-  const checkAdminStatus = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', userId)
-        .single();
-
-      if (error) throw error;
-      
-      setIsAdmin(data?.role === 'admin');
-      return data?.role === 'admin';
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-      setIsAdmin(false);
-      return false;
-    }
-  };
-
-  // Check if current user can send messages in announcement channel
-  const canSendInAnnouncementChannel = (channel: Channel | undefined) => {
-    if (!channel?.is_announcement) return true;
+  // Helper functions
+  const isAdmin = currentUser?.role === 'admin';
+  
+  const canSendInChat = (chat: Chat | undefined) => {
+    if (!chat?.is_announcement) return true;
     return isAdmin;
   };
 
-  // WebSocket-like real-time messaging setup with immediate updates
-  const setupRealtimeConnection = (channelId: string) => {
-    console.log('🔌 Setting up real-time connection for channel:', channelId);
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     
-    // Clean up existing connection
+    if (days === 0) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (days === 1) {
+      return 'Yesterday';
+    } else if (days < 7) {
+      return date.toLocaleDateString([], { weekday: 'short' });
+    } else {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+  };
+
+  const formatLastSeen = (lastSeen: string) => {
+    const date = new Date(lastSeen);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / (1000 * 60));
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const getChatName = (chat: Chat) => {
+    if (chat.is_group) return chat.name || 'Group Chat';
+    
+    // For direct chats, show the other participant's name
+    const otherParticipant = chat.participants.find(p => p !== currentUser?.id);
+    const otherUser = users.find(u => u.id === otherParticipant);
+    return otherUser?.full_name || otherUser?.username || otherUser?.email || 'Unknown User';
+  };
+
+  const getChatAvatar = (chat: Chat) => {
+    if (chat.avatar_url) return chat.avatar_url;
+    if (chat.is_group) return null;
+    
+    const otherParticipant = chat.participants.find(p => p !== currentUser?.id);
+    const otherUser = users.find(u => u.id === otherParticipant);
+    return otherUser?.avatar_url;
+  };
+
+  const getMessageSeenStatus = (message: Message) => {
+    if (message.sender_id === currentUser?.id) {
+      const currentChat = chats.find(c => c.id === message.chat_id);
+      if (!currentChat) return 'sent';
+      
+      const otherParticipants = currentChat.participants.filter(p => p !== currentUser?.id);
+      const seenByOthers = message.seen_by.filter(id => id !== currentUser?.id);
+      
+      if (seenByOthers.length === otherParticipants.length) return 'seen';
+      if (seenByOthers.length > 0) return 'delivered';
+      return 'sent';
+    }
+    return 'received';
+  };
+
+  // Real-time setup
+  const setupRealtimeConnection = useCallback((chatId: string) => {
+    console.log('🔌 Setting up real-time connection for chat:', chatId);
+    
     if (realtimeSubscription.current) {
       console.log('🧹 Cleaning up existing connection');
       supabase.removeChannel(realtimeSubscription.current);
       realtimeSubscription.current = null;
     }
 
-    currentChannelRef.current = channelId;
+    currentChatRef.current = chatId;
 
-    // Create WebSocket-like connection using Supabase real-time
     realtimeSubscription.current = supabase
-      .channel(`chat:${channelId}`)
+      .channel(`whatsapp-chat:${chatId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'chat_messages',
-          filter: `channel_id=eq.${channelId}`,
+          table: 'messages',
+          filter: `chat_id=eq.${chatId}`,
         },
         (payload) => {
           console.log('📨 New message received:', payload);
           const newMessage = payload.new as Message;
           
-          // Prevent duplicate messages
           if (messageQueue.current.has(newMessage.id)) {
-            console.log('Message already in queue, skipping:', newMessage.id);
             return;
           }
           
-          // Add to queue to prevent duplicates
           messageQueue.current.add(newMessage.id);
-          
-          // Immediately add message to UI with optimistic data
-          const optimisticMessage: Message = {
-            ...newMessage,
-            sender: {
-              id: newMessage.sender_id,
-              email: 'Loading...',
-              full_name: 'Loading...'
-            }
-          };
-          
-          setMessages(prev => {
-            // Check if message already exists
-            if (prev.find(msg => msg.id === newMessage.id)) {
-              return prev;
-            }
-            return [...prev, optimisticMessage];
-          });
-          
-          // Fetch complete message with sender info
           fetchMessageWithSender(newMessage.id);
         }
       )
@@ -194,17 +264,16 @@ export default function UserCommunicationHub() {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'chat_messages',
-          filter: `channel_id=eq.${channelId}`,
+          table: 'messages',
+          filter: `chat_id=eq.${chatId}`,
         },
         (payload) => {
           console.log('✏️ Message updated:', payload);
           const updatedMessage = payload.new as Message;
           
-          // Update message in state immediately
           setMessages(prev => 
             prev.map(msg => 
-              msg.id === updatedMessage.id ? updatedMessage : msg
+              msg.id === updatedMessage.id ? { ...msg, ...updatedMessage } : msg
             )
           );
         }
@@ -214,14 +283,13 @@ export default function UserCommunicationHub() {
         {
           event: 'DELETE',
           schema: 'public',
-          table: 'chat_messages',
-          filter: `channel_id=eq.${channelId}`,
+          table: 'messages',
+          filter: `chat_id=eq.${chatId}`,
         },
         (payload) => {
           console.log('🗑️ Message deleted:', payload);
           const deletedMessage = payload.old as Message;
           
-          // Remove message from state immediately
           setMessages(prev => prev.filter(msg => msg.id !== deletedMessage.id));
         }
       )
@@ -230,12 +298,30 @@ export default function UserCommunicationHub() {
         {
           event: '*',
           schema: 'public',
-          table: 'chat_channel_members',
-          filter: `channel_id=eq.${channelId}`,
+          table: 'typing_status',
+          filter: `chat_id=eq.${chatId}`,
         },
         (payload) => {
-          console.log('👥 Member update:', payload);
-          fetchChannelMembers(channelId);
+          console.log('⌨️ Typing status update:', payload);
+          fetchTypingStatus(chatId);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'users',
+        },
+        (payload) => {
+          console.log('👤 User status update:', payload);
+          const updatedUser = payload.new as User;
+          
+          setUsers(prev => 
+            prev.map(user => 
+              user.id === updatedUser.id ? { ...user, ...updatedUser } : user
+            )
+          );
         }
       )
       .subscribe((status) => {
@@ -257,16 +343,18 @@ export default function UserCommunicationHub() {
       });
 
     return realtimeSubscription.current;
-  };
+  }, []);
 
-  // Fetch complete message with sender information
+  // Data fetching functions
   const fetchMessageWithSender = async (messageId: string) => {
     try {
       const { data, error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .select(`
           *,
-          sender:profiles(id, email, full_name)
+          sender:users!messages_sender_id_fkey(id, email, username, full_name, avatar_url, is_online, last_seen),
+          forwarded_message:messages!messages_forwarded_from_fkey(id, content, sender_id, created_at),
+          reply_message:messages!messages_reply_to_fkey(id, content, sender_id, created_at)
         `)
         .eq('id', messageId)
         .single();
@@ -275,131 +363,77 @@ export default function UserCommunicationHub() {
 
       if (data) {
         setMessages(prev => {
-          // Update the message with complete sender info
-          return prev.map(msg => 
-            msg.id === data.id ? data : msg
-          );
+          const existingIndex = prev.findIndex(msg => msg.id === data.id);
+          if (existingIndex >= 0) {
+            const newMessages = [...prev];
+            newMessages[existingIndex] = data;
+            return newMessages;
+          }
+          return [...prev, data];
         });
         
-        // Remove from queue
         messageQueue.current.delete(messageId);
       }
     } catch (error) {
       console.error('Error fetching message with sender:', error);
-      // Remove from queue even if error
       messageQueue.current.delete(messageId);
     }
   };
 
-  const getCurrentUser = async () => {
+  const fetchCurrentUser = async () => {
     try {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error) throw error;
-      setCurrentUser(user);
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
       
       if (user) {
-        // Check admin status
-        await checkAdminStatus(user.id);
-        // Auto-invite to announcement channels for new users
-        await autoInviteToAnnouncementChannels(user.id);
-      }
-    } catch (error) {
-      console.error('Error getting current user:', error);
-    }
-  };
-
-  const autoInviteToAnnouncementChannels = async (userId: string) => {
-    try {
-      console.log('Auto-inviting user to announcement channels:', userId);
-      
-      // Call the database function to auto-join announcement channels
-      const { error } = await supabase.rpc('auto_join_announcement_channels', {
-        user_uuid: userId
-      });
-
-      if (error) {
-        console.error('Error calling auto_join_announcement_channels:', error);
-        // Fallback: manually add to announcement channels
-        await manualAddToAnnouncementChannels(userId);
-      } else {
-        console.log('Successfully auto-joined announcement channels');
-      }
-    } catch (error) {
-      console.error('Error auto-inviting to announcement channels:', error);
-      // Fallback: manually add to announcement channels
-      await manualAddToAnnouncementChannels(userId);
-    }
-  };
-
-  const manualAddToAnnouncementChannels = async (userId: string) => {
-    try {
-      // Get all announcement channels
-      const { data: announcementChannels, error: channelsError } = await supabase
-        .from('chat_channels')
-        .select('*')
-        .eq('is_announcement', true);
-
-      if (channelsError) throw channelsError;
-
-      // Check if user is already a member of these channels
-      for (const channel of announcementChannels || []) {
-        const { data: existingMember, error: memberError } = await supabase
-          .from('chat_channel_members')
+        // Try to get user from our users table
+        let { data: userData, error: userError } = await supabase
+          .from('users')
           .select('*')
-          .eq('channel_id', channel.id)
-          .eq('user_id', userId)
+          .eq('id', user.id)
           .single();
 
-        if (memberError && memberError.code === 'PGRST116') {
-          // User is not a member, add them
-          const { error: insertError } = await supabase
-            .from('chat_channel_members')
+        // If user doesn't exist in our users table, create them
+        if (userError && userError.code === 'PGRST116') {
+          const { data: newUser, error: insertError } = await supabase
+            .from('users')
             .insert({
-              channel_id: channel.id,
-              user_id: userId,
-            });
+              id: user.id,
+              email: user.email!,
+              full_name: user.user_metadata?.full_name,
+              avatar_url: user.user_metadata?.avatar_url,
+              is_online: true
+            })
+            .select()
+            .single();
 
-          if (!insertError) {
-            console.log(`Auto-invited user ${userId} to announcement channel ${channel.name}`);
+          if (insertError) {
+            console.error('Error creating user:', insertError);
+            return;
           }
+          userData = newUser;
+        } else if (userError) {
+          throw userError;
         }
+
+        setCurrentUser(userData);
+        
+        // Update user as online
+        await supabase
+          .from('users')
+          .update({ is_online: true, last_seen: new Date().toISOString() })
+          .eq('id', user.id);
       }
     } catch (error) {
-      console.error('Error manually adding to announcement channels:', error);
-    }
-  };
-
-  const fetchChannels = async () => {
-    try {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('chat_channels')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
-      setChannels(data || []);
-      if (data && data.length > 0 && !selectedChannel) {
-        setSelectedChannel(data[0].id);
-      }
-    } catch (error) {
-      console.error('Error fetching channels:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load channels",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+      console.error('Error fetching current user:', error);
     }
   };
 
   const fetchUsers = async () => {
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, full_name, role')
+        .from('users')
+        .select('*')
         .order('full_name', { ascending: true });
 
       if (error) throw error;
@@ -409,48 +443,94 @@ export default function UserCommunicationHub() {
     }
   };
 
-  const fetchChannelMembers = async (channelId: string) => {
+  const fetchChats = async () => {
     try {
+      setIsLoading(true);
       const { data, error } = await supabase
-        .from('chat_channel_members')
+        .from('chats')
         .select('*')
-        .eq('channel_id', channelId);
+        .order('last_message_at', { ascending: false });
 
       if (error) throw error;
-      setChannelMembers(data || []);
+      
+      const chatsWithLastMessage = await Promise.all(
+        (data || []).map(async (chat) => {
+          // Get last message
+          const { data: lastMessage } = await supabase
+            .from('messages')
+            .select(`
+              *,
+              sender:users!messages_sender_id_fkey(full_name, username)
+            `)
+            .eq('chat_id', chat.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          // Get unread count
+          const { count: unreadCount } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('chat_id', chat.id)
+            .neq('sender_id', currentUser?.id)
+            .not('seen_by', 'cs', `{${currentUser?.id}}`);
+
+          return {
+            ...chat,
+            last_message: lastMessage,
+            unread_count: unreadCount || 0
+          };
+        })
+      );
+      
+      setChats(chatsWithLastMessage);
+      
+      if (chatsWithLastMessage.length > 0 && !selectedChat) {
+        setSelectedChat(chatsWithLastMessage[0].id);
+      }
     } catch (error) {
-      console.error('Error fetching channel members:', error);
+      console.error('Error fetching chats:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load chats",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const fetchMessages = async (channelId: string) => {
+  const fetchMessages = async (chatId: string) => {
     try {
       setIsLoading(true);
-      console.log('📥 Fetching messages for channel:', channelId);
+      console.log('📥 Fetching messages for chat:', chatId);
       
       const { data, error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .select(`
           *,
-          sender:profiles(id, email, full_name)
+          sender:users!messages_sender_id_fkey(id, email, username, full_name, avatar_url, is_online, last_seen),
+          forwarded_message:messages!messages_forwarded_from_fkey(id, content, sender_id, created_at),
+          reply_message:messages!messages_reply_to_fkey(id, content, sender_id, created_at)
         `)
-        .eq('channel_id', channelId)
+        .eq('chat_id', chatId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
       
       console.log('📨 Fetched messages:', data);
       
-      // Only update messages if we're still on the same channel
-      if (currentChannelRef.current === channelId) {
+      if (currentChatRef.current === chatId) {
         setMessages(data || []);
-        
-        // Clear message queue for new channel
         messageQueue.current.clear();
         
-        // Setup real-time connection for this channel
-        setupRealtimeConnection(channelId);
-        fetchChannelMembers(channelId);
+        // Mark messages as seen
+        if (currentUser) {
+          await supabase.rpc('mark_messages_as_seen', { chat_uuid: chatId });
+        }
+        
+        setupRealtimeConnection(chatId);
+        fetchTypingStatus(chatId);
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -464,14 +544,32 @@ export default function UserCommunicationHub() {
     }
   };
 
-  // WebSocket-like message sending with immediate updates
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedChannel || !currentUser) return;
+  const fetchTypingStatus = async (chatId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('typing_status')
+        .select(`
+          *,
+          user:users!typing_status_user_id_fkey(id, full_name, username)
+        `)
+        .eq('chat_id', chatId)
+        .eq('is_typing', true)
+        .neq('user_id', currentUser?.id);
 
-    const currentChannelData = channels.find(c => c.id === selectedChannel);
+      if (error) throw error;
+      setTypingUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching typing status:', error);
+    }
+  };
+
+  // Message actions
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !selectedChat || !currentUser) return;
+
+    const currentChat = chats.find(c => c.id === selectedChat);
     
-    // Check if user can send in announcement channel
-    if (!canSendInAnnouncementChannel(currentChannelData)) {
+    if (!canSendInChat(currentChat)) {
       toast({
         title: "Access Denied",
         description: "Only admins can send messages in announcement channels",
@@ -481,61 +579,64 @@ export default function UserCommunicationHub() {
     }
 
     try {
-      console.log('📤 Sending message:', {
-        content: newMessage.trim(),
-        sender_id: currentUser.id,
-        channel_id: selectedChannel,
-      });
+      console.log('📤 Sending message');
 
-      // Optimistically add message to UI immediately (like socket.io)
       const optimisticMessage: Message = {
         id: `temp-${Date.now()}`,
-        content: newMessage.trim(),
+        chat_id: selectedChat,
         sender_id: currentUser.id,
-        channel_id: selectedChannel,
+        content: newMessage.trim(),
+        message_type: 'text',
+        edited: false,
+        seen_by: [currentUser.id],
         created_at: new Date().toISOString(),
-        sender: {
-          id: currentUser.id,
-          email: currentUser.email,
-          full_name: currentUser.user_metadata?.full_name,
-        }
+        updated_at: new Date().toISOString(),
+        sender: currentUser,
+        reply_to: replyingTo?.id
       };
 
-      // Add to UI immediately (WebSocket-like behavior)
       setMessages(prev => [...prev, optimisticMessage]);
       setNewMessage('');
+      setReplyingTo(null);
 
-      // Send to database (this will trigger real-time update to all clients)
+      const messageData: any = {
+        chat_id: selectedChat,
+        sender_id: currentUser.id,
+        content: newMessage.trim(),
+        message_type: 'text',
+        seen_by: [currentUser.id]
+      };
+
+      if (replyingTo) {
+        messageData.reply_to = replyingTo.id;
+      }
+
       const { data, error } = await supabase
-        .from('chat_messages')
-        .insert({
-          content: newMessage.trim(),
-          sender_id: currentUser.id,
-          channel_id: selectedChannel,
-        })
+        .from('messages')
+        .insert(messageData)
         .select()
         .single();
 
       if (error) {
         console.error('Supabase error:', error);
-        // Remove optimistic message on error
         setMessages(prev => prev.filter(msg => msg.id !== optimisticMessage.id));
         throw error;
       }
 
+      // Update last message time for chat
+      await supabase
+        .from('chats')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('id', selectedChat);
+
       console.log('✅ Message sent successfully:', data);
       
-      // Replace optimistic message with real message
       setMessages(prev => 
         prev.map(msg => 
           msg.id === optimisticMessage.id ? data : msg
         )
       );
       
-      toast({
-        title: "Message Sent",
-        description: "Your message has been delivered",
-      });
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -550,16 +651,20 @@ export default function UserCommunicationHub() {
     if (!editingMessage || !editContent.trim()) return;
 
     try {
-      const response = await fetch(`/api/messaging/messages/${editingMessage}/edit`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: editContent.trim() }),
-      });
+      const { error } = await supabase
+        .from('messages')
+        .update({ 
+          content: editContent.trim(), 
+          edited: true, 
+          edited_at: new Date().toISOString() 
+        })
+        .eq('id', editingMessage);
 
-      if (!response.ok) throw new Error('Failed to edit message');
+      if (error) throw error;
 
       setEditingMessage(null);
       setEditContent('');
+      
       toast({
         title: "Success",
         description: "Message updated successfully",
@@ -574,15 +679,27 @@ export default function UserCommunicationHub() {
     }
   };
 
-  const deleteMessage = async (messageId: string) => {
-    if (!confirm('Are you sure you want to delete this message?')) return;
-
+  const deleteMessage = async (messageId: string, deleteForEveryone: boolean = false) => {
     try {
-      const response = await fetch(`/api/messaging/messages/${messageId}/delete`, {
-        method: 'DELETE',
-      });
+      if (deleteForEveryone) {
+        const { error } = await supabase
+          .from('messages')
+          .delete()
+          .eq('id', messageId);
 
-      if (!response.ok) throw new Error('Failed to delete message');
+        if (error) throw error;
+      } else {
+        // Soft delete - replace content with "This message was deleted"
+        const { error } = await supabase
+          .from('messages')
+          .update({ 
+            content: 'This message was deleted',
+            message_type: 'system'
+          })
+          .eq('id', messageId);
+
+        if (error) throw error;
+      }
 
       toast({
         title: "Success",
@@ -599,26 +716,37 @@ export default function UserCommunicationHub() {
   };
 
   const forwardMessage = async () => {
-    if (!forwardingMessage || (!forwardTarget.channelId && !forwardTarget.userId)) return;
+    if (!forwardingMessage || selectedForwardChats.length === 0) return;
 
     try {
-      const response = await fetch(`/api/messaging/messages/${forwardingMessage.id}/forward`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetChannelId: forwardTarget.channelId,
-          targetUserId: forwardTarget.userId,
-        }),
-      });
+      for (const chatId of selectedForwardChats) {
+        const { error } = await supabase
+          .from('messages')
+          .insert({
+            chat_id: chatId,
+            sender_id: currentUser?.id,
+            content: forwardingMessage.content,
+            message_type: forwardingMessage.message_type,
+            forwarded_from: forwardingMessage.id,
+            seen_by: [currentUser?.id]
+          });
 
-      if (!response.ok) throw new Error('Failed to forward message');
+        if (error) throw error;
+
+        // Update last message time for chat
+        await supabase
+          .from('chats')
+          .update({ last_message_at: new Date().toISOString() })
+          .eq('id', chatId);
+      }
 
       setForwardDialogOpen(false);
       setForwardingMessage(null);
-      setForwardTarget({});
+      setSelectedForwardChats([]);
+      
       toast({
         title: "Success",
-        description: "Message forwarded successfully",
+        description: `Message forwarded to ${selectedForwardChats.length} chat(s)`,
       });
     } catch (error) {
       console.error('Error forwarding message:', error);
@@ -630,220 +758,452 @@ export default function UserCommunicationHub() {
     }
   };
 
-  const addMemberToChannel = async () => {
-    if (!selectedUserForInvite || !selectedChannel) return;
-
+  const copyMessage = async (message: Message) => {
     try {
-      const { error } = await supabase
-        .from('chat_channel_members')
-        .insert({
-          channel_id: selectedChannel,
-          user_id: selectedUserForInvite,
-        });
-
-      if (error) throw error;
-
-      setAddMemberDialogOpen(false);
-      setSelectedUserForInvite('');
-      fetchChannelMembers(selectedChannel);
+      await navigator.clipboard.writeText(message.content);
       toast({
-        title: "Success",
-        description: "Member added to channel",
+        title: "Copied",
+        description: "Message copied to clipboard",
       });
     } catch (error) {
-      console.error('Error adding member:', error);
+      console.error('Error copying message:', error);
       toast({
         title: "Error",
-        description: "Failed to add member",
+        description: "Failed to copy message",
         variant: "destructive",
       });
     }
   };
 
+  // Typing indicator functions
+  const handleTyping = useCallback(async () => {
+    if (!currentUser || !selectedChat) return;
+
+    try {
+      await supabase
+        .from('typing_status')
+        .upsert({
+          chat_id: selectedChat,
+          user_id: currentUser.id,
+          is_typing: true,
+          updated_at: new Date().toISOString()
+        });
+
+      if (typingTimeout.current) {
+        clearTimeout(typingTimeout.current);
+      }
+
+      typingTimeout.current = setTimeout(async () => {
+        await supabase
+          .from('typing_status')
+          .update({ is_typing: false })
+          .eq('chat_id', selectedChat)
+          .eq('user_id', currentUser.id);
+      }, 3000);
+    } catch (error) {
+      console.error('Error updating typing status:', error);
+    }
+  }, [currentUser, selectedChat]);
+
+  // Chat management functions
+  const createDirectChat = async (userId: string) => {
+    try {
+      const { data, error } = await supabase.rpc('create_direct_chat', {
+        other_user_id: userId
+      });
+
+      if (error) throw error;
+      
+      setSelectedChat(data);
+      setNewChatDialogOpen(false);
+      await fetchChats();
+      
+      toast({
+        title: "Success",
+        description: "Chat created successfully",
+      });
+    } catch (error) {
+      console.error('Error creating direct chat:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create chat",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const createGroupChat = async () => {
+    if (!groupName.trim() || selectedUsers.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a group name and select users",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('create_group_chat', {
+        chat_name: groupName.trim(),
+        participant_ids: selectedUsers
+      });
+
+      if (error) throw error;
+      
+      setSelectedChat(data);
+      setNewGroupDialogOpen(false);
+      setGroupName('');
+      setSelectedUsers([]);
+      await fetchChats();
+      
+      toast({
+        title: "Success",
+        description: "Group chat created successfully",
+      });
+    } catch (error) {
+      console.error('Error creating group chat:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create group chat",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Presence management
+  const updatePresence = useCallback(async () => {
+    if (!currentUser) return;
+
+    try {
+      await supabase
+        .from('users')
+        .update({ 
+          is_online: true, 
+          last_seen: new Date().toISOString() 
+        })
+        .eq('id', currentUser.id);
+    } catch (error) {
+      console.error('Error updating presence:', error);
+    }
+  }, [currentUser]);
+
+  // Scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Initialize on component mount
+  // Effects
   useEffect(() => {
-    getCurrentUser();
-    fetchChannels();
+    fetchCurrentUser();
     fetchUsers();
-    isInitialLoad.current = false;
-
-    // Cleanup on unmount
+    
     return () => {
       if (realtimeSubscription.current) {
         console.log('🧹 Cleaning up real-time connection on unmount');
         supabase.removeChannel(realtimeSubscription.current);
       }
+      if (typingTimeout.current) {
+        clearTimeout(typingTimeout.current);
+      }
+      if (presenceInterval.current) {
+        clearInterval(presenceInterval.current);
+      }
     };
-  }, []); // Empty dependency array
+  }, []);
 
-  // Handle channel selection
   useEffect(() => {
-    if (selectedChannel && selectedChannel !== currentChannelRef.current) {
-      console.log('🔄 Channel changed from', currentChannelRef.current, 'to', selectedChannel);
-      currentChannelRef.current = selectedChannel;
-      fetchMessages(selectedChannel);
+    if (currentUser) {
+      fetchChats();
+      
+      // Set up presence interval
+      presenceInterval.current = setInterval(updatePresence, 30000);
+      updatePresence();
     }
-  }, [selectedChannel]); // Only depend on selectedChannel
+  }, [currentUser, updatePresence]);
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (!isInitialLoad.current) {
-      scrollToBottom();
+    if (selectedChat && selectedChat !== currentChatRef.current) {
+      console.log('🔄 Chat changed to:', selectedChat);
+      currentChatRef.current = selectedChat;
+      fetchMessages(selectedChat);
     }
-  }, [messages]); // Only depend on messages
+  }, [selectedChat]);
 
-  const filteredMessages = messages.filter(message =>
-    message.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    message.sender?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    message.sender?.email.toLowerCase().includes(searchQuery.toLowerCase())
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Filter chats and messages
+  const filteredChats = chats.filter(chat =>
+    getChatName(chat).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const currentChannel = channels.find(c => c.id === selectedChannel);
-  const canSendInCurrentChannel = canSendInAnnouncementChannel(currentChannel);
+  const currentChat = chats.find(c => c.id === selectedChat);
+  const canSendInCurrentChat = canSendInChat(currentChat);
+
+  const getTypingText = () => {
+    if (typingUsers.length === 0) return '';
+    if (typingUsers.length === 1) {
+      return `${typingUsers[0].user?.full_name || typingUsers[0].user?.username || 'Someone'} is typing...`;
+    }
+    return `${typingUsers.length} people are typing...`;
+  };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
       <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-4 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-gray-900">Communication Hub</h1>
-          <p className="text-sm text-gray-600">Real-time messaging system</p>
-          <div className="flex items-center mt-2">
-            <div className={`w-2 h-2 rounded-full mr-2 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            <span className="text-xs text-gray-500">
-              {isConnected ? 'Connected' : 'Disconnected'}
-            </span>
-          </div>
-          {isAdmin && (
-            <div className="flex items-center mt-1">
-              <Shield className="h-3 w-3 text-blue-500 mr-1" />
-              <span className="text-xs text-blue-600">Admin</span>
+        {/* Header */}
+        <div className="p-4 bg-green-600 text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={currentUser?.avatar_url} />
+                <AvatarFallback className="bg-green-700">
+                  {currentUser?.full_name?.charAt(0) || currentUser?.email?.charAt(0) || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h1 className="text-lg font-semibold">
+                  {currentUser?.full_name || currentUser?.username || 'User'}
+                </h1>
+                {isAdmin && (
+                  <div className="flex items-center">
+                    <Shield className="h-3 w-3 mr-1" />
+                    <span className="text-xs">Admin</span>
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+            <div className="flex items-center space-x-2">
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-300' : 'bg-red-300'}`}></div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-white hover:bg-green-700">
+                    <MoreVertical className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setShowUserInfo(true)}>
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setNewGroupDialogOpen(true)}>
+                    <Users className="h-4 w-4 mr-2" />
+                    New Group
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
         </div>
 
         {/* Search */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-3 border-b border-gray-200">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="Search messages..."
+              placeholder="Search or start new chat"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-10 border-gray-300"
             />
           </div>
         </div>
 
-        {/* Channels */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-gray-700 flex items-center">
-                <MessageCircle className="h-4 w-4 mr-2" />
-                Channels
-              </h2>
-              {isAdmin && (
-                <Button size="sm" variant="ghost" onClick={() => setAddMemberDialogOpen(true)}>
-                  <UserPlus className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-            {isLoading ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-              </div>
-            ) : (
-              channels.map((channel) => (
-                <div
-                  key={channel.id}
-                  onClick={() => setSelectedChannel(channel.id)}
-                  className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                    selectedChannel === channel.id
-                      ? 'bg-blue-50 border border-blue-200'
-                      : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="font-medium text-gray-900">{channel.name}</div>
-                    {channel.is_announcement && (
-                      <Bell className="h-4 w-4 text-yellow-500" />
-                    )}
-                  </div>
-                  {channel.description && (
-                    <div className="text-sm text-gray-600">{channel.description}</div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
+        {/* New Chat Button */}
+        <div className="p-3 border-b border-gray-200">
+          <Button 
+            onClick={() => setNewChatDialogOpen(true)}
+            className="w-full bg-green-600 hover:bg-green-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Chat
+          </Button>
         </div>
 
-        {/* Current User */}
-        <div className="p-4 border-t border-gray-200">
-          <div className="flex items-center space-x-3">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback>
-                {currentUser?.email?.charAt(0) || 'U'}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
-                {currentUser?.email || 'Loading...'}
-              </p>
+        {/* Chats List */}
+        <div className="flex-1 overflow-y-auto">
+          {isLoading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
             </div>
-          </div>
+          ) : filteredChats.length === 0 ? (
+            <div className="text-center py-8">
+              <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No chats yet</p>
+              <p className="text-sm text-gray-500">Start a new conversation</p>
+            </div>
+          ) : (
+            filteredChats.map((chat) => {
+              const chatName = getChatName(chat);
+              const chatAvatar = getChatAvatar(chat);
+              const lastMessage = chat.last_message;
+              
+              return (
+                <div
+                  key={chat.id}
+                  onClick={() => setSelectedChat(chat.id)}
+                  className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
+                    selectedChat === chat.id ? 'bg-green-50 border-l-4 border-l-green-600' : ''
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="relative">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={chatAvatar} />
+                        <AvatarFallback className="bg-gray-300">
+                          {chat.is_group ? (
+                            <Users className="h-6 w-6" />
+                          ) : (
+                            chatName.charAt(0)
+                          )}
+                        </AvatarFallback>
+                      </Avatar>
+                      {chat.is_announcement && (
+                        <Bell className="absolute -top-1 -right-1 h-4 w-4 text-yellow-500 bg-white rounded-full" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-semibold text-gray-900 truncate">
+                          {chatName}
+                        </h3>
+                        <div className="flex items-center space-x-2">
+                          {lastMessage && (
+                            <span className="text-xs text-gray-500">
+                              {formatTime(lastMessage.created_at)}
+                            </span>
+                          )}
+                          {chat.unread_count > 0 && (
+                            <Badge className="bg-green-600 text-white text-xs min-w-[20px] h-5 flex items-center justify-center rounded-full">
+                              {chat.unread_count > 99 ? '99+' : chat.unread_count}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-sm text-gray-600 truncate">
+                          {lastMessage ? (
+                            <span>
+                              {lastMessage.sender_id === currentUser?.id && (
+                                <span className="text-gray-500">You: </span>
+                              )}
+                              {lastMessage.message_type === 'system' ? (
+                                <em>{lastMessage.content}</em>
+                              ) : (
+                                lastMessage.content
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">No messages yet</span>
+                          )}
+                        </p>
+                        {lastMessage && lastMessage.sender_id === currentUser?.id && (
+                          <div className="flex items-center">
+                            {getMessageSeenStatus(lastMessage) === 'seen' ? (
+                              <CheckCheck className="h-4 w-4 text-blue-500" />
+                            ) : getMessageSeenStatus(lastMessage) === 'delivered' ? (
+                              <CheckCheck className="h-4 w-4 text-gray-400" />
+                            ) : (
+                              <Check className="h-4 w-4 text-gray-400" />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
-        {selectedChannel ? (
+        {selectedChat ? (
           <>
-            {/* Channel Header */}
+            {/* Chat Header */}
             <div className="bg-white border-b border-gray-200 p-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    {currentChannel?.name}
-                  </h2>
-                  <p className="text-sm text-gray-600">
-                    {messages.length} messages • {channelMembers.length} members
-                  </p>
+                <div className="flex items-center space-x-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={getChatAvatar(currentChat!)} />
+                    <AvatarFallback className="bg-gray-300">
+                      {currentChat?.is_group ? (
+                        <Users className="h-5 w-5" />
+                      ) : (
+                        getChatName(currentChat!).charAt(0)
+                      )}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-lg font-semibold text-gray-900 truncate">
+                      {getChatName(currentChat!)}
+                    </h2>
+                    <div className="flex items-center space-x-2">
+                      {currentChat?.is_announcement && (
+                        <Badge variant="secondary" className="text-xs">
+                          <Bell className="h-3 w-3 mr-1" />
+                          Announcement
+                        </Badge>
+                      )}
+                      {!canSendInCurrentChat && (
+                        <Badge variant="outline" className="text-orange-600 text-xs">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Read Only
+                        </Badge>
+                      )}
+                      <p className="text-sm text-gray-500">
+                        {getTypingText() || (
+                          currentChat?.is_group ? 
+                            `${currentChat.participants.length} members` :
+                            (() => {
+                              const otherParticipant = currentChat?.participants.find(p => p !== currentUser?.id);
+                              const otherUser = users.find(u => u.id === otherParticipant);
+                              return otherUser?.is_online ? 'Online' : `Last seen ${formatLastSeen(otherUser?.last_seen || '')}`;
+                            })()
+                        )}
+                      </p>
+                    </div>
+                  </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  {currentChannel?.is_announcement && (
-                    <Badge variant="secondary" className="flex items-center">
-                      <Bell className="h-3 w-3 mr-1" />
-                      Announcement
-                    </Badge>
+                  {!currentChat?.is_group && (
+                    <>
+                      <Button variant="ghost" size="sm">
+                        <Phone className="h-5 w-5" />
+                      </Button>
+                      <Button variant="ghost" size="sm">
+                        <Video className="h-5 w-5" />
+                      </Button>
+                    </>
                   )}
-                  {!canSendInCurrentChannel && (
-                    <Badge variant="outline" className="flex items-center text-orange-600">
-                      <AlertCircle className="h-3 w-3 mr-1" />
-                      Read Only
-                    </Badge>
-                  )}
-                  <Badge variant="secondary">
-                    <Users className="h-3 w-3 mr-1" />
-                    Active
-                  </Badge>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setChatInfoDialogOpen(true)}
+                  >
+                    <MoreVertical className="h-5 w-5" />
+                  </Button>
                 </div>
               </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-gray-50">
               {isLoading ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
                   <p className="text-gray-600 mt-2">Loading messages...</p>
                 </div>
-              ) : filteredMessages.length === 0 ? (
+              ) : messages.length === 0 ? (
                 <div className="text-center py-8">
                   <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -854,100 +1214,198 @@ export default function UserCommunicationHub() {
                   </p>
                 </div>
               ) : (
-                filteredMessages.map((message) => (
-                  <div key={message.id} className="flex items-start space-x-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>
-                        {message.sender?.full_name?.charAt(0) || message.sender?.email?.charAt(0) || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm font-medium text-gray-900">
-                          {message.sender?.full_name || message.sender?.email}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {new Date(message.created_at).toLocaleString()}
-                        </span>
-                        {message.updated_at && (
-                          <Badge variant="outline" className="text-xs">Edited</Badge>
+                messages.map((message, index) => {
+                  const isOwnMessage = message.sender_id === currentUser?.id;
+                  const showSender = !isOwnMessage && (
+                    index === 0 || 
+                    messages[index - 1].sender_id !== message.sender_id ||
+                    new Date(message.created_at).getTime() - new Date(messages[index - 1].created_at).getTime() > 300000 // 5 minutes
+                  );
+                  
+                  return (
+                    <div key={message.id} className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-xs lg:max-w-md ${isOwnMessage ? 'order-1' : 'order-2'}`}>
+                        {showSender && !isOwnMessage && (
+                          <p className="text-xs text-gray-500 mb-1 ml-2">
+                            {message.sender?.full_name || message.sender?.username || message.sender?.email}
+                          </p>
                         )}
-                        {message.message_type === 'forwarded' && (
-                          <Badge variant="outline" className="text-xs">Forwarded</Badge>
-                        )}
-                        {message.id.startsWith('temp-') && (
-                          <Badge variant="outline" className="text-xs">Sending...</Badge>
-                        )}
-                      </div>
-                      <div className="mt-1">
-                        {editingMessage === message.id ? (
-                          <div className="space-y-2">
-                            <Textarea
-                              value={editContent}
-                              onChange={(e) => setEditContent(e.target.value)}
-                              className="min-h-[60px]"
-                            />
-                            <div className="flex space-x-2">
-                              <Button size="sm" onClick={editMessage}>
-                                Save
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => {
-                                  setEditingMessage(null);
-                                  setEditContent('');
-                                }}
-                              >
-                                Cancel
-                              </Button>
+                        
+                        <div className="group relative">
+                          <div
+                            className={`relative p-3 rounded-lg ${
+                              isOwnMessage
+                                ? 'bg-green-600 text-white'
+                                : message.message_type === 'system'
+                                ? 'bg-gray-200 text-gray-600 text-center italic'
+                                : 'bg-white text-gray-900 shadow-sm border border-gray-200'
+                            }`}
+                          >
+                            {/* Reply indicator */}
+                            {message.reply_to && message.reply_message && (
+                              <div className={`mb-2 p-2 border-l-4 ${
+                                isOwnMessage ? 'border-green-300 bg-green-700' : 'border-gray-300 bg-gray-50'
+                              } rounded text-xs`}>
+                                <p className={`font-semibold ${isOwnMessage ? 'text-green-200' : 'text-gray-600'}`}>
+                                  Replying to {message.reply_message.sender_id === currentUser?.id ? 'You' : 'Message'}
+                                </p>
+                                <p className={`${isOwnMessage ? 'text-green-200' : 'text-gray-500'} truncate`}>
+                                  {message.reply_message.content}
+                                </p>
+                              </div>
+                            )}
+                            
+                            {/* Forwarded indicator */}
+                            {message.forwarded_from && (
+                              <div className={`mb-2 flex items-center text-xs ${
+                                isOwnMessage ? 'text-green-200' : 'text-gray-500'
+                              }`}>
+                                <Forward className="h-3 w-3 mr-1" />
+                                Forwarded
+                              </div>
+                            )}
+                            
+                            {/* Message content */}
+                            {editingMessage === message.id ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={editContent}
+                                  onChange={(e) => setEditContent(e.target.value)}
+                                  className="min-h-[60px] text-sm"
+                                />
+                                <div className="flex space-x-2">
+                                  <Button size="sm" onClick={editMessage}>
+                                    Save
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => {
+                                      setEditingMessage(null);
+                                      setEditContent('');
+                                    }}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-sm whitespace-pre-wrap">
+                                {message.content}
+                              </p>
+                            )}
+                            
+                            {/* Message metadata */}
+                            <div className={`flex items-center justify-between mt-1 text-xs ${
+                              isOwnMessage ? 'text-green-200' : 'text-gray-500'
+                            }`}>
+                              <span>
+                                {formatTime(message.created_at)}
+                                {message.edited && <span className="ml-1">(edited)</span>}
+                              </span>
+                              {isOwnMessage && (
+                                <div className="flex items-center">
+                                  {message.id.startsWith('temp-') ? (
+                                    <Clock className="h-3 w-3" />
+                                  ) : getMessageSeenStatus(message) === 'seen' ? (
+                                    <CheckCheck className="h-3 w-3 text-blue-300" />
+                                  ) : getMessageSeenStatus(message) === 'delivered' ? (
+                                    <CheckCheck className="h-3 w-3" />
+                                  ) : (
+                                    <Check className="h-3 w-3" />
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
-                        ) : (
-                          <p className="text-sm text-gray-700">{message.content}</p>
-                        )}
+                          
+                          {/* Message actions menu */}
+                          {message.message_type !== 'system' && !message.id.startsWith('temp-') && (
+                            <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 bg-white shadow-md">
+                                    <MoreVertical className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => setReplyingTo(message)}>
+                                    <Reply className="h-4 w-4 mr-2" />
+                                    Reply
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => copyMessage(message)}>
+                                    <Copy className="h-4 w-4 mr-2" />
+                                    Copy
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    setForwardingMessage(message);
+                                    setForwardDialogOpen(true);
+                                  }}>
+                                    <Forward className="h-4 w-4 mr-2" />
+                                    Forward
+                                  </DropdownMenuItem>
+                                  {message.sender_id === currentUser?.id && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem onClick={() => {
+                                        setEditingMessage(message.id);
+                                        setEditContent(message.content);
+                                      }}>
+                                        <Edit className="h-4 w-4 mr-2" />
+                                        Edit
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => deleteMessage(message.id, false)}>
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete for me
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem 
+                                        onClick={() => deleteMessage(message.id, true)}
+                                        className="text-red-600"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete for everyone
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => {
-                          setEditingMessage(message.id);
-                          setEditContent(message.content);
-                        }}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit Message
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => {
-                          setForwardingMessage(message);
-                          setForwardDialogOpen(true);
-                        }}>
-                          <Forward className="h-4 w-4 mr-2" />
-                          Forward Message
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          onClick={() => deleteMessage(message.id)}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete Message
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                ))
+                  );
+                })
               )}
               <div ref={messagesEndRef} />
             </div>
 
             {/* Message Input */}
             <div className="bg-white border-t border-gray-200 p-4">
-              {!canSendInCurrentChannel ? (
+              {/* Reply indicator */}
+              {replyingTo && (
+                <div className="mb-3 p-3 bg-gray-50 border-l-4 border-green-600 rounded">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-600">
+                        Replying to {replyingTo.sender?.full_name || 'Message'}
+                      </p>
+                      <p className="text-sm text-gray-500 truncate">
+                        {replyingTo.content}
+                      </p>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setReplyingTo(null)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              {!canSendInCurrentChat ? (
                 <div className="flex items-center justify-center p-4 bg-orange-50 border border-orange-200 rounded-lg">
                   <AlertCircle className="h-5 w-5 text-orange-500 mr-2" />
                   <span className="text-sm text-orange-700">
@@ -955,127 +1413,190 @@ export default function UserCommunicationHub() {
                   </span>
                 </div>
               ) : (
-                <div className="flex space-x-2">
-                  <Input
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Type your message..."
-                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                    className="flex-1"
-                  />
-                  <Button onClick={sendMessage} disabled={!newMessage.trim()}>
-                    <Send className="h-4 w-4" />
+                <div className="flex items-center space-x-2">
+                  <Button variant="ghost" size="sm">
+                    <Paperclip className="h-5 w-5" />
                   </Button>
+                  <div className="flex-1 relative">
+                    <Input
+                      ref={messageInputRef}
+                      value={newMessage}
+                      onChange={(e) => {
+                        setNewMessage(e.target.value);
+                        handleTyping();
+                      }}
+                      placeholder="Type a message..."
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          sendMessage();
+                        }
+                      }}
+                      className="pr-20"
+                    />
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
+                      <Button variant="ghost" size="sm">
+                        <Smile className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  {newMessage.trim() ? (
+                    <Button 
+                      onClick={sendMessage}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button variant="ghost" size="sm">
+                      <Mic className="h-5 w-5" />
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center bg-gray-50">
             <div className="text-center">
-              <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Select a channel
+              <MessageCircle className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-medium text-gray-900 mb-2">
+                Welcome to WhatsApp-Style Chat
               </h3>
-              <p className="text-gray-600">
-                Choose a channel from the sidebar to start messaging
+              <p className="text-gray-600 mb-4">
+                Select a chat from the sidebar to start messaging
               </p>
+              <Button 
+                onClick={() => setNewChatDialogOpen(true)}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Start New Chat
+              </Button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Forward Message Dialog */}
-      <Dialog open={forwardDialogOpen} onOpenChange={setForwardDialogOpen}>
-        <DialogContent>
+      {/* New Chat Dialog */}
+      <Dialog open={newChatDialogOpen} onOpenChange={setNewChatDialogOpen}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Forward Message</DialogTitle>
+            <DialogTitle>Start New Chat</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-gray-700">Original Message</label>
-              <div className="mt-1 p-3 bg-gray-50 rounded-md">
-                <p className="text-sm text-gray-600">{forwardingMessage?.content}</p>
-              </div>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium text-gray-700">Forward to Channel</label>
-              <select
-                className="mt-1 w-full p-2 border border-gray-300 rounded-md"
-                onChange={(e) => setForwardTarget({ channelId: e.target.value, userId: undefined })}
-              >
-                <option value="">Select a channel</option>
-                {channels.map((channel) => (
-                  <option key={channel.id} value={channel.id}>
-                    {channel.name}
-                  </option>
+            <div className="max-h-60 overflow-y-auto">
+              {users
+                .filter(user => user.id !== currentUser?.id)
+                .map((user) => (
+                  <div
+                    key={user.id}
+                    onClick={() => createDirectChat(user.id)}
+                    className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                  >
+                    <div className="relative">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={user.avatar_url} />
+                        <AvatarFallback>
+                          {user.full_name?.charAt(0) || user.email.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      {user.is_online && (
+                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900">
+                        {user.full_name || user.username || user.email}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {user.is_online ? 'Online' : `Last seen ${formatLastSeen(user.last_seen)}`}
+                      </p>
+                    </div>
+                  </div>
                 ))}
-              </select>
             </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-700">Or Forward to User</label>
-              <select
-                className="mt-1 w-full p-2 border border-gray-300 rounded-md"
-                onChange={(e) => setForwardTarget({ userId: e.target.value, channelId: undefined })}
-              >
-                <option value="">Select a user</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.full_name || user.email}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setForwardDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setNewChatDialogOpen(false)}>
                 Cancel
               </Button>
               <Button 
-                onClick={forwardMessage}
-                disabled={!forwardTarget.channelId && !forwardTarget.userId}
+                onClick={() => setNewGroupDialogOpen(true)}
+                className="bg-green-600 hover:bg-green-700"
               >
-                Forward
+                Create Group
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Add Member Dialog */}
-      <Dialog open={addMemberDialogOpen} onOpenChange={setAddMemberDialogOpen}>
-        <DialogContent>
+      {/* Forward Message Dialog */}
+      <Dialog open={forwardDialogOpen} onOpenChange={setForwardDialogOpen}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Add Member to Channel</DialogTitle>
+            <DialogTitle>Forward Message</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-gray-700">Select User</label>
-              <select
-                className="mt-1 w-full p-2 border border-gray-300 rounded-md"
-                value={selectedUserForInvite}
-                onChange={(e) => setSelectedUserForInvite(e.target.value)}
-              >
-                <option value="">Select a user</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.full_name || user.email}
-                  </option>
-                ))}
-              </select>
+            <div className="p-3 bg-gray-50 rounded border">
+              <p className="text-sm text-gray-600">
+                {forwardingMessage?.content}
+              </p>
+            </div>
+            
+            <div className="max-h-60 overflow-y-auto space-y-2">
+              {chats.map((chat) => (
+                <div
+                  key={chat.id}
+                  onClick={() => {
+                    setSelectedForwardChats(prev => 
+                      prev.includes(chat.id) 
+                        ? prev.filter(id => id !== chat.id)
+                        : [...prev, chat.id]
+                    );
+                  }}
+                  className={`flex items-center space-x-3 p-2 rounded cursor-pointer ${
+                    selectedForwardChats.includes(chat.id) 
+                      ? 'bg-green-100 border border-green-300' 
+                      : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={getChatAvatar(chat)} />
+                    <AvatarFallback>
+                      {chat.is_group ? (
+                        <Users className="h-4 w-4" />
+                      ) : (
+                        getChatName(chat).charAt(0)
+                      )}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {getChatName(chat)}
+                    </p>
+                  </div>
+                  {selectedForwardChats.includes(chat.id) && (
+                    <Check className="h-4 w-4 text-green-600" />
+                  )}
+                </div>
+              ))}
             </div>
 
             <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setAddMemberDialogOpen(false)}>
+              <Button variant="outline" onClick={() => {
+                setForwardDialogOpen(false);
+                setForwardingMessage(null);
+                setSelectedForwardChats([]);
+              }}>
                 Cancel
               </Button>
               <Button 
-                onClick={addMemberToChannel}
-                disabled={!selectedUserForInvite}
+                onClick={forwardMessage}
+                disabled={selectedForwardChats.length === 0}
+                className="bg-green-600 hover:bg-green-700"
               >
-                Add Member
+                Forward ({selectedForwardChats.length})
               </Button>
             </div>
           </div>
