@@ -549,55 +549,92 @@ export const useChatStore = create<ChatStore>()(
       },
 
       setupRealtimeSubscriptions: () => {
-        const { currentUser } = get();
-        if (!currentUser) return;
+        const { currentUser, subscriptions } = get();
+        if (!currentUser || subscriptions.size > 0) return;
 
-        // Subscribe to new messages
+        console.log('Setting up realtime subscriptions...');
+
+        const handleNewMessage = async (payload: any) => {
+          const newMessage = payload.new as Message;
+          
+          // Fetch sender profile if it's not already in the message payload
+          if (!newMessage.sender) {
+            const { data: sender, error } = await supabase
+              .from('profiles')
+              .select('id, email, full_name, avatar_url, role')
+              .eq('id', newMessage.sender_id)
+              .single();
+            if (error) {
+              console.error('Error fetching sender profile for new message:', error);
+            } else {
+              newMessage.sender = {
+                ...sender,
+                last_seen: new Date().toISOString(),
+                is_online: true,
+              };
+            }
+          }
+
+          set(state => {
+            const channelMessages = state.messages[newMessage.chat_id] || [];
+            // Avoid adding duplicate messages
+            if (channelMessages.some(msg => msg.id === newMessage.id)) {
+              return state;
+            }
+            return {
+              messages: {
+                ...state.messages,
+                [newMessage.chat_id]: [...channelMessages, newMessage]
+              }
+            };
+          });
+        };
+        
+        const handleUpdatedMessage = (payload: any) => {
+          const updatedMessage = payload.new as Message;
+          set(state => ({
+            messages: Object.fromEntries(
+              Object.entries(state.messages).map(([channelId, messages]) => [
+                channelId,
+                messages.map(msg =>
+                  msg.id === updatedMessage.id ? { ...msg, ...updatedMessage } : msg
+                )
+              ])
+            )
+          }));
+        };
+
         const messagesSubscription = supabase
-          .channel('messages')
+          .channel('messages-insert')
           .on('postgres_changes', {
             event: 'INSERT',
             schema: 'public',
             table: 'messages'
-          }, (payload) => {
-            const newMessage = payload.new as Message;
-            set(state => ({
-              messages: {
-                ...state.messages,
-                [newMessage.chat_id]: [...(state.messages[newMessage.chat_id] || []), newMessage]
-              }
-            }));
-          })
-          .subscribe();
+          }, handleNewMessage)
+          .subscribe((status, err) => {
+            if (err) {
+              console.error('Messages insert subscription error:', err);
+            }
+          });
 
-        // Subscribe to message updates
         const messageUpdatesSubscription = supabase
-          .channel('message_updates')
+          .channel('messages-update')
           .on('postgres_changes', {
             event: 'UPDATE',
             schema: 'public',
             table: 'messages'
-          }, (payload) => {
-            const updatedMessage = payload.new as Message;
-            set(state => ({
-              messages: Object.fromEntries(
-                Object.entries(state.messages).map(([channelId, messages]) => [
-                  channelId,
-                  messages.map(msg =>
-                    msg.id === updatedMessage.id ? updatedMessage : msg
-                  )
-                ])
-              )
-            }));
-          })
-          .subscribe();
+          }, handleUpdatedMessage)
+          .subscribe((status, err) => {
+            if (err) {
+              console.error('Messages update subscription error:', err);
+            }
+          });
+          
+        const newSubscriptions = new Map(subscriptions);
+        newSubscriptions.set('messages-insert', messagesSubscription);
+        newSubscriptions.set('messages-update', messageUpdatesSubscription);
 
-        set(state => ({
-          subscriptions: new Map([
-            ['messages', messagesSubscription],
-            ['message_updates', messageUpdatesSubscription]
-          ])
-        }));
+        set({ subscriptions: newSubscriptions });
       },
 
       cleanupSubscriptions: () => {
