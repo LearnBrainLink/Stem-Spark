@@ -429,7 +429,7 @@ export default function CommunicationHub() {
   const loadChannels = async () => {
     try {
       const { data: channelData, error } = await supabase
-        .from('chat_channels')
+        .from('channels')
         .select('*')
         .order('created_at', { ascending: false })
 

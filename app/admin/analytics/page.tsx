@@ -70,7 +70,7 @@ export default function AdminAnalyticsPage() {
 
       // Fetch channel data
       const { data: channelData } = await supabase
-        .from('chat_channels')
+        .from('channels')
         .select('created_at')
         .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: true });

@@ -124,7 +124,7 @@ export default function CommunicationHub() {
 
       // Get all public channels
       const { data: publicChannels, error: channelsError } = await supabase
-        .from('chat_channels')
+        .from('channels')
         .select('id')
         .eq('channel_type', 'public')
 
@@ -142,17 +142,17 @@ export default function CommunicationHub() {
 
       // Check which public channels the user is already a member of
       const { data: existingMemberships, error: membershipsError } = await supabase
-        .from('chat_channel_members')
-        .select('channel_id')
+        .from('chat_participants')
+        .select('chat_id')
         .eq('user_id', user.id)
-        .in('channel_id', publicChannels.map(c => c.id))
+        .in('chat_id', publicChannels.map(c => c.id))
 
       if (membershipsError) {
         console.error('Error checking existing memberships:', membershipsError)
         return
       }
 
-      const existingChannelIds = existingMemberships?.map(m => m.channel_id) || []
+      const existingChannelIds = existingMemberships?.map(m => m.chat_id) || []
       const channelsToAdd = publicChannels.filter(c => !existingChannelIds.includes(c.id))
 
       console.log('Existing memberships:', existingChannelIds)
@@ -164,10 +164,10 @@ export default function CommunicationHub() {
         for (const channel of channelsToAdd) {
           try {
             const { error: insertError } = await supabase
-              .from('chat_channel_members')
+              .from('chat_participants')
               .insert({
                 user_id: user.id,
-                channel_id: channel.id,
+                chat_id: channel.id,
                 role: 'member'
               })
 
@@ -202,7 +202,7 @@ export default function CommunicationHub() {
 
       // Fetch channels that the user can see (public channels + channels they're members of + channels they created)
       const { data: channels, error } = await supabase
-        .from('chat_channels')
+        .from('channels')
         .select('*')
         .order('created_at', { ascending: false })
 
@@ -220,9 +220,9 @@ export default function CommunicationHub() {
           channels.map(async (channel) => {
             try {
               const { count } = await supabase
-                .from('chat_channel_members')
+                .from('chat_participants')
                 .select('*', { count: 'exact', head: true })
-                .eq('channel_id', channel.id)
+                .eq('chat_id', channel.id)
               
               return {
                 ...channel,

@@ -471,7 +471,7 @@ export default function AdminCommunicationHub() {
   const loadChannels = async () => {
     try {
       const { data: channelData, error: channelError } = await supabase
-        .from('chat_channels')
+        .from('channels')
         .select('*')
         .order('created_at', { ascending: false })
 
@@ -483,9 +483,9 @@ export default function AdminCommunicationHub() {
         const channelsWithMemberCount = await Promise.all(
           channelData.map(async (channel) => {
             const { count } = await supabase
-              .from('chat_channel_members')
+              .from('chat_participants')
               .select('*', { count: 'exact', head: true })
-              .eq('channel_id', channel.id)
+              .eq('chat_id', channel.id)
             
             return {
               ...channel,
@@ -777,7 +777,7 @@ export default function AdminCommunicationHub() {
       console.log('User role confirmed:', profile.role)
 
       const { data: channel, error: channelError } = await supabase
-        .from('chat_channels')
+        .from('channels')
         .insert({
           name: newChannelData.name,
           description: newChannelData.description,
@@ -795,9 +795,9 @@ export default function AdminCommunicationHub() {
       console.log('Channel created:', channel)
 
       const { error: memberError } = await supabase
-        .from('chat_channel_members')
+        .from('chat_participants')
         .insert({
-          channel_id: channel.id,
+          chat_id: channel.id,
           user_id: user.id,
           role: 'admin'
         })
@@ -812,12 +812,12 @@ export default function AdminCommunicationHub() {
         if (memberIdsToAdd.length > 0) {
           const memberInserts = memberIdsToAdd.map(userId => ({
             user_id: userId,
-            channel_id: channel.id,
+            chat_id: channel.id,
             role: 'member'
           }))
 
           const { error: membersError } = await supabase
-            .from('chat_channel_members')
+            .from('chat_participants')
             .insert(memberInserts)
 
           if (membersError) {
@@ -852,12 +852,12 @@ export default function AdminCommunicationHub() {
         .eq('channel_id', channelToDelete.id)
 
       await supabase
-        .from('chat_channel_members')
+        .from('chat_participants')
         .delete()
-        .eq('channel_id', channelToDelete.id)
+        .eq('chat_id', channelToDelete.id)
 
       const { error } = await supabase
-        .from('chat_channels')
+        .from('channels')
         .delete()
         .eq('id', channelToDelete.id)
 
@@ -877,13 +877,13 @@ export default function AdminCommunicationHub() {
 
     try {
       const memberInserts = newChannelData.selectedUsers.map(userId => ({
-        channel_id: channelId,
+        chat_id: channelId,
         user_id: userId,
         role: 'member'
       }))
 
       const { error } = await supabase
-        .from('chat_channel_members')
+        .from('chat_participants')
         .insert(memberInserts)
 
       if (error) throw error

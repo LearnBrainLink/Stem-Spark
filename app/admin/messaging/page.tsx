@@ -106,7 +106,7 @@ export default function AdminMessagingPage() {
 
   const fetchChannels = async () => {
     const { data, error } = await supabase
-      .from('chat_channels')
+      .from('channels')
       .select('*')
       .order('created_at', { ascending: false })
 
@@ -114,10 +114,10 @@ export default function AdminMessagingPage() {
       // Get member count for each channel
       const channelsWithMemberCount = await Promise.all(
         data.map(async (channel) => {
-          const { count } = await supabase
-            .from('chat_channel_members')
-            .select('*', { count: 'exact', head: true })
-            .eq('channel_id', channel.id)
+                      const { count } = await supabase
+              .from('chat_participants')
+              .select('*', { count: 'exact', head: true })
+              .eq('chat_id', channel.id)
           
           return {
             ...channel,
@@ -219,21 +219,21 @@ export default function AdminMessagingPage() {
       if (newChannelData.selectedUsers.length > 0) {
         const memberInserts = newChannelData.selectedUsers.map(userId => ({
           user_id: userId,
-          channel_id: channel.id,
+          chat_id: channel.id,
           role: 'member'
         }))
 
         await supabase
-          .from('chat_channel_members')
+          .from('chat_participants')
           .insert(memberInserts)
       }
 
       // Add creator as admin
       await supabase
-        .from('chat_channel_members')
+        .from('chat_participants')
         .insert({
           user_id: user.id,
-          channel_id: channel.id,
+          chat_id: channel.id,
           role: 'admin'
         })
 
@@ -303,13 +303,13 @@ export default function AdminMessagingPage() {
 
       // Delete all channel members
       await supabase
-        .from('chat_channel_members')
+        .from('chat_participants')
         .delete()
-        .eq('channel_id', channelId)
+        .eq('chat_id', channelId)
 
       // Delete the channel
       await supabase
-        .from('chat_channels')
+        .from('channels')
         .delete()
         .eq('id', channelId)
 
