@@ -530,7 +530,7 @@ export default function AdminCommunicationHub() {
       const { data: messagesData, error: messagesError } = await supabase
         .from('messages')
         .select('*')
-        .eq('channel_id', channelId)
+        .eq('chat_id', channelId)
         .order('created_at', { ascending: true })
 
       if (messagesError) {
@@ -668,7 +668,7 @@ export default function AdminCommunicationHub() {
 
     try {
       const { error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .delete()
         .eq('id', messageId)
 
@@ -690,10 +690,10 @@ export default function AdminCommunicationHub() {
       const forwardedContent = `🔄 Forwarded from #${selectedChannel?.name}:\n\n${forwardingMessage.content}`
       
       const { error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .insert({
           content: forwardedContent,
-          channel_id: targetChannelId,
+          chat_id: targetChannelId,
           sender_id: user.id,
           message_type: 'text',
           forwarded_from_id: forwardingMessage.id
@@ -847,9 +847,9 @@ export default function AdminCommunicationHub() {
 
     try {
       await supabase
-        .from('chat_messages')
+        .from('messages')
         .delete()
-        .eq('channel_id', channelToDelete.id)
+        .eq('chat_id', channelToDelete.id)
 
       await supabase
         .from('chat_participants')

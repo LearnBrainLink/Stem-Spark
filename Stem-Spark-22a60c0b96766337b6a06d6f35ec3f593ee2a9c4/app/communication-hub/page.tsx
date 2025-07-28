@@ -18,7 +18,7 @@ interface Message {
   content: string
   sender_id: string
   sender_name: string
-  channel_id: string
+  chat_id: string
   created_at: string
   message_type: 'text' | 'file' | 'image' | 'system'
   file_url?: string
@@ -439,9 +439,9 @@ export default function CommunicationHub() {
         const channelsWithMemberCount = await Promise.all(
           channelData.map(async (channel) => {
             const { count } = await supabase
-              .from('chat_channel_members')
+              .from('chat_participants')
               .select('*', { count: 'exact', head: true })
-              .eq('channel_id', channel.id)
+              .eq('chat_id', channel.id)
             
             return {
               ...channel,
@@ -517,7 +517,7 @@ export default function CommunicationHub() {
       content: newMessage.trim(),
       sender_id: user.id,
       sender_name: user.full_name,
-      channel_id: selectedChannel.id,
+      chat_id: selectedChannel.id,
       created_at: new Date().toISOString(),
       message_type: 'text',
       sender: {
