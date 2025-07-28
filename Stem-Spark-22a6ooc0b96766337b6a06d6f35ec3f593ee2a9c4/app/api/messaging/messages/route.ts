@@ -19,12 +19,12 @@ export async function GET(request: NextRequest) {
     }
 
     const { data, error } = await supabase
-      .from('chat_messages')
+      .from('messages')
       .select(`
         *,
         sender:profiles(id, email, full_name)
       `)
-      .eq('channel_id', channelId)
+      .eq('chat_id', channelId)
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -71,10 +71,10 @@ export async function POST(request: NextRequest) {
     }
 
     const { data, error } = await supabase
-      .from('chat_messages')
+      .from('messages')
       .insert({
         content: content.trim(),
-        channel_id: channelId,
+        chat_id: channelId,
         sender_id: senderId,
       })
       .select()

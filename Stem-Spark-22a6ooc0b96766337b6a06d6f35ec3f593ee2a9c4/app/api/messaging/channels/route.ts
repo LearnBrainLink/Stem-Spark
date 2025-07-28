@@ -9,7 +9,7 @@ const supabase = createClient(
 export async function GET() {
   try {
     const { data, error } = await supabase
-      .from('chat_channels')
+      .from('chats')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { data, error } = await supabase
-      .from('chat_channels')
+      .from('chats')
       .insert({
         name: name.trim(),
         description: description?.trim() || null,
