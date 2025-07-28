@@ -212,7 +212,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             <div className="flex gap-1 mt-1">
               {Object.entries(message.reactions).map(([emoji, users]) => (
                 <Badge key={emoji} variant="secondary" className="text-xs">
-                  {emoji} {users.length}
+                  {emoji} {(users as string[]).length}
                 </Badge>
               ))}
             </div>
