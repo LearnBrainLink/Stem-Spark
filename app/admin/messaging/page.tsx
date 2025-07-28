@@ -187,7 +187,7 @@ export default function AdminMessagingPage() {
         event: 'INSERT',
         schema: 'public',
         table: 'messages',
-        filter: `channel_id=eq.${channelId}`
+                  filter: `chat_id=eq.${channelId}`
       }, (payload) => {
         const newMessage = payload.new as Message
         setMessages(prev => [...prev, newMessage])
@@ -258,7 +258,7 @@ export default function AdminMessagingPage() {
       const { error } = await supabase
         .from('messages')
         .insert({
-          channel_id: adminMessageData.channel_id,
+          chat_id: adminMessageData.channel_id,
           sender_id: user.id,
           content: adminMessageData.content,
           message_type: adminMessageData.message_type
@@ -299,7 +299,7 @@ export default function AdminMessagingPage() {
       await supabase
         .from('messages')
         .delete()
-        .eq('channel_id', channelId)
+        .eq('chat_id', channelId)
 
       // Delete all channel members
       await supabase

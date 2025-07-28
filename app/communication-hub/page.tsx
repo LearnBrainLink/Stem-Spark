@@ -24,7 +24,7 @@ interface Message {
   content: string
   sender_id: string
   sender_name: string
-  channel_id: string
+  chat_id: string
   created_at: string
   message_type: 'text' | 'file' | 'system'
 }
@@ -270,7 +270,7 @@ export default function CommunicationHub() {
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .eq('channel_id', channelId)
+        .eq('chat_id', channelId)
         .order('created_at', { ascending: true })
 
       if (error) {
@@ -324,7 +324,7 @@ export default function CommunicationHub() {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `channel_id=eq.${channelId}`
+          filter: `chat_id=eq.${channelId}`
         }, (payload) => {
           console.log('New message received:', payload.new)
           const newMessage = payload.new as Message
@@ -378,7 +378,7 @@ export default function CommunicationHub() {
           {
             content: newMessage,
             sender_id: user.id,
-            channel_id: selectedChannel,
+            chat_id: selectedChannel,
             message_type: 'text'
           }
         ])
@@ -431,10 +431,10 @@ export default function CommunicationHub() {
         for (const userId of newChannelData.selectedUsers) {
           try {
             const { error: memberError } = await supabase
-              .from('chat_channel_members')
+              .from('chat_participants')
               .insert({
                 user_id: userId,
-                channel_id: channel.id,
+                chat_id: channel.id,
                 role: 'member'
               })
 
