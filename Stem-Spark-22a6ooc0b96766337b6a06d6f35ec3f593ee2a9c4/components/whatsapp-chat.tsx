@@ -354,9 +354,11 @@ export default function WhatsAppChat() {
   const handleSendMessage = async () => {
     if (!messageInput.trim() || !selectedChannelId) return;
 
+    console.log('[WhatsAppChat] Sending message...');
     await sendMessage(selectedChannelId, messageInput);
     setMessageInput('');
     updateTypingStatus(selectedChannelId, false);
+    console.log('[WhatsAppChat] Message sent.');
   };
 
   // Handle typing
@@ -439,6 +441,8 @@ export default function WhatsAppChat() {
   const currentMessages = messages[selectedChannelId || ''] || [];
   const isLoading = loadingMessages[selectedChannelId || ''];
 
+  console.log(`[WhatsAppChat] Rendering with ${currentMessages.length} messages for channel ${selectedChannelId}. Loading: ${isLoading}`);
+
   if (!currentUser) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -487,8 +491,13 @@ export default function WhatsAppChat() {
               <div
                 key={channel.id}
                 onClick={() => {
-                  selectChannel(channel.id);
-                  if (isMobile) setShowChannelList(false);
+                  if (selectedChannelId !== channel.id) {
+                    console.log(`[WhatsAppChat] Selecting channel: ${channel.id}`);
+                    selectChannel(channel.id);
+                  }
+                  if (isMobile) {
+                    setShowChannelList(false);
+                  }
                 }}
                 className={cn(
                   'p-3 rounded-lg cursor-pointer transition-colors',

@@ -213,6 +213,7 @@ export const useChatStore = create<ChatStore>()(
         const { currentUser } = get();
         if (!currentUser || !channelId) return;
 
+        console.log(`[ChatStore] Loading messages for channel: ${channelId}`);
         set(state => ({ 
           loadingMessages: { ...state.loadingMessages, [channelId]: true } 
         }));
@@ -235,6 +236,7 @@ export const useChatStore = create<ChatStore>()(
 
           if (error) throw error;
 
+          console.log(`[ChatStore] Loaded ${messages.length} messages for channel: ${channelId}`);
           set(state => ({
             messages: { ...state.messages, [channelId]: messages || [] },
             loadingMessages: { ...state.loadingMessages, [channelId]: false }
@@ -242,6 +244,7 @@ export const useChatStore = create<ChatStore>()(
         } catch (error) {
           console.error('Error loading messages:', error);
           set(state => ({
+            error: `Failed to load messages for channel ${channelId}`,
             loadingMessages: { ...state.loadingMessages, [channelId]: false }
           }));
         }
@@ -269,6 +272,7 @@ export const useChatStore = create<ChatStore>()(
           sender: currentUser
         };
 
+        console.log(`[ChatStore] Optimistically adding message (tempId: ${tempId}) to channel: ${channelId}`);
         // Optimistically add message to UI
         set(state => ({
           messages: {
@@ -300,6 +304,7 @@ export const useChatStore = create<ChatStore>()(
 
           if (error) throw error;
 
+          console.log(`[ChatStore] Received message from DB (id: ${message.id}), replacing tempId: ${tempId}`);
           // Replace temp message with real message
           set(state => ({
             messages: {
@@ -311,6 +316,7 @@ export const useChatStore = create<ChatStore>()(
           }));
         } catch (error) {
           console.error('Error sending message:', error);
+          console.log(`[ChatStore] Error sending message, removing tempId: ${tempId}`);
           // Remove temp message on error
           set(state => ({
             messages: {
@@ -556,6 +562,7 @@ export const useChatStore = create<ChatStore>()(
 
         const handleNewMessage = async (payload: any) => {
           const newMessage = payload.new as Message;
+          console.log('[ChatStore] Real-time: Received new message payload:', newMessage);
           
           // Fetch sender profile if it's not already in the message payload
           if (!newMessage.sender) {
@@ -574,13 +581,16 @@ export const useChatStore = create<ChatStore>()(
               };
             }
           }
+          console.log('[ChatStore] Real-time: Processed new message with sender:', newMessage);
 
           set(state => {
             const channelMessages = state.messages[newMessage.chat_id] || [];
             // Avoid adding duplicate messages
             if (channelMessages.some(msg => msg.id === newMessage.id)) {
+              console.log(`[ChatStore] Real-time: Duplicate message detected (id: ${newMessage.id}). Skipping.`);
               return state;
             }
+            console.log(`[ChatStore] Real-time: Adding new message (id: ${newMessage.id}) to channel: ${newMessage.chat_id}`);
             return {
               messages: {
                 ...state.messages,
@@ -592,6 +602,7 @@ export const useChatStore = create<ChatStore>()(
         
         const handleUpdatedMessage = (payload: any) => {
           const updatedMessage = payload.new as Message;
+          console.log('[ChatStore] Real-time: Received updated message:', updatedMessage);
           set(state => ({
             messages: Object.fromEntries(
               Object.entries(state.messages).map(([channelId, messages]) => [
