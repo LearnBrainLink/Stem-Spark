@@ -224,7 +224,7 @@ export default function AdminCommunicationHub() {
           event: '*',
           schema: 'public',
           table: 'messages',
-          filter: `channel_id=eq.${channelId}`
+          filter: `chat_id=eq.${channelId}`
       }, handleRealtimeMessage)
       .on('presence', { event: 'sync' }, () => {
         console.log('Admin presence synced')
@@ -561,7 +561,7 @@ export default function AdminCommunicationHub() {
 
       if (replyIds.length > 0) {
         const { data: replyMessages } = await supabase
-          .from('chat_messages')
+          .from('messages')
           .select('id, content, sender_id')
           .in('id', replyIds)
 
@@ -635,14 +635,14 @@ export default function AdminCommunicationHub() {
     try {
       const messageData = {
         content: newMessage.trim(),
-        channel_id: selectedChannel.id,
+        chat_id: selectedChannel.id,
         sender_id: user.id,
         message_type: 'text' as const,
         ...(replyToMessage && { reply_to_id: replyToMessage.id })
       }
 
       const { error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .insert(messageData)
 
       if (error) throw error

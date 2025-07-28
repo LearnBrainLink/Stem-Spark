@@ -183,8 +183,8 @@ export default function CommunicationHub() {
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
-        table: 'chat_messages',
-        filter: `channel_id=eq.${channelId}`
+        table: 'messages',
+        filter: `chat_id=eq.${channelId}`
       }, handleRealtimeMessage)
       .on('presence', { event: 'sync' }, () => {
         console.log('Presence synced')
@@ -459,9 +459,9 @@ export default function CommunicationHub() {
   const loadMessages = async (channelId: string) => {
     try {
       const { data: messagesData, error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .select('*')
-        .eq('channel_id', channelId)
+        .eq('chat_id', channelId)
         .order('created_at', { ascending: true })
 
       if (error) {
@@ -535,14 +535,14 @@ export default function CommunicationHub() {
     try {
       const messageData = {
         content: newMessage.trim(),
-        channel_id: selectedChannel.id,
+        chat_id: selectedChannel.id,
         sender_id: user.id,
         message_type: 'text' as const,
         ...(replyTo && { reply_to_id: replyTo.id })
       }
 
       const { error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .insert(messageData)
 
       if (error) throw error
@@ -567,7 +567,7 @@ export default function CommunicationHub() {
 
     try {
       const { error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .delete()
         .eq('id', messageId)
 
@@ -589,10 +589,10 @@ export default function CommunicationHub() {
       const forwardedContent = `🔄 Forwarded from #${selectedChannel?.name}:\n\n${forwardingMessage.content}`
       
       const { error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .insert({
           content: forwardedContent,
-          channel_id: targetChannelId,
+          chat_id: targetChannelId,
           sender_id: user.id,
           message_type: 'text',
           forwarded_from_id: forwardingMessage.id
