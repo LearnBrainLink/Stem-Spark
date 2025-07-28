@@ -4,11 +4,11 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const channelId = searchParams.get('channel_id')
+    const chatId = searchParams.get('chat_id')
     
-    if (!channelId) {
+    if (!chatId) {
       return NextResponse.json(
-        { error: 'Channel ID is required' },
+        { error: 'Chat ID is required' },
         { status: 400 }
       )
     }
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
         *,
         profiles:profiles(full_name)
       `)
-      .eq('chat_id', channelId)
+      .eq('chat_id', chatId)
       .order('created_at', { ascending: true })
 
     if (error) throw error
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = createClient()
-    const { content, channel_id } = await request.json()
+    const { content, chat_id } = await request.json()
 
     // Validate user authentication
     const { data: { user } } = await supabase.auth.getUser()
@@ -66,9 +66,9 @@ export async function POST(request: NextRequest) {
 
     // Get channel to check permissions
     const { data: channel } = await supabase
-      .from('chats')
-      .select('is_announcement')
-      .eq('id', channel_id)
+      .from('channels')
+      .select('type')
+      .eq('id', chat_id)
       .single()
 
     if (!channel) {
@@ -80,8 +80,9 @@ export async function POST(request: NextRequest) {
 
     // Check permissions based on channel type
     const isAdmin = profile.role === 'admin' || profile.is_super_admin
+    const isAnnouncementChannel = channel.type === 'announcements'
     const canSendMessage = 
-      !channel.is_announcement || isAdmin
+      !isAnnouncementChannel || isAdmin
 
     if (!canSendMessage) {
       return NextResponse.json(
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
       .insert([{
         content,
         sender_id: user.id,
-        chat_id: channel_id,
+        chat_id: chat_id,
         message_type: 'text'
       }])
       .select(`
