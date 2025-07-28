@@ -1,14 +1,15 @@
 'use client';
-
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import WhatsAppChat from '@/components/whatsapp-chat';
 import { useChatStore } from '@/lib/store/chat-store';
 import { toast } from 'react-hot-toast';
-import { Shield, Settings, UserPlus, MessageSquare } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+
+// Admin-specific components
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Users, MessageSquare, BarChart2, CheckCircle } from 'lucide-react';
+import { checkAdmin, getAdminStats } from '@/lib/admin-actions'; // Assuming these functions exist
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,207 +24,100 @@ export default function AdminCommunicationHubPage() {
     totalUsers: 0,
     onlineUsers: 0,
     totalChats: 0,
-    totalMessages: 0
+    totalMessages: 0,
   });
 
   useEffect(() => {
-    let mounted = true;
-
-    const checkAdminAuth = async () => {
+    const initialize = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        
-        if (error) {
-          console.error('Auth error:', error);
-          if (mounted) {
-            router.push('/login');
-          }
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError || !session) {
+          toast.error('Authentication error. Redirecting to login.');
+          router.push('/login');
           return;
         }
 
-        if (!user) {
-          if (mounted) {
-            router.push('/login');
-          }
+        const user = session.user;
+        const isAdmin = await checkAdmin(user.id);
+
+        if (!isAdmin) {
+          toast.error('Access denied. You must be an admin.');
+          router.push('/dashboard');
           return;
         }
 
-        // Get user profile data and check admin status
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
           .single();
 
-        if (profileError) {
-          console.error('Profile error:', profileError);
-          toast.error('Failed to load user profile');
+        if (profileError || !profile) {
+          toast.error('Failed to fetch user profile.');
+          router.push('/login');
           return;
         }
 
-        if (!profile) {
-          console.error('No profile found');
-          toast.error('User profile not found');
-          return;
-        }
+        setCurrentUser(profile);
+        setAuthenticated(true);
+        loadAdminStats();
 
-        // Check if user is admin
-        if (profile.role !== 'admin' && !profile.is_super_admin) {
-          toast.error('Access denied. Admin privileges required.');
-          router.push('/dashboard');
-          return;
-        }
+        // Set up user presence
+        const channel = supabase.channel('user-presence', {
+          config: {
+            presence: {
+              key: user.id,
+            },
+          },
+        });
 
-        // Set user in chat store with admin privileges
-        const chatUser = {
-          id: user.id,
-          email: user.email || '',
-          username: profile.username,
-          full_name: profile.full_name,
-          avatar_url: profile.avatar_url,
-          last_seen: profile.last_seen || new Date().toISOString(),
-          is_online: profile.is_online || false,
-          role: profile.role || 'admin',
-          status_message: profile.status_message || 'Admin - NovaKinetix Academy'
+        channel.on('presence', { event: 'sync' }, () => {
+          // You can handle presence updates here if needed, e.g., for the online user count
+        });
+
+        channel.subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            await channel.track({ is_online: true, last_seen: new Date().toISOString() });
+          }
+        });
+
+        // Add beforeunload event listener to update presence
+        const handleBeforeUnload = async () => {
+          await channel.track({ is_online: false, last_seen: new Date().toISOString() });
+          await channel.unsubscribe();
         };
 
-        if (mounted) {
-          setCurrentUser(chatUser);
-          setAuthenticated(true);
-          setIsLoading(false);
-        }
+        window.addEventListener('beforeunload', handleBeforeUnload);
 
-        // Auto-update presence to online
-        await supabase.rpc('update_user_presence', {
-          user_uuid: user.id,
-          online_status: true
-        });
-
-        // Load admin stats
-        await loadAdminStats();
-
+        return () => {
+          handleBeforeUnload();
+          window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
       } catch (error) {
-        console.error('Error checking admin auth:', error);
-        if (mounted) {
-          toast.error('Authentication failed');
-          router.push('/login');
-        }
+        toast.error('An unexpected error occurred during initialization.');
+        router.push('/login');
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    const loadAdminStats = async () => {
-      try {
-        // Get total users
-        const { count: totalUsers } = await supabase
-          .from('profiles')
-          .select('*', { count: 'exact', head: true });
-
-        // Get online users
-        const { count: onlineUsers } = await supabase
-          .from('user_presence')
-          .select('*', { count: 'exact', head: true })
-          .eq('is_online', true);
-
-        // Get total chats
-        const { count: totalChats } = await supabase
-          .from('chats')
-          .select('*', { count: 'exact', head: true });
-
-        // Get total messages
-        const { count: totalMessages } = await supabase
-          .from('messages')
-          .select('*', { count: 'exact', head: true });
-
-        setStats({
-          totalUsers: totalUsers || 0,
-          onlineUsers: onlineUsers || 0,
-          totalChats: totalChats || 0,
-          totalMessages: totalMessages || 0
-        });
-      } catch (error) {
-        console.error('Error loading admin stats:', error);
-      }
-    };
-
-    checkAdminAuth();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === 'SIGNED_OUT' || !session) {
-          if (mounted) {
-            setCurrentUser(null);
-            setAuthenticated(false);
-            router.push('/login');
-          }
-        }
-      }
-    );
-
-    // Cleanup function
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-      
-      // Set user offline when leaving
-      if (mounted) {
-        supabase.auth.getUser().then(({ data: { user } }) => {
-          if (user) {
-            supabase.rpc('update_user_presence', {
-              user_uuid: user.id,
-              online_status: false
-            });
-          }
-        });
-      }
-    };
+    initialize();
   }, [router, setCurrentUser, setAuthenticated]);
 
-  // Handle page visibility changes
-  useEffect(() => {
-    const handleVisibilityChange = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.rpc('update_user_presence', {
-          user_uuid: user.id,
-          online_status: !document.hidden
-        });
-      }
-    };
+  const loadAdminStats = async () => {
+    try {
+      const adminStats = await getAdminStats();
+      setStats(adminStats);
+    } catch (error) {
+      toast.error('Failed to load admin statistics.');
+    }
+  };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    // Handle beforeunload to set offline
-    const handleBeforeUnload = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.rpc('update_user_presence', {
-          user_uuid: user.id,
-          online_status: false
-        });
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, []);
-
-  if (isLoading) {
+  if (isLoading || !currentUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Loading Admin Chat...
-          </h2>
-          <p className="text-gray-600">
-            Setting up admin dashboard and real-time messaging
-          </p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-xl font-semibold">Loading Admin Hub...</div>
       </div>
     );
   }
@@ -232,59 +126,50 @@ export default function AdminCommunicationHubPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Admin Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Shield className="h-6 w-6 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">Admin Communication Hub</h1>
-            </div>
-            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-              {currentUser?.role === 'admin' ? 'Administrator' : 'Super Admin'}
-            </Badge>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {/* Stats */}
-            <div className="flex gap-6 text-sm">
-              <div className="text-center">
-                <div className="font-semibold text-gray-900">{stats.totalUsers}</div>
-                <div className="text-gray-600">Total Users</div>
-              </div>
-              <div className="text-center">
-                <div className="font-semibold text-green-600">{stats.onlineUsers}</div>
-                <div className="text-gray-600">Online</div>
-              </div>
-              <div className="text-center">
-                <div className="font-semibold text-blue-600">{stats.totalChats}</div>
-                <div className="text-gray-600">Chats</div>
-              </div>
-              <div className="text-center">
-                <div className="font-semibold text-purple-600">{stats.totalMessages}</div>
-                <div className="text-gray-600">Messages</div>
-              </div>
-            </div>
-
-            {/* Admin Actions */}
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                <UserPlus className="h-4 w-4 mr-2" />
-                Invite Users
-              </Button>
-              <Button variant="outline" size="sm">
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Broadcast
-              </Button>
-              <Button variant="outline" size="sm">
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
-              </Button>
-            </div>
-          </div>
+        <h1 className="text-2xl font-bold text-gray-800">Admin Communication Hub</h1>
+        <p className="text-sm text-gray-500">Oversee and manage all user communications.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalUsers}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Online Users</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.onlineUsers}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Chats</CardTitle>
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalChats}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Messages</CardTitle>
+              <BarChart2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalMessages}</div>
+            </CardContent>
+          </Card>
         </div>
       </div>
 
       {/* Main Chat Area */}
-      <div className="h-[calc(100vh-80px)]">
+      <div className="h-[calc(100vh-200px)]">
         <WhatsAppChat />
       </div>
     </div>
