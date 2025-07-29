@@ -31,6 +31,10 @@ interface Message {
   chat_id: string
   created_at: string
   message_type: 'text' | 'file' | 'image' | 'system'
+  file_url?: string
+  file_name?: string
+  file_size?: number
+  file_type?: string
   edited?: boolean
   edited_at?: string
   seen_by?: string[]
@@ -46,7 +50,7 @@ interface Channel {
   id: string
   name: string
   description: string
-  channel_type: 'public' | 'announcement'
+  type: 'general' | 'announcements' | 'parent_teacher' | 'admin_only'
   created_by: string
   created_at: string
   member_count: number
@@ -78,7 +82,7 @@ export default function CommunicationHub() {
   const [newChannelData, setNewChannelData] = useState({
     name: '',
     description: '',
-    channel_type: 'public' as 'public' | 'announcement',
+    type: 'general' as 'general' | 'announcements' | 'parent_teacher' | 'admin_only',
     selectedUsers: [] as string[]
   })
 
@@ -513,7 +517,7 @@ export default function CommunicationHub() {
         body: JSON.stringify({
           name: newChannelData.name,
           description: newChannelData.description,
-          channel_type: newChannelData.channel_type,
+          type: newChannelData.type,
         }),
       })
 
@@ -551,7 +555,7 @@ export default function CommunicationHub() {
       setNewChannelData({
         name: '',
         description: '',
-        channel_type: 'public' as const,
+        type: 'general' as const,
         selectedUsers: []
       })
       setIsCreateChannelOpen(false)
@@ -572,8 +576,19 @@ export default function CommunicationHub() {
 
   const canSendMessage = (channel: Channel) => {
     if (!user) return false
+    
+    // Admins and super admins can send messages in any channel
     if (userRole === 'admin' || userRole === 'super_admin') return true
-    return channel.channel_type !== 'announcement'
+    
+    // Regular users can only send messages in non-announcement channels
+    return channel.type !== 'announcements'
+  }
+
+  const canUploadFiles = (channel: Channel) => {
+    if (!user) return false
+    
+    // Only admins and super admins can upload files
+    return userRole === 'admin' || userRole === 'super_admin'
   }
 
   const canViewChannel = (channel: Channel) => {
@@ -632,7 +647,27 @@ export default function CommunicationHub() {
               ? 'bg-blue-500 text-white' 
               : 'bg-gray-100 text-gray-800'
           }`}>
-            <p>{message.content}</p>
+            {message.message_type === 'text' && (
+              <p>{message.content}</p>
+            )}
+            {message.message_type === 'file' && message.file_url && (
+              <div className="flex items-center space-x-2">
+                <FileText className="w-4 h-4 text-gray-500" />
+                <a href={message.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                  {message.file_name || 'File'}
+                </a>
+                {message.file_size && <span className="text-xs text-gray-500">({formatFileSize(message.file_size)})</span>}
+              </div>
+            )}
+            {message.message_type === 'image' && message.file_url && (
+              <div className="flex items-center space-x-2">
+                <ImageIcon className="w-4 h-4 text-gray-500" />
+                <img src={message.file_url} alt="Image" className="max-w-xs max-h-32 object-contain" />
+              </div>
+            )}
+            {message.message_type === 'system' && (
+              <p className="text-sm text-gray-600 italic">{message.content}</p>
+            )}
           </div>
           
           <div className={`text-xs text-gray-500 mt-1 ${isOwn ? 'text-right' : 'text-left'}`}>
@@ -697,8 +732,8 @@ export default function CommunicationHub() {
                       <p className="text-sm text-gray-500">{channel.description}</p>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Badge variant={channel.channel_type === 'announcement' ? 'destructive' : 'secondary'}>
-                        {channel.channel_type}
+                      <Badge variant={channel.type === 'announcements' ? 'destructive' : 'secondary'}>
+                        {channel.type}
                       </Badge>
                       <span className="text-xs text-gray-500">{channel.member_count} members</span>
                     </div>
@@ -768,8 +803,8 @@ export default function CommunicationHub() {
                   >
                     Debug
                   </Button>
-                  <Badge variant={selectedChannelData?.channel_type === 'announcement' ? 'destructive' : 'secondary'}>
-                    {selectedChannelData?.channel_type}
+                  <Badge variant={selectedChannelData?.type === 'announcements' ? 'destructive' : 'secondary'}>
+                    {selectedChannelData?.type}
                   </Badge>
                   <span className="text-sm text-gray-500">
                     {selectedChannelData?.member_count} members
@@ -817,35 +852,38 @@ export default function CommunicationHub() {
                   />
                   
                   {/* File Upload Section */}
-                  <div className="flex items-center space-x-2 mt-2">
-                    <input
-                      type="file"
-                      id="file-upload"
-                      className="hidden"
-                      onChange={handleFileSelect}
-                      accept="image/*,.pdf,.doc,.docx,.txt,.zip"
-                    />
-                    <label
-                      htmlFor="file-upload"
-                      className="cursor-pointer p-2 text-gray-500 hover:text-gray-700 transition-colors"
-                    >
-                      <Paperclip className="w-5 h-5" />
-                    </label>
-                    
-                    {selectedFile && (
-                      <div className="flex items-center space-x-2 bg-gray-100 rounded px-2 py-1">
-                        <span className="text-sm text-gray-600 truncate max-w-32">
-                          {selectedFile.name}
-                        </span>
-                        <button
-                          onClick={() => setSelectedFile(null)}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  {canUploadFiles(selectedChannelData!) && (
+                    <div className="flex items-center space-x-2 mt-2">
+                      <input
+                        type="file"
+                        id="file-upload"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                        accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar"
+                      />
+                      <label
+                        htmlFor="file-upload"
+                        className="cursor-pointer p-2 text-gray-500 hover:text-gray-700 transition-colors"
+                        title="Upload file (Admin only)"
+                      >
+                        <Paperclip className="w-5 h-5" />
+                      </label>
+                      
+                      {selectedFile && (
+                        <div className="flex items-center space-x-2 bg-gray-100 rounded px-2 py-1">
+                          <span className="text-sm text-gray-600 truncate max-w-32">
+                            {selectedFile.name}
+                          </span>
+                          <button
+                            onClick={() => setSelectedFile(null)}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 <Button
@@ -869,7 +907,10 @@ export default function CommunicationHub() {
               
               {!canSendMessage(selectedChannelData!) && (
                 <div className="mt-2 text-sm text-red-500">
-                  Only admins can send messages in announcement channels
+                  {selectedChannelData?.type === 'announcements' 
+                    ? 'Only administrators can send messages in announcement channels'
+                    : 'You do not have permission to send messages in this channel'
+                  }
                 </div>
               )}
             </div>
@@ -923,15 +964,17 @@ export default function CommunicationHub() {
                 Channel Type
               </label>
               <Select
-                value={newChannelData.channel_type}
-                onValueChange={(value) => setNewChannelData({...newChannelData, channel_type: value as 'public' | 'announcement'})}
+                value={newChannelData.type}
+                onValueChange={(value) => setNewChannelData({...newChannelData, type: value as 'general' | 'announcements' | 'parent_teacher' | 'admin_only'})}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="public">Public</SelectItem>
-                  <SelectItem value="announcement">Announcement</SelectItem>
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="announcements">Announcements</SelectItem>
+                  <SelectItem value="parent_teacher">Parent-Teacher</SelectItem>
+                  <SelectItem value="admin_only">Admin Only</SelectItem>
                 </SelectContent>
               </Select>
             </div>
