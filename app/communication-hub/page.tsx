@@ -344,31 +344,21 @@ export default function CommunicationHub() {
       // Clean up any existing subscription first
       supabase.removeAllChannels()
       
-      const subscription = supabase
+      const messagesChannel = supabase
         .channel('public:messages')
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages'
+        .on('postgres_changes', { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'messages' 
         }, async (payload) => {
-          console.log('Real-time message received (all messages):', payload)
+          console.log('New message received:', payload.new)
           const newMessage = payload.new as Message
           
-          // Only process messages for the current channel
+          // Only add messages for the current channel
           if (newMessage.chat_id === channelId) {
-            console.log('Processing message for current channel:', newMessage)
+            console.log('Adding new message to UI for channel:', channelId)
             
-            // Check if message already exists (to prevent duplicates)
-            setMessages(prev => {
-              const messageExists = prev.some(msg => msg.id === newMessage.id)
-              if (messageExists) {
-                console.log('Message already exists in UI, skipping:', newMessage.id)
-                return prev
-              }
-              return prev
-            })
-            
-            // Fetch the sender name for the new message
+            // Fetch sender info and add to UI
             try {
               const { data: profile } = await supabase
                 .from('profiles')
@@ -380,57 +370,33 @@ export default function CommunicationHub() {
                 ...newMessage,
                 sender_name: profile?.full_name || 'Unknown'
               }
-              console.log('Adding new message to UI:', messageWithSender)
+              console.log('Adding message with sender:', messageWithSender)
               setMessages(prev => [...prev, messageWithSender])
-            } catch (error: any) {
-              console.error('Error fetching sender name for new message:', error)
+            } catch (error) {
+              console.error('Error fetching sender info:', error)
               const messageWithSender = {
                 ...newMessage,
                 sender_name: 'Unknown'
               }
-              console.log('Adding new message to UI (with unknown sender):', messageWithSender)
+              console.log('Adding message with unknown sender:', messageWithSender)
               setMessages(prev => [...prev, messageWithSender])
             }
           } else {
             console.log('Ignoring message for different channel:', newMessage.chat_id)
           }
         })
-        .on('postgres_changes', {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'messages'
-        }, (payload) => {
-          console.log('Message deleted:', payload.old)
-          const deletedMessage = payload.old as Message
-          if (deletedMessage.chat_id === channelId) {
-            setMessages(prev => prev.filter(msg => msg.id !== deletedMessage.id))
-          }
-        })
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'messages'
-        }, (payload) => {
-          console.log('Message updated:', payload.new)
-          const updatedMessage = payload.new as Message
-          if (updatedMessage.chat_id === channelId) {
-            setMessages(prev => prev.map(msg => 
-              msg.id === updatedMessage.id ? { ...msg, ...updatedMessage } : msg
-            ))
-          }
-        })
         .subscribe((status) => {
           console.log('Subscription status:', status)
           if (status === 'SUBSCRIBED') {
-            console.log('Successfully subscribed to real-time updates for channel:', channelId)
+            console.log('Successfully subscribed to real-time updates')
           } else if (status === 'CHANNEL_ERROR') {
-            console.error('Failed to subscribe to real-time updates for channel:', channelId)
+            console.error('Failed to subscribe to real-time updates')
           }
         })
 
       return () => {
-        console.log('Cleaning up subscription for channel:', channelId)
-        subscription.unsubscribe()
+        console.log('Cleaning up subscription')
+        messagesChannel.unsubscribe()
       }
     } catch (error) {
       console.error('Error setting up message subscription:', error)
@@ -497,22 +463,6 @@ export default function CommunicationHub() {
         messageContent = newMessage.trim() || `Sent ${selectedFile.name}`
       }
 
-      // Create optimistic message with a unique temp ID
-      const tempId = `temp-${Date.now()}-${Math.random()}`
-      const tempMessage: Message = {
-        id: tempId,
-        content: messageContent,
-        sender_id: user.id,
-        sender_name: user.user_metadata?.full_name || 'You',
-        chat_id: selectedChannel,
-        created_at: new Date().toISOString(),
-        message_type: messageType
-      }
-
-      console.log('Adding optimistic message:', tempMessage)
-      // Add optimistic message to UI
-      setMessages(prev => [...prev, tempMessage])
-
       const { data: message, error } = await supabase
         .from('messages')
         .insert([
@@ -531,25 +481,13 @@ export default function CommunicationHub() {
 
       if (error) {
         console.error('Error sending message:', error)
-        // Remove optimistic message on error
-        setMessages(prev => prev.filter(msg => msg.id !== tempId))
         alert(`Failed to send message: ${error.message}`)
         return
       }
 
       console.log('Message sent successfully:', message)
       
-      // Replace the optimistic message with the real message after a small delay
-      // This prevents conflicts with real-time subscriptions
-      setTimeout(() => {
-        setMessages(prev => prev.map(msg => 
-          msg.id === tempId ? {
-            ...message,
-            sender_name: message.profiles?.full_name || 'You'
-          } : msg
-        ))
-      }, 100)
-      
+      // Clear the input immediately
       setNewMessage('')
       setSelectedFile(null)
     } catch (error) {
@@ -819,6 +757,16 @@ export default function CommunicationHub() {
                     }}
                   >
                     Test
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      console.log('Current messages in state:', messages.length)
+                      console.log('Messages:', messages)
+                    }}
+                  >
+                    Debug
                   </Button>
                   <Badge variant={selectedChannelData?.channel_type === 'announcement' ? 'destructive' : 'secondary'}>
                     {selectedChannelData?.channel_type}
