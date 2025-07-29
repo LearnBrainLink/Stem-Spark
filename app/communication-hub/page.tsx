@@ -31,9 +31,15 @@ interface Message {
   chat_id: string
   created_at: string
   message_type: 'text' | 'file' | 'image' | 'system'
-  file_url?: string
-  file_name?: string
-  file_size?: number
+  edited?: boolean
+  edited_at?: string
+  seen_by?: string[]
+  forwarded_from?: string
+  reply_to?: string
+  deleted_for_everyone?: boolean
+  deleted_for_sender?: boolean
+  reactions?: any
+  read_receipts?: any
 }
 
 interface Channel {
@@ -81,12 +87,28 @@ export default function CommunicationHub() {
   useEffect(() => {
     checkUser()
     fetchData()
+    
+    // Initialize Supabase real-time
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session?.user?.id)
+    })
+    
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
 
   useEffect(() => {
     if (selectedChannel) {
+      console.log('Channel selected, fetching messages and setting up subscription:', selectedChannel)
       fetchMessages(selectedChannel)
-      subscribeToMessages(selectedChannel)
+      const cleanup = subscribeToMessages(selectedChannel)
+      
+      // Cleanup function for the subscription
+      return () => {
+        console.log('Cleaning up subscription for channel:', selectedChannel)
+        if (cleanup) cleanup()
+      }
     }
   }, [selectedChannel])
 
@@ -317,7 +339,10 @@ export default function CommunicationHub() {
 
   const subscribeToMessages = (channelId: string) => {
     try {
-      console.log('Subscribing to messages for channel:', channelId)
+      console.log('Setting up subscription for channel:', channelId)
+      
+      // Clean up any existing subscription first
+      supabase.removeAllChannels()
       
       const subscription = supabase
         .channel(`chat-channel-${channelId}`)
@@ -342,6 +367,7 @@ export default function CommunicationHub() {
               ...newMessage,
               sender_name: profile?.full_name || 'Unknown'
             }
+            console.log('Adding new message to UI:', messageWithSender)
             setMessages(prev => [...prev, messageWithSender])
           } catch (error: any) {
             console.error('Error fetching sender name for new message:', error)
@@ -349,6 +375,7 @@ export default function CommunicationHub() {
               ...newMessage,
               sender_name: 'Unknown'
             }
+            console.log('Adding new message to UI (with unknown sender):', messageWithSender)
             setMessages(prev => [...prev, messageWithSender])
           }
         })
@@ -372,9 +399,17 @@ export default function CommunicationHub() {
             msg.id === payload.new.id ? { ...msg, ...payload.new } : msg
           ))
         })
-        .subscribe()
+        .subscribe((status) => {
+          console.log('Subscription status:', status)
+          if (status === 'SUBSCRIBED') {
+            console.log('Successfully subscribed to real-time updates for channel:', channelId)
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('Failed to subscribe to real-time updates for channel:', channelId)
+          }
+        })
 
       return () => {
+        console.log('Cleaning up subscription for channel:', channelId)
         subscription.unsubscribe()
       }
     } catch (error) {
@@ -423,40 +458,37 @@ export default function CommunicationHub() {
 
     try {
       console.log('Sending message to channel:', selectedChannel)
+      console.log('Message content:', newMessage.trim())
+      console.log('User ID:', user.id)
       setMessagesLoading(true)
       
-      let fileUrl: string | null = null
+      let messageContent = newMessage.trim()
       let messageType: 'text' | 'file' | 'image' = 'text'
-      let fileName: string | undefined
-      let fileSize: number | undefined
 
-      // Upload file if selected
+      // Handle file upload if selected
       if (selectedFile) {
-        fileUrl = await uploadFile(selectedFile)
+        const fileUrl = await uploadFile(selectedFile)
         if (!fileUrl) {
           setMessagesLoading(false)
           return
         }
         
         messageType = selectedFile.type.startsWith('image/') ? 'image' : 'file'
-        fileName = selectedFile.name
-        fileSize = selectedFile.size
+        messageContent = newMessage.trim() || `Sent ${selectedFile.name}`
       }
 
       // Create optimistic message
       const tempMessage: Message = {
         id: `temp-${Date.now()}`,
-        content: newMessage || (selectedFile ? `Sent ${fileName}` : ''),
+        content: messageContent,
         sender_id: user.id,
         sender_name: user.user_metadata?.full_name || 'You',
         chat_id: selectedChannel,
         created_at: new Date().toISOString(),
-        message_type: messageType,
-        file_url: fileUrl || undefined,
-        file_name: fileName,
-        file_size: fileSize
+        message_type: messageType
       }
 
+      console.log('Adding optimistic message:', tempMessage)
       // Add optimistic message to UI
       setMessages(prev => [...prev, tempMessage])
 
@@ -464,13 +496,10 @@ export default function CommunicationHub() {
         .from('messages')
         .insert([
           {
-            content: newMessage || (selectedFile ? `Sent ${fileName}` : ''),
+            content: messageContent,
             sender_id: user.id,
             chat_id: selectedChannel,
-            message_type: messageType,
-            file_url: fileUrl,
-            file_name: fileName,
-            file_size: fileSize
+            message_type: messageType
           }
         ])
         .select(`
@@ -487,7 +516,7 @@ export default function CommunicationHub() {
         return
       }
 
-      console.log('Message sent successfully')
+      console.log('Message sent successfully:', message)
       setNewMessage('')
       setSelectedFile(null)
     } catch (error) {
@@ -632,37 +661,7 @@ export default function CommunicationHub() {
               ? 'bg-blue-500 text-white' 
               : 'bg-gray-100 text-gray-800'
           }`}>
-            {message.message_type === 'image' && message.file_url ? (
-              <div>
-                <img 
-                  src={message.file_url} 
-                  alt="Uploaded image" 
-                  className="max-w-full h-auto rounded"
-                  style={{ maxHeight: '300px' }}
-                />
-                {message.content && <p className="mt-2">{message.content}</p>}
-              </div>
-            ) : message.message_type === 'file' && message.file_url ? (
-              <div>
-                <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded">
-                  <FileText className="w-4 h-4" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{message.file_name}</p>
-                    <p className="text-xs text-gray-500">{message.file_size && formatFileSize(message.file_size)}</p>
-                  </div>
-                  <a 
-                    href={message.file_url} 
-                    download={message.file_name}
-                    className="text-blue-500 hover:text-blue-700"
-                  >
-                    <Download className="w-4 h-4" />
-                  </a>
-                </div>
-                {message.content && <p className="mt-2">{message.content}</p>}
-              </div>
-            ) : (
-              <p>{message.content}</p>
-            )}
+            <p>{message.content}</p>
           </div>
           
           <div className={`text-xs text-gray-500 mt-1 ${isOwn ? 'text-right' : 'text-left'}`}>
