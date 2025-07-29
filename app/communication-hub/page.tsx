@@ -358,6 +358,16 @@ export default function CommunicationHub() {
           if (newMessage.chat_id === channelId) {
             console.log('Processing message for current channel:', newMessage)
             
+            // Check if message already exists (to prevent duplicates)
+            setMessages(prev => {
+              const messageExists = prev.some(msg => msg.id === newMessage.id)
+              if (messageExists) {
+                console.log('Message already exists in UI, skipping:', newMessage.id)
+                return prev
+              }
+              return prev
+            })
+            
             // Fetch the sender name for the new message
             try {
               const { data: profile } = await supabase
@@ -487,9 +497,10 @@ export default function CommunicationHub() {
         messageContent = newMessage.trim() || `Sent ${selectedFile.name}`
       }
 
-      // Create optimistic message
+      // Create optimistic message with a unique temp ID
+      const tempId = `temp-${Date.now()}-${Math.random()}`
       const tempMessage: Message = {
-        id: `temp-${Date.now()}`,
+        id: tempId,
         content: messageContent,
         sender_id: user.id,
         sender_name: user.user_metadata?.full_name || 'You',
@@ -521,12 +532,24 @@ export default function CommunicationHub() {
       if (error) {
         console.error('Error sending message:', error)
         // Remove optimistic message on error
-        setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id))
+        setMessages(prev => prev.filter(msg => msg.id !== tempId))
         alert(`Failed to send message: ${error.message}`)
         return
       }
 
       console.log('Message sent successfully:', message)
+      
+      // Replace the optimistic message with the real message after a small delay
+      // This prevents conflicts with real-time subscriptions
+      setTimeout(() => {
+        setMessages(prev => prev.map(msg => 
+          msg.id === tempId ? {
+            ...message,
+            sender_name: message.profiles?.full_name || 'You'
+          } : msg
+        ))
+      }, 100)
+      
       setNewMessage('')
       setSelectedFile(null)
     } catch (error) {
