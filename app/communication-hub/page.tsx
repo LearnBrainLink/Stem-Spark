@@ -345,7 +345,7 @@ export default function CommunicationHub() {
       supabase.removeAllChannels()
       
       const subscription = supabase
-        .channel(`chat-channel-${channelId}`)
+        .channel('public:messages')
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
