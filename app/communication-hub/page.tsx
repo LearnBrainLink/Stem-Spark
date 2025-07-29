@@ -349,55 +349,65 @@ export default function CommunicationHub() {
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
-          table: 'messages',
-          filter: `chat_id=eq.${channelId}`
+          table: 'messages'
         }, async (payload) => {
-          console.log('Real-time message received:', payload)
+          console.log('Real-time message received (all messages):', payload)
           const newMessage = payload.new as Message
           
-          // Fetch the sender name for the new message
-          try {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('full_name')
-              .eq('id', newMessage.sender_id)
-              .single()
+          // Only process messages for the current channel
+          if (newMessage.chat_id === channelId) {
+            console.log('Processing message for current channel:', newMessage)
             
-            const messageWithSender = {
-              ...newMessage,
-              sender_name: profile?.full_name || 'Unknown'
+            // Fetch the sender name for the new message
+            try {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', newMessage.sender_id)
+                .single()
+              
+              const messageWithSender = {
+                ...newMessage,
+                sender_name: profile?.full_name || 'Unknown'
+              }
+              console.log('Adding new message to UI:', messageWithSender)
+              setMessages(prev => [...prev, messageWithSender])
+            } catch (error: any) {
+              console.error('Error fetching sender name for new message:', error)
+              const messageWithSender = {
+                ...newMessage,
+                sender_name: 'Unknown'
+              }
+              console.log('Adding new message to UI (with unknown sender):', messageWithSender)
+              setMessages(prev => [...prev, messageWithSender])
             }
-            console.log('Adding new message to UI:', messageWithSender)
-            setMessages(prev => [...prev, messageWithSender])
-          } catch (error: any) {
-            console.error('Error fetching sender name for new message:', error)
-            const messageWithSender = {
-              ...newMessage,
-              sender_name: 'Unknown'
-            }
-            console.log('Adding new message to UI (with unknown sender):', messageWithSender)
-            setMessages(prev => [...prev, messageWithSender])
+          } else {
+            console.log('Ignoring message for different channel:', newMessage.chat_id)
           }
         })
         .on('postgres_changes', {
           event: 'DELETE',
           schema: 'public',
-          table: 'messages',
-          filter: `chat_id=eq.${channelId}`
+          table: 'messages'
         }, (payload) => {
           console.log('Message deleted:', payload.old)
-          setMessages(prev => prev.filter(msg => msg.id !== payload.old.id))
+          const deletedMessage = payload.old as Message
+          if (deletedMessage.chat_id === channelId) {
+            setMessages(prev => prev.filter(msg => msg.id !== deletedMessage.id))
+          }
         })
         .on('postgres_changes', {
           event: 'UPDATE',
           schema: 'public',
-          table: 'messages',
-          filter: `chat_id=eq.${channelId}`
+          table: 'messages'
         }, (payload) => {
           console.log('Message updated:', payload.new)
-          setMessages(prev => prev.map(msg => 
-            msg.id === payload.new.id ? { ...msg, ...payload.new } : msg
-          ))
+          const updatedMessage = payload.new as Message
+          if (updatedMessage.chat_id === channelId) {
+            setMessages(prev => prev.map(msg => 
+              msg.id === updatedMessage.id ? { ...msg, ...updatedMessage } : msg
+            ))
+          }
         })
         .subscribe((status) => {
           console.log('Subscription status:', status)
@@ -761,6 +771,31 @@ export default function CommunicationHub() {
                     onClick={() => fetchMessages(selectedChannel)}
                   >
                     Refresh
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={async () => {
+                      console.log('Sending test message...')
+                      const { data, error } = await supabase
+                        .from('messages')
+                        .insert([{
+                          content: 'Test message ' + new Date().toLocaleTimeString(),
+                          sender_id: user?.id,
+                          chat_id: selectedChannel,
+                          message_type: 'text'
+                        }])
+                        .select()
+                        .single()
+                      
+                      if (error) {
+                        console.error('Test message error:', error)
+                      } else {
+                        console.log('Test message sent:', data)
+                      }
+                    }}
+                  >
+                    Test
                   </Button>
                   <Badge variant={selectedChannelData?.channel_type === 'announcement' ? 'destructive' : 'secondary'}>
                     {selectedChannelData?.channel_type}
