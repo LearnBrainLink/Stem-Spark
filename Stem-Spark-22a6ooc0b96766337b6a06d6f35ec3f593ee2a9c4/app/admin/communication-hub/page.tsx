@@ -145,7 +145,7 @@ export default function AdminCommunicationHub() {
     if (!selectedChannel) return
 
     const channel = supabase
-      .channel(`chat-channel-${selectedChannel.id}`)
+      .channel(`public:messages:channel_id=eq.${selectedChannel.id}`)
       .on(
         'postgres_changes',
         {
@@ -155,6 +155,7 @@ export default function AdminCommunicationHub() {
           filter: `channel_id=eq.${selectedChannel.id}`
         },
         async (payload) => {
+          console.log('Real-time message received:', payload)
           const newMessage = payload.new as Message
           // Fetch sender info for the new message
           const { data: sender } = await supabase
