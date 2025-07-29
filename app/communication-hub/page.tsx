@@ -320,14 +320,14 @@ export default function CommunicationHub() {
       console.log('Subscribing to messages for channel:', channelId)
       
       const subscription = supabase
-        .channel(`messages:${channelId}`)
+        .channel(`chat-channel-${channelId}`)
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
           filter: `chat_id=eq.${channelId}`
         }, async (payload) => {
-          console.log('New message received:', payload.new)
+          console.log('Real-time message received:', payload)
           const newMessage = payload.new as Message
           
           // Fetch the sender name for the new message
@@ -443,7 +443,24 @@ export default function CommunicationHub() {
         fileSize = selectedFile.size
       }
 
-      const { error } = await supabase
+      // Create optimistic message
+      const tempMessage: Message = {
+        id: `temp-${Date.now()}`,
+        content: newMessage || (selectedFile ? `Sent ${fileName}` : ''),
+        sender_id: user.id,
+        sender_name: user.user_metadata?.full_name || 'You',
+        chat_id: selectedChannel,
+        created_at: new Date().toISOString(),
+        message_type: messageType,
+        file_url: fileUrl || undefined,
+        file_name: fileName,
+        file_size: fileSize
+      }
+
+      // Add optimistic message to UI
+      setMessages(prev => [...prev, tempMessage])
+
+      const { data: message, error } = await supabase
         .from('messages')
         .insert([
           {
@@ -456,9 +473,16 @@ export default function CommunicationHub() {
             file_size: fileSize
           }
         ])
+        .select(`
+          *,
+          profiles:profiles(full_name)
+        `)
+        .single()
 
       if (error) {
         console.error('Error sending message:', error)
+        // Remove optimistic message on error
+        setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id))
         alert(`Failed to send message: ${error.message}`)
         return
       }
@@ -732,6 +756,13 @@ export default function CommunicationHub() {
                   </p>
                 </div>
                 <div className="flex items-center space-x-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => fetchMessages(selectedChannel)}
+                  >
+                    Refresh
+                  </Button>
                   <Badge variant={selectedChannelData?.channel_type === 'announcement' ? 'destructive' : 'secondary'}>
                     {selectedChannelData?.channel_type}
                   </Badge>

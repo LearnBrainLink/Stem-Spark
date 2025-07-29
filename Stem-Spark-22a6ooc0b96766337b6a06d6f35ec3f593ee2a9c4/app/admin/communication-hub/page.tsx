@@ -88,7 +88,31 @@ export default function AdminCommunicationHub() {
   const [newMessage, setNewMessage] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Fetch initial data
+  // 1. Fetch existing messages
+  const fetchMessages = useCallback(async () => {
+    if (!selectedChannel) return
+    
+    const { data, error } = await supabase
+      .from('messages')
+      .select(`
+        *,
+        sender:profiles (
+          full_name,
+          avatar_url,
+          role
+        )
+      `)
+      .eq('channel_id', selectedChannel.id)
+      .order('created_at', { ascending: true })
+
+    if (!error) {
+      setMessages(data || [])
+    } else {
+      console.error("Error fetching messages:", error)
+    }
+  }, [selectedChannel])
+
+  // Fetch initial data and messages for the selected channel
   useEffect(() => {
     const checkUserAndLoadData = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser()
@@ -114,38 +138,18 @@ export default function AdminCommunicationHub() {
       setLoading(false)
     }
     checkUserAndLoadData()
-  }, [])
 
-  // 1. Fetch existing messages
-  useEffect(() => {
-    if (!selectedChannel) return
-
-    const fetchMessages = async () => {
-      const { data, error } = await supabase
-        .from('messages')
-        .select(`
-          *,
-          sender:profiles (
-            full_name,
-            avatar_url,
-            role
-          )
-        `)
-        .eq('channel_id', selectedChannel.id)
-        .order('created_at', { ascending: true })
-
-      if (!error) setMessages(data || [])
+    if (selectedChannel) {
+      fetchMessages()
     }
-
-    fetchMessages()
-  }, [selectedChannel])
+  }, [selectedChannel, fetchMessages])
 
   // 2. Set up real-time subscription
   useEffect(() => {
     if (!selectedChannel) return
 
     const channel = supabase
-      .channel(`public:messages:channel_id=eq.${selectedChannel.id}`)
+      .channel(`chat-channel-${selectedChannel.id}`)
       .on(
         'postgres_changes',
         {
@@ -255,7 +259,12 @@ export default function AdminCommunicationHub() {
         <div className="lg:col-span-3">
           <Card>
             <CardHeader>
-              <CardTitle>Messages</CardTitle>
+              <CardTitle className="flex justify-between items-center">
+                Messages
+                <Button variant="outline" size="sm" onClick={fetchMessages}>
+                  Refresh
+                </Button>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {selectedChannel ? (
