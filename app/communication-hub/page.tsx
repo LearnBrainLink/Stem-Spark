@@ -94,6 +94,7 @@ export default function CommunicationHub() {
   const [selectedForwardChannel, setSelectedForwardChannel] = useState('')
   const [showAddUserDialog, setShowAddUserDialog] = useState(false)
   const [showRemoveUserDialog, setShowRemoveUserDialog] = useState(false)
+  const [showMembersDialog, setShowMembersDialog] = useState(false) // New state for members dialog
   const [selectedUserToAdd, setSelectedUserToAdd] = useState('')
   const [selectedUserToRemove, setSelectedUserToRemove] = useState('')
   const [channelMembers, setChannelMembers] = useState<any[]>([])
@@ -802,11 +803,25 @@ export default function CommunicationHub() {
   }
 
   const isChannelOwner = (channel: Channel) => {
-    return channel.created_by === user?.id
+    if (!user || !channel) return false
+    return channel.created_by === user.id
   }
 
   const canManageChannel = (channel: Channel) => {
-    return isChannelOwner(channel) || userRole === 'admin' || userRole === 'super_admin'
+    if (!user || !channel) return false;
+    const isOwner = isChannelOwner(channel);
+    const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+    
+    console.log(`canManageChannel Check:
+      - User ID: ${user.id}
+      - User Role: ${userRole}
+      - Channel ID: ${channel.id}
+      - Channel Owner ID: ${channel.created_by}
+      - Is Owner: ${isOwner}
+      - Is Admin: ${isAdmin}
+      - Result: ${isOwner || isAdmin}`);
+      
+    return isOwner || isAdmin;
   }
 
   const getUserColor = (userId: string) => {
@@ -1187,6 +1202,15 @@ export default function CommunicationHub() {
                 </div>
                 <div className="flex items-center space-x-2">
                   {/* Channel Management Buttons */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowMembersDialog(true)}
+                    className="flex items-center space-x-1"
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>View Members</span>
+                  </Button>
                   {selectedChannelData && canManageChannel(selectedChannelData) && (
                     <>
                       <Button 
@@ -1454,11 +1478,11 @@ export default function CommunicationHub() {
                   {(userRole === 'admin' || userRole === 'super_admin') && (
                     <div className="mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
                       <div className="text-xs text-yellow-800">
-                        <strong>Debug Info:</strong> User Role: {userRole} | 
-                        Can Upload: {selectedChannelData ? canUploadFiles(selectedChannelData) : 'No Channel'} | 
-                        Channel: {selectedChannelData?.name || 'None'} ({selectedChannelData?.type || 'None'}) |
-                        Messages: {messages.length} | 
-                        Can Manage: {selectedChannelData ? canManageChannel(selectedChannelData) : 'No Channel'}
+                        <strong>Debug Info:</strong><br/>
+                        User Role: <strong>{userRole}</strong> | Messages: <strong>{messages.length}</strong><br/>
+                        Channel: <strong>{selectedChannelData?.name || 'None'}</strong> (Type: {selectedChannelData?.type || 'N/A'})<br/>
+                        Can Manage: <strong>{selectedChannelData ? String(canManageChannel(selectedChannelData)) : 'N/A'}</strong> (Owner: {selectedChannelData ? String(isChannelOwner(selectedChannelData)) : 'N/A'})<br/>
+                        Can Upload: <strong>{selectedChannelData ? String(canUploadFiles(selectedChannelData)) : 'N/A'}</strong>
                       </div>
                       <div className="mt-2 flex space-x-2">
                         <button
@@ -1508,10 +1532,10 @@ export default function CommunicationHub() {
                   <div className="mt-2 p-2 bg-gray-50 rounded border border-gray-200">
                     <div className="text-xs text-gray-600">
                       <strong>Your Permissions:</strong> Role: {userRole} | 
-                      Can Edit Own Messages: {userRole ? 'Yes' : 'No'} | 
-                      Can Delete Messages: {userRole === 'admin' || userRole === 'super_admin' ? 'All Messages' : 'Own Messages'} | 
-                      Can Forward: Yes | 
-                      Can Manage Channel: {selectedChannelData ? canManageChannel(selectedChannelData) : 'No Channel'}
+                      Can Edit Own: <strong>{userRole ? 'Yes' : 'No'}</strong> | 
+                      Can Delete: <strong>{userRole === 'admin' || userRole === 'super_admin' ? 'All' : 'Own'}</strong> | 
+                      Can Forward: <strong>Yes</strong> | 
+                      Can Manage Here: <strong>{selectedChannelData ? String(canManageChannel(selectedChannelData)) : 'N/A'}</strong>
                     </div>
                   </div>
                 </div>
@@ -1822,6 +1846,36 @@ export default function CommunicationHub() {
             >
               Remove User
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Members Dialog */}
+      <Dialog open={showMembersDialog} onOpenChange={setShowMembersDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Channel Members</DialogTitle>
+            <DialogDescription>
+              Users currently in the "{selectedChannelData?.name}" channel.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[400px] overflow-y-auto">
+            {channelMembers.length > 0 ? (
+              channelMembers.map((member) => (
+                <div key={member.user_id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  <div>
+                    <p className="font-medium">{member.profiles?.full_name || 'Unknown User'}</p>
+                    <p className="text-sm text-gray-500">{member.profiles?.email}</p>
+                  </div>
+                  <Badge variant={member.role === 'owner' ? 'default' : 'secondary'}>{member.role}</Badge>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500">No members found.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowMembersDialog(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
