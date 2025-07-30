@@ -92,6 +92,12 @@ export default function CommunicationHub() {
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null)
   const [showForwardDialog, setShowForwardDialog] = useState(false)
   const [selectedForwardChannel, setSelectedForwardChannel] = useState('')
+  const [showAddUserDialog, setShowAddUserDialog] = useState(false)
+  const [showRemoveUserDialog, setShowRemoveUserDialog] = useState(false)
+  const [selectedUserToAdd, setSelectedUserToAdd] = useState('')
+  const [selectedUserToRemove, setSelectedUserToRemove] = useState('')
+  const [channelMembers, setChannelMembers] = useState<any[]>([])
+  const [availableUsers, setAvailableUsers] = useState<any[]>([])
 
   const supabase = createClient()
 
@@ -111,15 +117,11 @@ export default function CommunicationHub() {
 
   useEffect(() => {
     if (selectedChannel) {
-      console.log('Channel selected, fetching messages and setting up subscription:', selectedChannel)
       fetchMessages(selectedChannel)
-      const cleanup = subscribeToMessages(selectedChannel)
-      
-      // Cleanup function for the subscription
-      return () => {
-        console.log('Cleaning up subscription for channel:', selectedChannel)
-        if (cleanup) cleanup()
-      }
+      const unsubscribe = subscribeToMessages(selectedChannel)
+      fetchChannelMembers(selectedChannel)
+      fetchAvailableUsers()
+      return unsubscribe
     }
   }, [selectedChannel])
 
@@ -569,54 +571,55 @@ export default function CommunicationHub() {
 
   const createChannel = async () => {
     try {
-      if (!user) return
+      if (!newChannelData.name.trim() || !user) return
 
-      console.log('Creating channel:', newChannelData.name)
-
-      // Use the API route instead of calling Supabase directly
-      const response = await fetch('/api/messaging/channels', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { data: channel, error } = await supabase
+        .from('channels')
+        .insert([{
           name: newChannelData.name,
           description: newChannelData.description,
           type: newChannelData.type,
-        }),
-      })
+          created_by: user.id
+        }])
+        .select()
+        .single()
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to create channel')
+      if (error) {
+        console.error('Error creating channel:', error)
+        alert('Failed to create channel')
+        return
       }
 
-      const { channel } = await response.json()
-      console.log('Channel created successfully:', channel.id)
+      // Add creator as channel member with owner role
+      const { error: memberError } = await supabase
+        .from('channel_members')
+        .insert([{
+          channel_id: channel.id,
+          user_id: user.id,
+          role: 'owner'
+        }])
 
-      // Add other members to the channel if any were selected
-      if (newChannelData.selectedUsers.length > 0) {
-        for (const userId of newChannelData.selectedUsers) {
-          try {
-            const { error: memberError } = await supabase
-              .from('chat_participants')
-              .insert({
-                user_id: userId,
-                chat_id: channel.id,
-                role: 'member'
-              })
-
-            if (memberError) {
-              console.error(`Error adding user ${userId} to channel:`, memberError)
-            } else {
-              console.log(`Successfully added user ${userId} to channel`)
-            }
-          } catch (error) {
-            console.error(`Error adding user ${userId} to channel:`, error)
-          }
-        }
+      if (memberError) {
+        console.error('Error adding creator to channel:', memberError)
       }
 
+      // Send welcome message
+      const { error: messageError } = await supabase
+        .from('messages')
+        .insert([{
+          content: `🎉 Channel "${channel.name}" has been created! Welcome everyone!`,
+          sender_id: user.id,
+          chat_id: channel.id,
+          message_type: 'system'
+        }])
+
+      if (messageError) {
+        console.error('Error sending welcome message:', messageError)
+      }
+
+      console.log('Channel created successfully:', channel)
+      
+      // Reset form
       setNewChannelData({
         name: '',
         description: '',
@@ -625,17 +628,13 @@ export default function CommunicationHub() {
       })
       setIsCreateChannelOpen(false)
       
-      // Add the new channel to the local state instead of refetching
-      const newChannel = {
-        ...channel,
-        member_count: 1 + newChannelData.selectedUsers.length
-      }
-      setChannels(prev => [newChannel, ...prev])
+      // Refresh channels
+      await fetchChannels()
       
-      console.log('Channel creation completed successfully')
+      alert('Channel created successfully!')
     } catch (error) {
-      console.error('Error creating channel:', error)
-      alert(`Failed to create channel: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Error in createChannel:', error)
+      alert('Failed to create channel')
     }
   }
 
@@ -669,6 +668,147 @@ export default function CommunicationHub() {
 
   const canCreateChannel = () => {
     return userRole === 'admin' || userRole === 'super_admin'
+  }
+
+  const fetchChannelMembers = async (channelId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('channel_members')
+        .select(`
+          *,
+          profiles:profiles(full_name, email, role)
+        `)
+        .eq('channel_id', channelId)
+
+      if (error) {
+        console.error('Error fetching channel members:', error)
+        return
+      }
+
+      setChannelMembers(data || [])
+    } catch (error) {
+      console.error('Error in fetchChannelMembers:', error)
+    }
+  }
+
+  const fetchAvailableUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .order('full_name')
+
+      if (error) {
+        console.error('Error fetching available users:', error)
+        return
+      }
+
+      setAvailableUsers(data || [])
+    } catch (error) {
+      console.error('Error in fetchAvailableUsers:', error)
+    }
+  }
+
+  const addUserToChannel = async (userId: string, channelId: string) => {
+    try {
+      // Add user to channel
+      const { error: memberError } = await supabase
+        .from('channel_members')
+        .insert([{
+          channel_id: channelId,
+          user_id: userId,
+          role: 'member'
+        }])
+
+      if (memberError) {
+        console.error('Error adding user to channel:', memberError)
+        alert('Failed to add user to channel')
+        return
+      }
+
+      // Get user info for notification
+      const userToAdd = availableUsers.find(u => u.id === userId)
+      const channelInfo = channels.find(c => c.id === channelId)
+
+      // Send notification message
+      const { error: messageError } = await supabase
+        .from('messages')
+        .insert([{
+          content: `👋 Welcome ${userToAdd?.full_name || 'User'} to the channel!`,
+          sender_id: user?.id,
+          chat_id: channelId,
+          message_type: 'system'
+        }])
+
+      if (messageError) {
+        console.error('Error sending welcome message:', messageError)
+      }
+
+      // Refresh channel members
+      await fetchChannelMembers(channelId)
+      
+      setShowAddUserDialog(false)
+      setSelectedUserToAdd('')
+      
+      alert(`Successfully added ${userToAdd?.full_name || 'User'} to the channel!`)
+    } catch (error) {
+      console.error('Error in addUserToChannel:', error)
+      alert('Failed to add user to channel')
+    }
+  }
+
+  const removeUserFromChannel = async (userId: string, channelId: string) => {
+    try {
+      // Get user info for notification
+      const userToRemove = channelMembers.find(m => m.user_id === userId)
+      const channelInfo = channels.find(c => c.id === channelId)
+
+      // Remove user from channel
+      const { error: memberError } = await supabase
+        .from('channel_members')
+        .delete()
+        .eq('channel_id', channelId)
+        .eq('user_id', userId)
+
+      if (memberError) {
+        console.error('Error removing user from channel:', memberError)
+        alert('Failed to remove user from channel')
+        return
+      }
+
+      // Send notification message
+      const { error: messageError } = await supabase
+        .from('messages')
+        .insert([{
+          content: `👋 ${userToRemove?.profiles?.full_name || 'User'} has been removed from the channel.`,
+          sender_id: user?.id,
+          chat_id: channelId,
+          message_type: 'system'
+        }])
+
+      if (messageError) {
+        console.error('Error sending removal message:', messageError)
+      }
+
+      // Refresh channel members
+      await fetchChannelMembers(channelId)
+      
+      setShowRemoveUserDialog(false)
+      setSelectedUserToRemove('')
+      
+      alert(`Successfully removed ${userToRemove?.profiles?.full_name || 'User'} from the channel!`)
+    } catch (error) {
+      console.error('Error in removeUserFromChannel:', error)
+      alert('Failed to remove user from channel')
+    }
+  }
+
+  const isChannelOwner = (channel: Channel) => {
+    return channel.created_by === user?.id
+  }
+
+  const canManageChannel = (channel: Channel) => {
+    return isChannelOwner(channel) || userRole === 'admin' || userRole === 'super_admin'
   }
 
   const getUserColor = (userId: string) => {
@@ -712,7 +852,7 @@ export default function CommunicationHub() {
     return (
       <div
         key={message.id}
-        className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}
+        className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4 group`}
       >
         <div className={`max-w-xs lg:max-w-md ${isOwn ? 'order-2' : 'order-1'}`}>
           {!isOwn && (
@@ -798,32 +938,36 @@ export default function CommunicationHub() {
             )}
           </div>
           
-          {/* Message Actions */}
-          <div className={`flex items-center space-x-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+          {/* Message Actions - Enhanced for all users */}
+          <div className={`flex items-center space-x-2 mt-2 ${isOwn ? 'justify-end' : 'justify-start'} ${(userRole === 'admin' || userRole === 'super_admin') ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
             {canEdit && editingMessage !== message.id && (
               <button
                 onClick={() => {
                   setEditingMessage(message.id)
                   setEditContent(message.content)
                 }}
-                className="text-xs text-gray-500 hover:text-gray-700"
+                className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 transition-colors"
                 title="Edit message"
               >
-                Edit
+                ✏️ Edit
               </button>
             )}
             
             {canDelete && (
               <button
                 onClick={() => {
-                  if (confirm('Delete this message?')) {
-                    deleteMessage(message.id, userRole === 'admin' || userRole === 'super_admin')
+                  const deleteForEveryone = userRole === 'admin' || userRole === 'super_admin'
+                  const confirmText = deleteForEveryone 
+                    ? 'Delete this message for everyone?' 
+                    : 'Delete this message?'
+                  if (confirm(confirmText)) {
+                    deleteMessage(message.id, deleteForEveryone)
                   }
                 }}
-                className="text-xs text-red-500 hover:text-red-700"
+                className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors"
                 title="Delete message"
               >
-                Delete
+                🗑️ Delete
               </button>
             )}
             
@@ -833,13 +977,25 @@ export default function CommunicationHub() {
                   setForwardingMessage(message)
                   setShowForwardDialog(true)
                 }}
-                className="text-xs text-gray-500 hover:text-gray-700"
+                className="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition-colors"
                 title="Forward message"
               >
-                Forward
+                📤 Forward
               </button>
             )}
+            
+            {/* Always show message info for debugging */}
+            <span className="text-xs text-gray-400">
+              {message.message_type} • {formatTime(message.created_at)}
+            </span>
           </div>
+          
+          {/* Show message actions info for non-admin users */}
+          {(userRole !== 'admin' && userRole !== 'super_admin') && (
+            <div className={`text-xs text-gray-400 mt-1 ${isOwn ? 'text-right' : 'text-left'}`}>
+              Hover over message to see actions
+            </div>
+          )}
         </div>
       </div>
     )
@@ -1032,6 +1188,30 @@ export default function CommunicationHub() {
                   </p>
                 </div>
                 <div className="flex items-center space-x-2">
+                  {/* Channel Management Buttons */}
+                  {selectedChannelData && canManageChannel(selectedChannelData) && (
+                    <>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setShowAddUserDialog(true)}
+                        className="flex items-center space-x-1"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add User</span>
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setShowRemoveUserDialog(true)}
+                        className="flex items-center space-x-1"
+                      >
+                        <Users className="w-4 h-4" />
+                        <span>Remove User</span>
+                      </Button>
+                    </>
+                  )}
+                  
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -1082,6 +1262,15 @@ export default function CommunicationHub() {
                   </span>
                 </div>
               </div>
+              
+              {/* Channel Owner Info */}
+              {selectedChannelData && isChannelOwner(selectedChannelData) && (
+                <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
+                  <div className="text-xs text-green-800">
+                    <strong>Channel Owner:</strong> You can manage this channel - add/remove users
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Messages */}
@@ -1262,6 +1451,58 @@ export default function CommunicationHub() {
                       </div>
                     </div>
                   )}
+                  
+                  {/* Debug Info for Admin */}
+                  {(userRole === 'admin' || userRole === 'super_admin') && (
+                    <div className="mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
+                      <div className="text-xs text-yellow-800">
+                        <strong>Debug Info:</strong> User Role: {userRole} | 
+                        Can Upload: {selectedChannelData ? canUploadFiles(selectedChannelData) : 'No Channel'} | 
+                        Channel: {selectedChannelData?.name || 'None'} ({selectedChannelData?.type || 'None'})
+                      </div>
+                      <div className="mt-2 flex space-x-2">
+                        <button
+                          onClick={() => {
+                            console.log('Test upload button clicked')
+                            console.log('User:', user)
+                            console.log('User Role:', userRole)
+                            console.log('Selected Channel:', selectedChannelData)
+                          }}
+                          className="px-2 py-1 bg-blue-500 text-white rounded text-xs"
+                        >
+                          Test Upload Debug
+                        </button>
+                        <button
+                          onClick={() => {
+                            const input = document.createElement('input')
+                            input.type = 'file'
+                            input.accept = 'image/*,.pdf,.doc,.docx,.txt,.zip,.rar'
+                            input.onchange = (e) => {
+                              const file = (e.target as HTMLInputElement).files?.[0]
+                              if (file) {
+                                console.log('Test file selected:', file.name, file.size, file.type)
+                                setSelectedFile(file)
+                              }
+                            }
+                            input.click()
+                          }}
+                          className="px-2 py-1 bg-green-500 text-white rounded text-xs"
+                        >
+                          Test File Select
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* User Permissions Info */}
+                  <div className="mt-2 p-2 bg-gray-50 rounded border border-gray-200">
+                    <div className="text-xs text-gray-600">
+                      <strong>Your Permissions:</strong> Role: {userRole} | 
+                      Can Edit Own Messages: {userRole ? 'Yes' : 'No'} | 
+                      Can Delete Messages: {userRole === 'admin' || userRole === 'super_admin' ? 'All Messages' : 'Own Messages'} | 
+                      Can Forward: Yes
+                    </div>
+                  </div>
                 </div>
                 
                 <Button
@@ -1440,6 +1681,139 @@ export default function CommunicationHub() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Add User Dialog */}
+      <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add User to Channel</DialogTitle>
+            <DialogDescription>
+              Select a user to add to this channel.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="add-user">Select User</Label>
+              <Select
+                value={selectedUserToAdd}
+                onValueChange={setSelectedUserToAdd}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a user to add" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableUsers
+                    .filter(user => !channelMembers.some(member => member.user_id === user.id))
+                    .map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.full_name} ({user.email}) - {user.role}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {selectedUserToAdd && (
+              <div className="p-3 bg-blue-50 rounded">
+                <p className="text-sm text-blue-800">
+                  <strong>User to add:</strong> {availableUsers.find(u => u.id === selectedUserToAdd)?.full_name}
+                </p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddUserDialog(false)
+                setSelectedUserToAdd('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedUserToAdd && selectedChannel) {
+                  addUserToChannel(selectedUserToAdd, selectedChannel)
+                }
+              }}
+              disabled={!selectedUserToAdd}
+            >
+              Add User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove User Dialog */}
+      <Dialog open={showRemoveUserDialog} onOpenChange={setShowRemoveUserDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove User from Channel</DialogTitle>
+            <DialogDescription>
+              Select a user to remove from this channel.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="remove-user">Select User</Label>
+              <Select
+                value={selectedUserToRemove}
+                onValueChange={setSelectedUserToRemove}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a user to remove" />
+                </SelectTrigger>
+                <SelectContent>
+                  {channelMembers
+                    .filter(member => member.user_id !== user?.id) // Can't remove yourself
+                    .map((member) => (
+                      <SelectItem key={member.user_id} value={member.user_id}>
+                        {member.profiles?.full_name} ({member.profiles?.email}) - {member.role}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {selectedUserToRemove && (
+              <div className="p-3 bg-red-50 rounded">
+                <p className="text-sm text-red-800">
+                  <strong>User to remove:</strong> {channelMembers.find(m => m.user_id === selectedUserToRemove)?.profiles?.full_name}
+                </p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRemoveUserDialog(false)
+                setSelectedUserToRemove('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (selectedUserToRemove && selectedChannel) {
+                  if (confirm('Are you sure you want to remove this user from the channel?')) {
+                    removeUserFromChannel(selectedUserToRemove, selectedChannel)
+                  }
+                }
+              }}
+              disabled={!selectedUserToRemove}
+            >
+              Remove User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 
