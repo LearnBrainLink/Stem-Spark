@@ -1081,20 +1081,21 @@ export default function AdminCommunicationHub() {
       // Create FormData
       const formData = new FormData()
       formData.append('file', file)
+      formData.append('type', file.type.startsWith('image/') ? 'image' : 'file')
 
-      // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
-        .from('chat-files')
-        .upload(`${Date.now()}-${file.name}`, file)
+      // Upload using the API route
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      })
 
-      if (error) throw error
+      const result = await response.json()
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('chat-files')
-        .getPublicUrl(data.path)
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed')
+      }
 
-      return urlData.publicUrl
+      return result.url
     } catch (error) {
       console.error('Upload error:', error)
       toast({

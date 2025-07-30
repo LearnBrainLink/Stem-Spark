@@ -686,13 +686,87 @@ export default function CommunicationHub() {
   }
 
   const handleFileUpload = async (file: File) => {
-    // File upload implementation
-    console.log('File upload:', file.name)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('type', 'file')
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed')
+      }
+
+      // Add file message to chat
+      const messageData = {
+        content: `📎 ${file.name}`,
+        sender_id: user.id,
+        sender_name: user.full_name,
+        chat_id: selectedChannel.id,
+        message_type: 'file' as const,
+        file_url: result.url,
+        file_name: file.name,
+        file_size: file.size,
+        file_type: file.type
+      }
+
+      const { error } = await supabase
+        .from('chat_messages')
+        .insert([messageData])
+
+      if (error) throw error
+
+    } catch (error) {
+      console.error('File upload error:', error)
+      alert('Failed to upload file')
+    }
   }
 
   const handleImageUpload = async (file: File) => {
-    // Image upload implementation
-    console.log('Image upload:', file.name)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('type', 'image')
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed')
+      }
+
+      // Add image message to chat
+      const messageData = {
+        content: `🖼️ ${file.name}`,
+        sender_id: user.id,
+        sender_name: user.full_name,
+        chat_id: selectedChannel.id,
+        message_type: 'image' as const,
+        file_url: result.url,
+        file_name: file.name,
+        file_size: file.size,
+        file_type: file.type
+      }
+
+      const { error } = await supabase
+        .from('chat_messages')
+        .insert([messageData])
+
+      if (error) throw error
+
+    } catch (error) {
+      console.error('Image upload error:', error)
+      alert('Failed to upload image')
+    }
   }
 
   // Member management functions
