@@ -10,7 +10,33 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { Hash, Users, Plus, ArrowRight, Crown, Reply, X, Send, Upload, Image as ImageIcon, Forward, Wifi, WifiOff } from 'lucide-react'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { 
+  Hash, 
+  Users, 
+  Plus, 
+  ArrowRight, 
+  Crown, 
+  Reply, 
+  X, 
+  Send, 
+  Upload, 
+  Image as ImageIcon, 
+  Forward, 
+  Wifi, 
+  WifiOff,
+  UserPlus,
+  UserMinus,
+  Shield,
+  User as UserIcon,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  MessageSquare,
+  FileText,
+  Paperclip
+} from 'lucide-react'
 import Link from 'next/link'
 
 interface Message {
@@ -54,12 +80,36 @@ interface Channel {
   group_role?: string
 }
 
+interface ChannelMember {
+  id: string
+  channel_id: string
+  user_id: string
+  role: 'owner' | 'admin' | 'member'
+  joined_at: string
+  user?: {
+    id: string
+    full_name: string
+    role: string
+    email: string
+  }
+}
+
 interface User {
   id: string
   full_name: string
   email: string
   role: string
   avatar_url?: string
+}
+
+interface TodoItem {
+  id: string
+  content: string
+  completed: boolean
+  created_by: string
+  created_at: string
+  due_date?: string
+  priority: 'low' | 'medium' | 'high'
 }
 
 // Connection status enum for better state management
@@ -90,6 +140,22 @@ export default function CommunicationHub() {
     selectedUsers: [] as string[]
   })
   const [userRole, setUserRole] = useState<string>('')
+  
+  // Member management state
+  const [showAddUserDialog, setShowAddUserDialog] = useState(false)
+  const [showRemoveUserDialog, setShowRemoveUserDialog] = useState(false)
+  const [showMembersDialog, setShowMembersDialog] = useState(false)
+  const [channelMembers, setChannelMembers] = useState<ChannelMember[]>([])
+  const [availableUsers, setAvailableUsers] = useState<User[]>([])
+  const [selectedUserToAdd, setSelectedUserToAdd] = useState<string>('')
+  const [selectedUserToRemove, setSelectedUserToRemove] = useState<string>('')
+  
+  // Todo list state
+  const [showTodoDialog, setShowTodoDialog] = useState(false)
+  const [todoItems, setTodoItems] = useState<TodoItem[]>([])
+  const [newTodoContent, setNewTodoContent] = useState('')
+  const [newTodoPriority, setNewTodoPriority] = useState<'low' | 'medium' | 'high'>('medium')
+  const [newTodoDueDate, setNewTodoDueDate] = useState('')
   
   // Enhanced connection state management
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.CONNECTING)
@@ -134,6 +200,7 @@ export default function CommunicationHub() {
     // Load messages and setup new connection
     loadMessages(selectedChannel.id)
     setupRealtimeSubscription(selectedChannel.id)
+    loadTodoItems()
     
     // Update URL for persistence
     if (typeof window !== 'undefined') {
@@ -628,6 +695,141 @@ export default function CommunicationHub() {
     console.log('Image upload:', file.name)
   }
 
+  // Member management functions
+  const fetchChannelMembers = async () => {
+    if (!selectedChannel) return
+
+    try {
+      const { data, error } = await supabase
+        .from('chat_channel_members')
+        .select(`
+          *,
+          user:profiles(id, full_name, role, email)
+        `)
+        .eq('channel_id', selectedChannel.id)
+
+      if (error) throw error
+      setChannelMembers(data || [])
+    } catch (error) {
+      console.error('Error fetching channel members:', error)
+    }
+  }
+
+  const fetchAvailableUsers = async () => {
+    if (!selectedChannel) return
+
+    try {
+      // Get current members
+      const { data: currentMembers } = await supabase
+        .from('chat_channel_members')
+        .select('user_id')
+        .eq('channel_id', selectedChannel.id)
+
+      const currentMemberIds = currentMembers?.map(m => m.user_id) || []
+
+      // Get all users not in channel
+      const { data: allUsers, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, role, email')
+        .not('id', 'in', `(${currentMemberIds.join(',')})`)
+
+      if (error) throw error
+      setAvailableUsers(allUsers || [])
+    } catch (error) {
+      console.error('Error fetching available users:', error)
+    }
+  }
+
+  const addUserToChannel = async () => {
+    if (!selectedChannel || !selectedUserToAdd) return
+
+    try {
+      const { error } = await supabase
+        .from('chat_channel_members')
+        .insert([{
+          channel_id: selectedChannel.id,
+          user_id: selectedUserToAdd,
+          role: 'member'
+        }])
+
+      if (error) throw error
+
+      // Get user info for system message
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', selectedUserToAdd)
+        .single()
+
+      // Send system message
+      await supabase
+        .from('chat_messages')
+        .insert([{
+          content: `${userData?.full_name || 'User'} has been added to the channel.`,
+          channel_id: selectedChannel.id,
+          sender_id: user.id,
+          message_type: 'system'
+        }])
+
+      setShowAddUserDialog(false)
+      setSelectedUserToAdd('')
+      await fetchChannelMembers()
+
+    } catch (error) {
+      console.error('Error adding user to channel:', error)
+    }
+  }
+
+  const removeUserFromChannel = async () => {
+    if (!selectedChannel || !selectedUserToRemove) return
+
+    try {
+      // Get user info before removal
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', selectedUserToRemove)
+        .single()
+
+      const { error } = await supabase
+        .from('chat_channel_members')
+        .delete()
+        .eq('channel_id', selectedChannel.id)
+        .eq('user_id', selectedUserToRemove)
+
+      if (error) throw error
+
+      // Send system message
+      await supabase
+        .from('chat_messages')
+        .insert([{
+          content: `${userData?.full_name || 'User'} has been removed from the channel.`,
+          channel_id: selectedChannel.id,
+          sender_id: user.id,
+          message_type: 'system'
+        }])
+
+      setShowRemoveUserDialog(false)
+      setSelectedUserToRemove('')
+      await fetchChannelMembers()
+
+    } catch (error) {
+      console.error('Error removing user from channel:', error)
+    }
+  }
+
+  const canManageChannel = (channel: Channel) => {
+    return user && (channel.created_by === user.id || userRole === 'admin' || userRole === 'super_admin')
+  }
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'owner': return <Crown className="w-3 h-3 text-yellow-500" />
+      case 'admin': return <Shield className="w-3 h-3 text-blue-500" />
+      default: return <UserIcon className="w-3 h-3 text-gray-500" />
+    }
+  }
+
   const canJoinChannel = (channel: Channel) => {
     return userRole === 'student' || userRole === 'intern' || userRole === 'admin' || userRole === 'super_admin'
   }
@@ -637,6 +839,87 @@ export default function CommunicationHub() {
       return userRole === 'admin' || userRole === 'super_admin'
     }
     return true
+  }
+
+  // Todo list functions
+  const loadTodoItems = async () => {
+    if (!selectedChannel) return
+
+    try {
+      const { data, error } = await supabase
+        .from('todo_items')
+        .select('*')
+        .eq('channel_id', selectedChannel.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setTodoItems(data || [])
+    } catch (error) {
+      console.error('Error loading todo items:', error)
+    }
+  }
+
+  const addTodoItem = async () => {
+    if (!selectedChannel || !newTodoContent.trim()) return
+
+    try {
+      const { error } = await supabase
+        .from('todo_items')
+        .insert([{
+          content: newTodoContent.trim(),
+          channel_id: selectedChannel.id,
+          created_by: user.id,
+          priority: newTodoPriority,
+          due_date: newTodoDueDate || null,
+          completed: false
+        }])
+
+      if (error) throw error
+
+      setNewTodoContent('')
+      setNewTodoPriority('medium')
+      setNewTodoDueDate('')
+      await loadTodoItems()
+    } catch (error) {
+      console.error('Error adding todo item:', error)
+    }
+  }
+
+  const toggleTodoItem = async (todoId: string, completed: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('todo_items')
+        .update({ completed })
+        .eq('id', todoId)
+
+      if (error) throw error
+      await loadTodoItems()
+    } catch (error) {
+      console.error('Error toggling todo item:', error)
+    }
+  }
+
+  const deleteTodoItem = async (todoId: string) => {
+    try {
+      const { error } = await supabase
+        .from('todo_items')
+        .delete()
+        .eq('id', todoId)
+
+      if (error) throw error
+      await loadTodoItems()
+    } catch (error) {
+      console.error('Error deleting todo item:', error)
+    }
+  }
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'text-red-600 bg-red-100'
+      case 'medium': return 'text-yellow-600 bg-yellow-100'
+      case 'low': return 'text-green-600 bg-green-100'
+      default: return 'text-gray-600 bg-gray-100'
+    }
   }
 
   const getDashboardUrl = () => {
@@ -766,185 +1049,325 @@ export default function CommunicationHub() {
             </Card>
           </div>
 
-          {/* Messages Area */}
+          {/* Main Content Area */}
           <div className="lg:col-span-3">
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {selectedChannel ? `#${selectedChannel.name}` : 'Messages'}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {selectedChannel ? (
-                  <div className="flex flex-col h-[calc(100vh-20rem)]">
-                    {/* Messages */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                      {messages.map((message) => {
-                        const isOwn = message.sender_id === user?.id
-                        const isAdmin = message.sender?.role === 'admin' || message.sender?.role === 'super_admin'
-                        
-                        return (
-                          <div key={message.id} className={`flex space-x-3 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                            <div className="flex-shrink-0">
-                              <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
-                                isOwn ? 'bg-green-500' : isAdmin ? 'bg-purple-500' : 'bg-blue-500'
-                              }`}>
-                                {isAdmin ? <Crown className="w-4 h-4" /> : message.sender_name.charAt(0).toUpperCase()}
-                              </div>
-                            </div>
-                            <div className={`flex-1 ${isOwn ? 'text-right' : ''}`}>
-                              <div className={`flex items-center space-x-2 ${isOwn ? 'justify-end' : ''}`}>
-                                <span className="text-sm font-medium text-gray-900">
-                                  {message.sender_name}
-                                  {isAdmin && <Crown className="w-3 h-3 ml-1 text-purple-500" />}
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  {new Date(message.created_at).toLocaleString()}
-                                </span>
-                              </div>
+            {selectedChannel ? (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Messages Area */}
+                <div className="lg:col-span-2">
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center space-x-2">
+                          <span>#{selectedChannel.name}</span>
+                          <Badge variant="outline">{selectedChannel.channel_type}</Badge>
+                        </CardTitle>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              fetchChannelMembers()
+                              setShowMembersDialog(true)
+                            }}
+                          >
+                            <Users className="w-4 h-4 mr-1" />
+                            Members
+                          </Button>
+                          
+                          {canManageChannel(selectedChannel) && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  fetchAvailableUsers()
+                                  setShowAddUserDialog(true)
+                                }}
+                              >
+                                <UserPlus className="w-4 h-4 mr-1" />
+                                Add User
+                              </Button>
                               
-                              {/* Reply context */}
-                              {message.reply_to && (
-                                <div className="mt-1 p-2 bg-gray-100 rounded border-l-2 border-gray-300">
-                                  <p className="text-xs text-gray-600">
-                                    Replying to {message.reply_to.profiles.full_name}
-                                  </p>
-                                  <p className="text-sm text-gray-800 truncate">
-                                    {message.reply_to.content}
-                                  </p>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  fetchChannelMembers()
+                                  setShowRemoveUserDialog(true)
+                                }}
+                              >
+                                <UserMinus className="w-4 h-4 mr-1" />
+                                Remove User
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-col h-[calc(100vh-20rem)]">
+                        {/* Messages */}
+                        <ScrollArea className="flex-1 p-4">
+                          <div className="space-y-4">
+                            {messages.map((message) => {
+                              const isOwn = message.sender_id === user?.id
+                              const isAdmin = message.sender?.role === 'admin' || message.sender?.role === 'super_admin'
+                              
+                              return (
+                                <div key={message.id} className={`flex space-x-3 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                                  <Avatar className="w-8 h-8">
+                                    <AvatarFallback className={isOwn ? 'bg-green-500 text-white' : isAdmin ? 'bg-purple-500 text-white' : 'bg-blue-500 text-white'}>
+                                      {isAdmin ? <Crown className="w-4 h-4" /> : message.sender_name.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className={`flex-1 ${isOwn ? 'text-right' : ''}`}>
+                                    <div className={`flex items-center space-x-2 ${isOwn ? 'justify-end' : ''}`}>
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {message.sender_name}
+                                        {isAdmin && <Crown className="w-3 h-3 ml-1 text-purple-500" />}
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        {new Date(message.created_at).toLocaleString()}
+                                      </span>
+                                    </div>
+                                    
+                                    {/* Reply context */}
+                                    {message.reply_to && (
+                                      <div className="mt-1 p-2 bg-gray-100 rounded border-l-2 border-gray-300">
+                                        <p className="text-xs text-gray-600">
+                                          Replying to {message.reply_to.profiles.full_name}
+                                        </p>
+                                        <p className="text-sm text-gray-800 truncate">
+                                          {message.reply_to.content}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {/* Message content */}
+                                    <div className={`inline-block p-3 rounded-lg ${
+                                      isOwn 
+                                        ? 'bg-green-500 text-white' 
+                                        : isAdmin 
+                                          ? 'bg-purple-100 text-purple-900' 
+                                          : 'bg-gray-100 text-gray-900'
+                                    }`}>
+                                      <p className="text-sm">{message.content}</p>
+                                    </div>
+
+                                    {/* Message actions */}
+                                    <div className="flex items-center space-x-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      {!isOwn && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleReply(message)}
+                                          className="h-6 w-6 p-0"
+                                        >
+                                          <Reply className="w-3 h-3" />
+                                        </Button>
+                                      )}
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          setForwardingMessage(message)
+                                          setShowForwardDialog(true)
+                                        }}
+                                        className="h-6 w-6 p-0"
+                                      >
+                                        <Forward className="w-3 h-3" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleDeleteMessage(message.id)}
+                                        className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
                                 </div>
-                              )}
+                              )
+                            })}
+                            <div ref={messagesEndRef} />
+                          </div>
+                        </ScrollArea>
 
-                              {/* Message content */}
-                              <div className={`inline-block p-3 rounded-lg ${
-                                isOwn 
-                                  ? 'bg-green-500 text-white' 
-                                  : isAdmin 
-                                    ? 'bg-purple-100 text-purple-900' 
-                                    : 'bg-gray-100 text-gray-900'
-                              }`}>
-                                <p className="text-sm">{message.content}</p>
-                              </div>
+                        {/* Reply banner */}
+                        {replyTo && (
+                          <div className="p-2 bg-blue-50 border-t border-blue-200 flex items-center justify-between">
+                            <div className="flex-1">
+                              <p className="text-sm text-blue-800">
+                                Replying to {replyTo.sender_name}: {replyTo.content.substring(0, 50)}...
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={cancelReply}
+                              className="text-blue-600"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
 
-                              {/* Message actions */}
-                              <div className="flex items-center space-x-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                {!isOwn && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleReply(message)}
-                                    className="h-6 w-6 p-0"
-                                  >
-                                    <Reply className="w-3 h-3" />
-                                  </Button>
-                                )}
+                        {/* Message input */}
+                        {canSendMessage(selectedChannel) && (
+                          <div className="flex space-x-2 p-4 border-t">
+                            <div className="flex-1 flex space-x-2">
+                              <Input
+                                value={newMessage}
+                                onChange={(e) => setNewMessage(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                                placeholder="Type your message..."
+                                className="flex-1"
+                              />
+                              <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0]
+                                  if (file) handleFileUpload(file)
+                                }}
+                                className="hidden"
+                              />
+                              <input
+                                type="file"
+                                ref={imageInputRef}
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0]
+                                  if (file) handleImageUpload(file)
+                                }}
+                                className="hidden"
+                              />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => fileInputRef.current?.click()}
+                              >
+                                <Upload className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => imageInputRef.current?.click()}
+                              >
+                                <ImageIcon className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            <Button onClick={handleSendMessage}>
+                              <Send className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Todo List Sidebar */}
+                <div className="lg:col-span-1">
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center">
+                          <CheckCircle className="w-5 h-5 mr-2" />
+                          Todo List
+                        </CardTitle>
+                        <Button
+                          size="sm"
+                          onClick={() => setShowTodoDialog(true)}
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <ScrollArea className="h-[calc(100vh-20rem)]">
+                        <div className="space-y-2">
+                          {todoItems.map((todo) => (
+                            <div
+                              key={todo.id}
+                              className={`p-3 rounded-lg border ${
+                                todo.completed 
+                                  ? 'bg-gray-50 border-gray-200' 
+                                  : 'bg-white border-gray-300'
+                              }`}
+                            >
+                              <div className="flex items-start space-x-2">
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => {
-                                    setForwardingMessage(message)
-                                    setShowForwardDialog(true)
-                                  }}
-                                  className="h-6 w-6 p-0"
+                                  onClick={() => toggleTodoItem(todo.id, !todo.completed)}
+                                  className="p-0 h-5 w-5"
                                 >
-                                  <Forward className="w-3 h-3" />
+                                  {todo.completed ? (
+                                    <CheckCircle className="w-4 h-4 text-green-500" />
+                                  ) : (
+                                    <div className="w-4 h-4 border-2 border-gray-300 rounded" />
+                                  )}
                                 </Button>
+                                <div className="flex-1">
+                                  <p className={`text-sm ${
+                                    todo.completed ? 'line-through text-gray-500' : 'text-gray-900'
+                                  }`}>
+                                    {todo.content}
+                                  </p>
+                                  <div className="flex items-center space-x-2 mt-1">
+                                    <Badge 
+                                      variant="outline" 
+                                      className={`text-xs ${getPriorityColor(todo.priority)}`}
+                                    >
+                                      {todo.priority}
+                                    </Badge>
+                                    {todo.due_date && (
+                                      <span className="text-xs text-gray-500">
+                                        Due: {new Date(todo.due_date).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleDeleteMessage(message.id)}
-                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
+                                  onClick={() => deleteTodoItem(todo.id)}
+                                  className="p-0 h-5 w-5 text-red-500 hover:text-red-600"
                                 >
                                   <X className="w-3 h-3" />
                                 </Button>
                               </div>
                             </div>
-                          </div>
-                        )
-                      })}
-                      <div ref={messagesEndRef} />
-                    </div>
-
-                    {/* Reply banner */}
-                    {replyTo && (
-                      <div className="p-2 bg-blue-50 border-t border-blue-200 flex items-center justify-between">
-                        <div className="flex-1">
-                          <p className="text-sm text-blue-800">
-                            Replying to {replyTo.sender_name}: {replyTo.content.substring(0, 50)}...
-                          </p>
+                          ))}
+                          {todoItems.length === 0 && (
+                            <div className="text-center text-gray-500 py-8">
+                              <CheckCircle className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                              <p className="text-sm">No todo items yet</p>
+                              <p className="text-xs">Click the + button to add one</p>
+                            </div>
+                          )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={cancelReply}
-                          className="text-blue-600"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Message input */}
-                    {canSendMessage(selectedChannel) && (
-                      <div className="flex space-x-2 p-4 border-t">
-                        <div className="flex-1 flex space-x-2">
-                          <Input
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                            placeholder="Type your message..."
-                            className="flex-1"
-                          />
-                          <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0]
-                              if (file) handleFileUpload(file)
-                            }}
-                            className="hidden"
-                          />
-                          <input
-                            type="file"
-                            ref={imageInputRef}
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0]
-                              if (file) handleImageUpload(file)
-                            }}
-                            className="hidden"
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => fileInputRef.current?.click()}
-                          >
-                            <Upload className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => imageInputRef.current?.click()}
-                          >
-                            <ImageIcon className="w-4 h-4" />
-                          </Button>
-                        </div>
-                        <Button onClick={handleSendMessage}>
-                          <Send className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center text-gray-500 py-8">
-                    Select a channel to start messaging
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            ) : (
+              <Card className="h-[calc(100vh-20rem)] flex items-center justify-center">
+                <div className="text-center text-gray-500">
+                  <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <h3 className="text-lg font-medium mb-2">Select a channel to start chatting</h3>
+                  <p className="text-sm">Choose a channel from the sidebar to view messages and start conversations.</p>
+                </div>
+              </Card>
+            )}
           </div>
         </div>
 
+        {/* Dialogs */}
         {/* Forward Message Dialog */}
         <Dialog open={showForwardDialog} onOpenChange={setShowForwardDialog}>
           <DialogContent>
@@ -976,6 +1399,166 @@ export default function CommunicationHub() {
                   disabled={!targetChannelId}
                 >
                   Forward
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add User Dialog */}
+        <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add User to Channel</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Select User</Label>
+                <Select value={selectedUserToAdd} onValueChange={setSelectedUserToAdd}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a user to add" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableUsers.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.full_name} ({user.role})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button onClick={addUserToChannel} disabled={!selectedUserToAdd}>
+                  Add User
+                </Button>
+                <Button variant="outline" onClick={() => setShowAddUserDialog(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Remove User Dialog */}
+        <Dialog open={showRemoveUserDialog} onOpenChange={setShowRemoveUserDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Remove User from Channel</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Select User</Label>
+                <Select value={selectedUserToRemove} onValueChange={setSelectedUserToRemove}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a user to remove" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {channelMembers
+                      .filter(member => member.role !== 'owner') // Can't remove owners
+                      .map((member) => (
+                        <SelectItem key={member.id} value={member.user_id}>
+                          {member.user?.full_name} ({member.role})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  onClick={removeUserFromChannel} 
+                  disabled={!selectedUserToRemove} 
+                  variant="destructive"
+                >
+                  Remove User
+                </Button>
+                <Button variant="outline" onClick={() => setShowRemoveUserDialog(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* View Members Dialog */}
+        <Dialog open={showMembersDialog} onOpenChange={setShowMembersDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Channel Members</DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="max-h-96">
+              <div className="space-y-3">
+                {channelMembers.map((member) => (
+                  <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <Avatar className="w-10 h-10">
+                        <AvatarFallback>
+                          {member.user?.full_name?.charAt(0) || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{member.user?.full_name}</p>
+                        <p className="text-sm text-gray-600">{member.user?.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="outline" className="flex items-center space-x-1">
+                        {getRoleIcon(member.role)}
+                        <span>{member.role}</span>
+                      </Badge>
+                      <Badge variant="secondary">{member.user?.role}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Todo Dialog */}
+        <Dialog open={showTodoDialog} onOpenChange={setShowTodoDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Todo Item</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Content</Label>
+                <Textarea
+                  value={newTodoContent}
+                  onChange={(e) => setNewTodoContent(e.target.value)}
+                  placeholder="Enter todo item content..."
+                  className="min-h-[100px]"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Priority</Label>
+                  <Select value={newTodoPriority} onValueChange={(value: 'low' | 'medium' | 'high') => setNewTodoPriority(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Due Date (Optional)</Label>
+                  <Input
+                    type="date"
+                    value={newTodoDueDate}
+                    onChange={(e) => setNewTodoDueDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button onClick={addTodoItem} disabled={!newTodoContent.trim()}>
+                  Add Todo
+                </Button>
+                <Button variant="outline" onClick={() => setShowTodoDialog(false)}>
+                  Cancel
                 </Button>
               </div>
             </div>
