@@ -423,30 +423,55 @@ export default function CommunicationHub() {
 
   const uploadFile = async (file: File): Promise<string | null> => {
     try {
-      setUploadingFile(true)
+      console.log('Starting file upload:', file.name, 'Size:', file.size, 'Type:', file.type)
       
+      // Check file size (max 10MB)
+      const maxSize = 10 * 1024 * 1024 // 10MB
+      if (file.size > maxSize) {
+        alert('File size too large. Maximum size is 10MB.')
+        return null
+      }
+
+      // Check file type
+      const allowedTypes = [
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain',
+        'application/zip',
+        'application/x-rar-compressed'
+      ]
+
+      if (!allowedTypes.includes(file.type)) {
+        alert('File type not allowed. Please select images, PDFs, documents, or archives.')
+        return null
+      }
+
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('type', file.type.startsWith('image/') ? 'image' : 'file')
+      formData.append('type', file.type)
 
+      console.log('Uploading to API...')
       const response = await fetch('/api/upload', {
         method: 'POST',
-        body: formData
+        body: formData,
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Upload failed')
+        const errorData = await response.json()
+        console.error('Upload failed:', errorData)
+        alert(`Upload failed: ${errorData.error || 'Unknown error'}`)
+        return null
       }
 
-      const result = await response.json()
-      return result.url
+      const data = await response.json()
+      console.log('Upload successful:', data.url)
+      return data.url
     } catch (error) {
       console.error('Error uploading file:', error)
-      alert(`Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      alert('Failed to upload file. Please try again.')
       return null
-    } finally {
-      setUploadingFile(false)
     }
   }
 
@@ -468,20 +493,30 @@ export default function CommunicationHub() {
 
       // Handle file upload if selected
       if (selectedFile) {
-        console.log('Uploading file:', selectedFile.name)
+        console.log('Uploading file:', selectedFile.name, 'Type:', selectedFile.type, 'Size:', selectedFile.size)
+        
+        // Determine message type based on file type
+        if (selectedFile.type.startsWith('image/')) {
+          messageType = 'image'
+          messageContent = newMessage.trim() || `📷 Image: ${selectedFile.name}`
+        } else {
+          messageType = 'file'
+          messageContent = newMessage.trim() || `📄 Document: ${selectedFile.name}`
+        }
+        
         fileUrl = await uploadFile(selectedFile)
         if (!fileUrl) {
           setMessagesLoading(false)
+          alert('Failed to upload file. Please try again.')
           return
         }
         
-        messageType = selectedFile.type.startsWith('image/') ? 'image' : 'file'
-        messageContent = newMessage.trim() || `Sent ${selectedFile.name}`
         fileName = selectedFile.name
         fileSize = selectedFile.size
         fileType = selectedFile.type
         
         console.log('File uploaded successfully:', fileUrl)
+        console.log('Message type:', messageType)
       }
 
       const messageData: any = {
@@ -519,6 +554,11 @@ export default function CommunicationHub() {
       // Clear the input immediately
       setNewMessage('')
       setSelectedFile(null)
+      
+      // Show success feedback
+      if (fileUrl) {
+        console.log(`✅ ${messageType === 'image' ? 'Image' : 'Document'} uploaded and sent successfully!`)
+      }
     } catch (error) {
       console.error('Error in sendMessage:', error)
       alert('Failed to send message. Please try again.')
@@ -1074,6 +1114,7 @@ export default function CommunicationHub() {
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Type your message..."
                     className="min-h-[60px] resize-none"
+                    disabled={!canSendMessage(selectedChannelData!)}
                     onKeyPress={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault()
@@ -1082,19 +1123,91 @@ export default function CommunicationHub() {
                     }}
                   />
                   
-                  {/* File Upload Section - Admin Only */}
+                  {/* Admin File Upload Buttons - Next to Text Entry */}
+                  {(userRole === 'admin' || userRole === 'super_admin') && selectedChannelData && (
+                    <div className="flex items-center space-x-2 mt-2">
+                      {/* Image Upload Button */}
+                      <input
+                        type="file"
+                        id="image-upload"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                        accept="image/*"
+                      />
+                      <label
+                        htmlFor="image-upload"
+                        className="cursor-pointer flex items-center space-x-2 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                        title="Upload Image (Admin only)"
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                        <span className="text-sm font-medium">📷 Image</span>
+                      </label>
+                      
+                      {/* Document Upload Button */}
+                      <input
+                        type="file"
+                        id="document-upload"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                        accept=".pdf,.doc,.docx,.txt,.zip,.rar"
+                      />
+                      <label
+                        htmlFor="document-upload"
+                        className="cursor-pointer flex items-center space-x-2 px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                        title="Upload Document (Admin only)"
+                      >
+                        <FileText className="w-4 h-4" />
+                        <span className="text-sm font-medium">📄 Document</span>
+                      </label>
+                      
+                      {/* General File Upload Button */}
+                      <input
+                        type="file"
+                        id="file-upload"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                        accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar"
+                      />
+                      <label
+                        htmlFor="file-upload"
+                        className="cursor-pointer flex items-center space-x-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                        title="Upload Any File (Admin only)"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                        <span className="text-sm font-medium">📁 File</span>
+                      </label>
+                      
+                      {/* Selected File Display */}
+                      {selectedFile && (
+                        <div className="flex items-center space-x-2 bg-gray-100 rounded px-3 py-2 border">
+                          <span className="text-sm text-gray-700 truncate max-w-32">
+                            {selectedFile.name}
+                          </span>
+                          <button
+                            onClick={() => setSelectedFile(null)}
+                            className="text-gray-400 hover:text-gray-600"
+                            title="Remove file"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* File Upload Section - Admin Only (Legacy) */}
                   {selectedChannelData && canUploadFiles(selectedChannelData) && (
                     <div className="flex items-center space-x-2 mt-2 p-2 bg-blue-50 rounded-lg border-2 border-blue-200">
                       <div className="flex items-center space-x-2">
                         <input
                           type="file"
-                          id="file-upload"
+                          id="file-upload-legacy"
                           className="hidden"
                           onChange={handleFileSelect}
                           accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar"
                         />
                         <label
-                          htmlFor="file-upload"
+                          htmlFor="file-upload-legacy"
                           className="cursor-pointer flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                           title="Upload file (Admin only)"
                         >
@@ -1121,48 +1234,6 @@ export default function CommunicationHub() {
                           </button>
                         </div>
                       )}
-                    </div>
-                  )}
-                  
-                  {/* Debug Info for Admin */}
-                  {(userRole === 'admin' || userRole === 'super_admin') && (
-                    <div className="mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
-                      <div className="text-xs text-yellow-800">
-                        <strong>Debug Info:</strong> User Role: {userRole} | 
-                        Can Upload: {selectedChannelData ? canUploadFiles(selectedChannelData) : 'No Channel'} | 
-                        Channel: {selectedChannelData?.name || 'None'} ({selectedChannelData?.type || 'None'})
-                      </div>
-                      <div className="mt-2 flex space-x-2">
-                        <button
-                          onClick={() => {
-                            console.log('Test upload button clicked')
-                            console.log('User:', user)
-                            console.log('User Role:', userRole)
-                            console.log('Selected Channel:', selectedChannelData)
-                          }}
-                          className="px-2 py-1 bg-blue-500 text-white rounded text-xs"
-                        >
-                          Test Upload Debug
-                        </button>
-                        <button
-                          onClick={() => {
-                            const input = document.createElement('input')
-                            input.type = 'file'
-                            input.accept = 'image/*,.pdf,.doc,.docx,.txt,.zip,.rar'
-                            input.onchange = (e) => {
-                              const file = (e.target as HTMLInputElement).files?.[0]
-                              if (file) {
-                                console.log('Test file selected:', file.name, file.size, file.type)
-                                setSelectedFile(file)
-                              }
-                            }
-                            input.click()
-                          }}
-                          className="px-2 py-1 bg-green-500 text-white rounded text-xs"
-                        >
-                          Test File Select
-                        </button>
-                      </div>
                     </div>
                   )}
                   
