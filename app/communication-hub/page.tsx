@@ -184,13 +184,13 @@ export default function CommunicationHub() {
 
       // Check if user is already a member of all public channels
       const { data: existingMemberships } = await supabase
-        .from('chat_participants')
-        .select('chat_id')
+        .from('channel_members')
+        .select('channel_id')
         .eq('user_id', user.id)
-        .in('chat_id', publicChannels.map(c => c.id))
+        .in('channel_id', publicChannels.map(c => c.id))
 
-      const existingChatIds = existingMemberships?.map(m => m.chat_id) || []
-      const channelsToJoin = publicChannels.filter(c => !existingChatIds.includes(c.id))
+      const existingChannelIds = existingMemberships?.map(m => m.channel_id) || []
+      const channelsToJoin = publicChannels.filter(c => !existingChannelIds.includes(c.id))
 
       if (channelsToJoin.length > 0) {
         console.log(`Adding user to ${channelsToJoin.length} public channels`)
@@ -198,10 +198,10 @@ export default function CommunicationHub() {
         for (const channel of channelsToJoin) {
           try {
             const { error: insertError } = await supabase
-              .from('chat_participants')
+              .from('channel_members')
               .insert({
                 user_id: user.id,
-                chat_id: channel.id,
+                channel_id: channel.id,
                 role: 'member'
               })
 
@@ -218,7 +218,7 @@ export default function CommunicationHub() {
         console.log('User is already a member of all public channels')
       }
     } catch (error) {
-      console.error('Error ensuring user in public channels:', error)
+      console.error('Error in ensureUserInPublicChannels:', error)
     }
   }
 
@@ -249,25 +249,23 @@ export default function CommunicationHub() {
       if (channels) {
         console.log('Found channels:', channels.map(c => ({ id: c.id, name: c.name, type: c.type })))
         
-        // Get member counts for each channel (simplified approach)
+        // Get member counts for each channel using the new channel_members table
         const channelsWithMemberCount = await Promise.all(
           channels.map(async (channel) => {
             try {
               const { count } = await supabase
-                .from('chat_participants')
+                .from('channel_members')
                 .select('*', { count: 'exact', head: true })
-                .eq('chat_id', channel.id)
+                .eq('channel_id', channel.id)
               
               return {
                 ...channel,
-                channel_type: channel.type,
                 member_count: count || 0
               }
             } catch (error) {
               console.error(`Error getting member count for channel ${channel.id}:`, error)
               return {
                 ...channel,
-                channel_type: channel.type,
                 member_count: 0
               }
             }
@@ -1458,7 +1456,9 @@ export default function CommunicationHub() {
                       <div className="text-xs text-yellow-800">
                         <strong>Debug Info:</strong> User Role: {userRole} | 
                         Can Upload: {selectedChannelData ? canUploadFiles(selectedChannelData) : 'No Channel'} | 
-                        Channel: {selectedChannelData?.name || 'None'} ({selectedChannelData?.type || 'None'})
+                        Channel: {selectedChannelData?.name || 'None'} ({selectedChannelData?.type || 'None'}) |
+                        Messages: {messages.length} | 
+                        Can Manage: {selectedChannelData ? canManageChannel(selectedChannelData) : 'No Channel'}
                       </div>
                       <div className="mt-2 flex space-x-2">
                         <button
@@ -1467,6 +1467,7 @@ export default function CommunicationHub() {
                             console.log('User:', user)
                             console.log('User Role:', userRole)
                             console.log('Selected Channel:', selectedChannelData)
+                            console.log('Messages:', messages)
                           }}
                           className="px-2 py-1 bg-blue-500 text-white rounded text-xs"
                         >
@@ -1490,6 +1491,15 @@ export default function CommunicationHub() {
                         >
                           Test File Select
                         </button>
+                        <button
+                          onClick={() => {
+                            console.log('Testing message sending...')
+                            sendMessage()
+                          }}
+                          className="px-2 py-1 bg-purple-500 text-white rounded text-xs"
+                        >
+                          Test Send Message
+                        </button>
                       </div>
                     </div>
                   )}
@@ -1500,7 +1510,8 @@ export default function CommunicationHub() {
                       <strong>Your Permissions:</strong> Role: {userRole} | 
                       Can Edit Own Messages: {userRole ? 'Yes' : 'No'} | 
                       Can Delete Messages: {userRole === 'admin' || userRole === 'super_admin' ? 'All Messages' : 'Own Messages'} | 
-                      Can Forward: Yes
+                      Can Forward: Yes | 
+                      Can Manage Channel: {selectedChannelData ? canManageChannel(selectedChannelData) : 'No Channel'}
                     </div>
                   </div>
                 </div>
