@@ -92,6 +92,16 @@ interface User {
   avatar_url?: string
 }
 
+interface TodoItem {
+  id: string
+  content: string
+  completed: boolean
+  created_by: string
+  created_at: string
+  due_date?: string
+  priority: 'low' | 'medium' | 'high'
+}
+
 // Connection status enum for better state management
 enum ConnectionStatus {
   CONNECTING = 'connecting',
@@ -130,6 +140,13 @@ export default function AdminCommunicationHub() {
   const [editingMessage, setEditingMessage] = useState<Message | null>(null)
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null)
   const [showReactions, setShowReactions] = useState<string | null>(null)
+  
+  // Todo list state
+  const [showTodoDialog, setShowTodoDialog] = useState(false)
+  const [todoItems, setTodoItems] = useState<TodoItem[]>([])
+  const [newTodoContent, setNewTodoContent] = useState('')
+  const [newTodoPriority, setNewTodoPriority] = useState<'low' | 'medium' | 'high'>('medium')
+  const [newTodoDueDate, setNewTodoDueDate] = useState('')
   
   // Enhanced connection state management
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.CONNECTING)
@@ -174,6 +191,7 @@ export default function AdminCommunicationHub() {
     // Load messages and setup new connection
     loadMessages(selectedChannel.id)
     setupRealtimeSubscription(selectedChannel.id)
+    loadTodoItems()
     
     // Update URL for persistence
     if (typeof window !== 'undefined') {
@@ -927,6 +945,87 @@ export default function AdminCommunicationHub() {
     return true
   }
 
+  // Todo list functions
+  const loadTodoItems = async () => {
+    if (!selectedChannel) return
+
+    try {
+      const { data, error } = await supabase
+        .from('todo_items')
+        .select('*')
+        .eq('channel_id', selectedChannel.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setTodoItems(data || [])
+    } catch (error) {
+      console.error('Error loading todo items:', error)
+    }
+  }
+
+  const addTodoItem = async () => {
+    if (!selectedChannel || !newTodoContent.trim()) return
+
+    try {
+      const { error } = await supabase
+        .from('todo_items')
+        .insert([{
+          content: newTodoContent.trim(),
+          channel_id: selectedChannel.id,
+          created_by: user.id,
+          priority: newTodoPriority,
+          due_date: newTodoDueDate || null,
+          completed: false
+        }])
+
+      if (error) throw error
+
+      setNewTodoContent('')
+      setNewTodoPriority('medium')
+      setNewTodoDueDate('')
+      await loadTodoItems()
+    } catch (error) {
+      console.error('Error adding todo item:', error)
+    }
+  }
+
+  const toggleTodoItem = async (todoId: string, completed: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('todo_items')
+        .update({ completed })
+        .eq('id', todoId)
+
+      if (error) throw error
+      await loadTodoItems()
+    } catch (error) {
+      console.error('Error toggling todo item:', error)
+    }
+  }
+
+  const deleteTodoItem = async (todoId: string) => {
+    try {
+      const { error } = await supabase
+        .from('todo_items')
+        .delete()
+        .eq('id', todoId)
+
+      if (error) throw error
+      await loadTodoItems()
+    } catch (error) {
+      console.error('Error deleting todo item:', error)
+    }
+  }
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'text-red-600 bg-red-100'
+      case 'medium': return 'text-yellow-600 bg-yellow-100'
+      case 'low': return 'text-green-600 bg-green-100'
+      default: return 'text-gray-600 bg-gray-100'
+    }
+  }
+
   const getDashboardUrl = () => {
     switch (userRole) {
       case 'admin':
@@ -1012,7 +1111,7 @@ export default function AdminCommunicationHub() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
         {/* Channels Sidebar */}
         <div className="lg:col-span-1">
           <Card>
@@ -1323,6 +1422,89 @@ export default function AdminCommunicationHub() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Todo List Sidebar */}
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center">
+                  <CheckCircle className="w-5 h-5 mr-2" />
+                  Todo List
+                </span>
+                <Button
+                  size="sm"
+                  onClick={() => setShowTodoDialog(true)}
+                  className="h-8 w-8 p-0"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                {todoItems.map((todo) => (
+                  <div
+                    key={todo.id}
+                    className={`p-3 rounded-lg border ${
+                      todo.completed
+                        ? 'bg-gray-50 border-gray-200'
+                        : 'bg-white border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-start space-x-2">
+                      <button
+                        onClick={() => toggleTodoItem(todo.id, !todo.completed)}
+                        className={`mt-1 flex-shrink-0 ${
+                          todo.completed ? 'text-green-600' : 'text-gray-400'
+                        }`}
+                      >
+                        {todo.completed ? (
+                          <CheckCircle className="w-4 h-4" />
+                        ) : (
+                          <div className="w-4 h-4 border-2 border-gray-300 rounded-full" />
+                        )}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className={`text-sm ${
+                            todo.completed ? 'line-through text-gray-500' : 'text-gray-900'
+                          }`}
+                        >
+                          {todo.content}
+                        </p>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <Badge
+                            className={`text-xs ${getPriorityColor(todo.priority)}`}
+                          >
+                            {todo.priority}
+                          </Badge>
+                          {todo.due_date && (
+                            <span className="text-xs text-gray-500">
+                              Due: {new Date(todo.due_date).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => deleteTodoItem(todo.id)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {todoItems.length === 0 && (
+                  <div className="text-center py-4 text-gray-500">
+                    <CheckCircle className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No todo items yet</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Delete Channel Dialog */}
@@ -1419,6 +1601,55 @@ export default function AdminCommunicationHub() {
                 disabled={!targetChannelId}
               >
                 Forward
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Todo Dialog */}
+      <Dialog open={showTodoDialog} onOpenChange={setShowTodoDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Todo Item</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Content</Label>
+              <Textarea
+                value={newTodoContent}
+                onChange={(e) => setNewTodoContent(e.target.value)}
+                placeholder="Enter todo item content..."
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label>Priority</Label>
+              <Select value={newTodoPriority} onValueChange={(value: 'low' | 'medium' | 'high') => setNewTodoPriority(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Due Date (Optional)</Label>
+              <Input
+                type="date"
+                value={newTodoDueDate}
+                onChange={(e) => setNewTodoDueDate(e.target.value)}
+              />
+            </div>
+            <div className="flex space-x-2">
+              <Button onClick={addTodoItem} disabled={!newTodoContent.trim()}>
+                Add Todo
+              </Button>
+              <Button variant="outline" onClick={() => setShowTodoDialog(false)}>
+                Cancel
               </Button>
             </div>
           </div>
