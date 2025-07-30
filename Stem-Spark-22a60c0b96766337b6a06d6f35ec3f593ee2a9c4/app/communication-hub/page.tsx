@@ -706,7 +706,6 @@ export default function CommunicationHub() {
       const messageData = {
         content: `📎 ${file.name}`,
         sender_id: user.id,
-        sender_name: user.full_name,
         chat_id: selectedChannel.id,
         message_type: 'file' as const,
         file_url: result.url,
@@ -716,7 +715,7 @@ export default function CommunicationHub() {
       }
 
       const { error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .insert([messageData])
 
       if (error) throw error
@@ -748,7 +747,6 @@ export default function CommunicationHub() {
       const messageData = {
         content: `🖼️ ${file.name}`,
         sender_id: user.id,
-        sender_name: user.full_name,
         chat_id: selectedChannel.id,
         message_type: 'image' as const,
         file_url: result.url,
@@ -758,7 +756,7 @@ export default function CommunicationHub() {
       }
 
       const { error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .insert([messageData])
 
       if (error) throw error
@@ -775,7 +773,7 @@ export default function CommunicationHub() {
 
     try {
       const { data, error } = await supabase
-        .from('chat_channel_members')
+        .from('channel_members')
         .select(`
           *,
           user:profiles(id, full_name, role, email)
@@ -795,7 +793,7 @@ export default function CommunicationHub() {
     try {
       // Get current members
       const { data: currentMembers } = await supabase
-        .from('chat_channel_members')
+        .from('channel_members')
         .select('user_id')
         .eq('channel_id', selectedChannel.id)
 
@@ -819,7 +817,7 @@ export default function CommunicationHub() {
 
     try {
       const { error } = await supabase
-        .from('chat_channel_members')
+        .from('channel_members')
         .insert([{
           channel_id: selectedChannel.id,
           user_id: selectedUserToAdd,
@@ -837,10 +835,10 @@ export default function CommunicationHub() {
 
       // Send system message
       await supabase
-        .from('chat_messages')
+        .from('messages')
         .insert([{
           content: `${userData?.full_name || 'User'} has been added to the channel.`,
-          channel_id: selectedChannel.id,
+          chat_id: selectedChannel.id,
           sender_id: user.id,
           message_type: 'system'
         }])
@@ -866,7 +864,7 @@ export default function CommunicationHub() {
         .single()
 
       const { error } = await supabase
-        .from('chat_channel_members')
+        .from('channel_members')
         .delete()
         .eq('channel_id', selectedChannel.id)
         .eq('user_id', selectedUserToRemove)
@@ -875,10 +873,10 @@ export default function CommunicationHub() {
 
       // Send system message
       await supabase
-        .from('chat_messages')
+        .from('messages')
         .insert([{
           content: `${userData?.full_name || 'User'} has been removed from the channel.`,
-          channel_id: selectedChannel.id,
+          chat_id: selectedChannel.id,
           sender_id: user.id,
           message_type: 'system'
         }])

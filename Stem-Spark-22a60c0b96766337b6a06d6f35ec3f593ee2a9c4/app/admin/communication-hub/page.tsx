@@ -48,8 +48,7 @@ interface Message {
   id: string
   content: string
   sender_id: string
-  sender_name: string
-  channel_id: string
+  chat_id: string
   created_at: string
   message_type: 'text' | 'file' | 'image' | 'system'
   file_url?: string
@@ -639,8 +638,7 @@ export default function AdminCommunicationHub() {
       id: tempId,
       content: newMessage.trim(),
       sender_id: user.id,
-      sender_name: user.full_name,
-      channel_id: selectedChannel.id,
+      chat_id: selectedChannel.id,
       created_at: new Date().toISOString(),
       message_type: 'text',
       sender: {
@@ -694,7 +692,7 @@ export default function AdminCommunicationHub() {
       // Replace temporary message with the real one from the database
       setMessages(prev => prev.map(msg => 
         msg.id === tempId 
-          ? { ...insertedMessage, sender: tempMessage.sender, sender_name: tempMessage.sender_name } 
+          ? { ...insertedMessage, sender: tempMessage.sender } 
           : msg
       ))
 
