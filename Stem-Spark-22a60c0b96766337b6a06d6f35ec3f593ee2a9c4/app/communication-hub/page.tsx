@@ -157,6 +157,11 @@ export default function CommunicationHub() {
   const [newTodoPriority, setNewTodoPriority] = useState<'low' | 'medium' | 'high'>('medium')
   const [newTodoDueDate, setNewTodoDueDate] = useState('')
   
+  // File upload state
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  
   // Enhanced connection state management
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.CONNECTING)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
@@ -455,6 +460,7 @@ export default function CommunicationHub() {
       }
       
       await loadUserProfile(authUser.id)
+      await setupDefaultChannels(authUser.id)
       await loadChannels()
       
       // Load channel from URL if available
@@ -473,6 +479,127 @@ export default function CommunicationHub() {
       console.error('Error initializing component:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const setupDefaultChannels = async (userId: string) => {
+    try {
+      // Get user profile to determine role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single()
+
+      if (!profile) return
+
+      // Default channels configuration
+      const defaultChannels = [
+        {
+          name: 'General',
+          description: 'General discussion for all members',
+          type: 'general',
+          roles: ['student', 'admin', 'super_admin', 'parent', 'teacher', 'intern']
+        },
+        {
+          name: 'Announcements',
+          description: 'Important announcements from administrators',
+          type: 'announcements',
+          roles: ['admin', 'super_admin']
+        },
+        {
+          name: 'Student Lounge',
+          description: 'Student-only discussion area',
+          type: 'general',
+          roles: ['student']
+        },
+        {
+          name: 'Parent-Teacher',
+          description: 'Communication between parents and teachers',
+          type: 'parent_teacher',
+          roles: ['parent', 'teacher', 'admin', 'super_admin']
+        },
+        {
+          name: 'Admin Hub',
+          description: 'Administrative discussions',
+          type: 'admin_only',
+          roles: ['admin', 'super_admin']
+        }
+      ]
+
+      // Check if channels exist, create if not
+      for (const channelConfig of defaultChannels) {
+        const { data: existingChannel } = await supabase
+          .from('channels')
+          .select('id')
+          .eq('name', channelConfig.name)
+          .single()
+
+        if (!existingChannel) {
+          // Create channel
+          const { data: newChannel, error: channelError } = await supabase
+            .from('channels')
+            .insert([{
+              name: channelConfig.name,
+              description: channelConfig.description,
+              type: channelConfig.type,
+              created_by: userId
+            }])
+            .select()
+            .single()
+
+          if (channelError) {
+            console.error(`Error creating channel ${channelConfig.name}:`, channelError)
+            continue
+          }
+
+          // Add all users with matching roles to the channel
+          const { data: usersWithRole } = await supabase
+            .from('profiles')
+            .select('id')
+            .in('role', channelConfig.roles)
+
+          if (usersWithRole && usersWithRole.length > 0) {
+            const membersToAdd = usersWithRole.map(user => ({
+              channel_id: newChannel.id,
+              user_id: user.id,
+              role: 'member'
+            }))
+
+            const { error: memberError } = await supabase
+              .from('channel_members')
+              .insert(membersToAdd)
+
+            if (memberError) {
+              console.error(`Error adding members to ${channelConfig.name}:`, memberError)
+            }
+          }
+        } else {
+          // Channel exists, ensure user is a member if they should be
+          const shouldBeMember = channelConfig.roles.includes(profile.role)
+          
+          if (shouldBeMember) {
+            const { data: existingMember } = await supabase
+              .from('channel_members')
+              .select('id')
+              .eq('channel_id', existingChannel.id)
+              .eq('user_id', userId)
+              .single()
+
+            if (!existingMember) {
+              await supabase
+                .from('channel_members')
+                .insert([{
+                  channel_id: existingChannel.id,
+                  user_id: userId,
+                  role: 'member'
+                }])
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error setting up default channels:', error)
     }
   }
 
@@ -576,14 +703,13 @@ export default function CommunicationHub() {
 
   // Enhanced message sending with optimistic updates
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !user || !selectedChannel) return
+    if ((!newMessage.trim() && !selectedImage && !selectedFile) || !user || !selectedChannel) return
 
     const tempId = `temp-${Date.now()}`
     const tempMessage: Message = {
       id: tempId,
       content: newMessage.trim(),
       sender_id: user.id,
-      sender_name: user.full_name,
       chat_id: selectedChannel.id,
       created_at: new Date().toISOString(),
       message_type: 'text',
@@ -596,26 +722,56 @@ export default function CommunicationHub() {
 
     // Optimistic update
     setMessages(prev => [...prev, tempMessage])
+    const originalMessage = newMessage.trim()
     setNewMessage('')
     setReplyTo(null)
 
     try {
-      const messageData = {
-        content: newMessage.trim(),
+      let messageData: any = {
+        content: originalMessage,
         chat_id: selectedChannel.id,
         sender_id: user.id,
         message_type: 'text' as const,
         ...(replyTo && { reply_to_id: replyTo.id })
       }
 
+      // Handle image upload
+      if (selectedImage) {
+        const imageUrl = await uploadFile(selectedImage)
+        if (imageUrl) {
+          messageData.file_url = imageUrl
+          messageData.file_name = selectedImage.name
+          messageData.file_size = selectedImage.size
+          messageData.file_type = selectedImage.type
+          messageData.message_type = 'image'
+        }
+      }
+
+      // Handle file upload
+      if (selectedFile) {
+        const fileUrl = await uploadFile(selectedFile)
+        if (fileUrl) {
+          messageData.file_url = fileUrl
+          messageData.file_name = selectedFile.name
+          messageData.file_size = selectedFile.size
+          messageData.file_type = selectedFile.type
+          messageData.message_type = selectedFile.type.startsWith('image/') ? 'image' : 'file'
+        }
+      }
+
       const { error } = await supabase
         .from('messages')
-        .insert(messageData)
+        .insert([messageData])
 
       if (error) throw error
 
       // Remove temporary message (real message will come via subscription)
       setMessages(prev => prev.filter(msg => msg.id !== tempId))
+
+      // Clear selected files after successful send
+      setSelectedImage(null)
+      setImagePreview(null)
+      setSelectedFile(null)
 
     } catch (error) {
       console.error('Error sending message:', error)
@@ -624,7 +780,7 @@ export default function CommunicationHub() {
       setMessages(prev => prev.filter(msg => msg.id !== tempId))
       
       // Restore message for retry
-      setNewMessage(newMessage.trim())
+      setNewMessage(originalMessage)
       alert('Failed to send message. Please try again.')
     }
   }
@@ -726,6 +882,40 @@ export default function CommunicationHub() {
     }
   }
 
+  const uploadFile = async (file: File): Promise<string | null> => {
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed')
+      }
+
+      return result.url
+    } catch (error) {
+      console.error('Upload error:', error)
+      alert('Failed to upload file')
+      return null
+    }
+  }
+
+  const handleImageSelect = (file: File) => {
+    setSelectedImage(file)
+    // Create preview URL
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setImagePreview(e.target?.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
   const handleImageUpload = async (file: File) => {
     try {
       const formData = new FormData()
@@ -760,6 +950,10 @@ export default function CommunicationHub() {
         .insert([messageData])
 
       if (error) throw error
+
+      // Clear selected image after successful upload
+      setSelectedImage(null)
+      setImagePreview(null)
 
     } catch (error) {
       console.error('Image upload error:', error)
@@ -892,6 +1086,10 @@ export default function CommunicationHub() {
 
   const canManageChannel = (channel: Channel) => {
     return user && (channel.created_by === user.id || userRole === 'admin' || userRole === 'super_admin')
+  }
+
+  const canViewMembers = () => {
+    return true // Everyone can view members
   }
 
   const getRoleIcon = (role: string) => {
@@ -1135,17 +1333,19 @@ export default function CommunicationHub() {
                           <Badge variant="outline">{selectedChannel.channel_type}</Badge>
                         </CardTitle>
                         <div className="flex items-center space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              fetchChannelMembers()
-                              setShowMembersDialog(true)
-                            }}
-                          >
-                            <Users className="w-4 h-4 mr-1" />
-                            Members
-                          </Button>
+                          {canViewMembers() && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                fetchChannelMembers()
+                                setShowMembersDialog(true)
+                              }}
+                            >
+                              <Users className="w-4 h-4 mr-1" />
+                              Members
+                            </Button>
+                          )}
                           
                           {canManageChannel(selectedChannel) && (
                             <>
@@ -1323,53 +1523,75 @@ export default function CommunicationHub() {
 
                         {/* Message input */}
                         {canSendMessage(selectedChannel) && (
-                          <div className="flex space-x-2 p-4 border-t">
-                            <div className="flex-1 flex space-x-2">
-                              <Input
-                                value={newMessage}
-                                onChange={(e) => setNewMessage(e.target.value)}
-                                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                                placeholder="Type your message..."
-                                className="flex-1"
-                              />
-                              <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0]
-                                  if (file) handleFileUpload(file)
-                                }}
-                                className="hidden"
-                              />
-                              <input
-                                type="file"
-                                ref={imageInputRef}
-                                accept="image/*"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0]
-                                  if (file) handleImageUpload(file)
-                                }}
-                                className="hidden"
-                              />
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => fileInputRef.current?.click()}
-                              >
-                                <Upload className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => imageInputRef.current?.click()}
-                              >
-                                <ImageIcon className="w-4 h-4" />
+                          <div className="flex flex-col space-y-2 p-4 border-t">
+                            {/* Image preview */}
+                            {imagePreview && (
+                              <div className="relative inline-block">
+                                <img 
+                                  src={imagePreview} 
+                                  alt="Preview" 
+                                  className="max-w-xs max-h-32 rounded border"
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="absolute top-1 right-1 h-6 w-6 p-0"
+                                  onClick={() => {
+                                    setSelectedImage(null)
+                                    setImagePreview(null)
+                                  }}
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            )}
+                            
+                              <div className="flex-1 flex space-x-2">
+                                <Input
+                                  value={newMessage}
+                                  onChange={(e) => setNewMessage(e.target.value)}
+                                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                                  placeholder="Type your message..."
+                                  className="flex-1"
+                                />
+                                <input
+                                  type="file"
+                                  ref={fileInputRef}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0]
+                                    if (file) handleFileUpload(file)
+                                  }}
+                                  className="hidden"
+                                />
+                                <input
+                                  type="file"
+                                  ref={imageInputRef}
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0]
+                                    if (file) handleImageSelect(file)
+                                  }}
+                                  className="hidden"
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => fileInputRef.current?.click()}
+                                >
+                                  <Upload className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => imageInputRef.current?.click()}
+                                >
+                                  <ImageIcon className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              <Button onClick={handleSendMessage}>
+                                <Send className="w-4 h-4" />
                               </Button>
                             </div>
-                            <Button onClick={handleSendMessage}>
-                              <Send className="w-4 h-4" />
-                            </Button>
-                          </div>
                         )}
                       </div>
                     </CardContent>
