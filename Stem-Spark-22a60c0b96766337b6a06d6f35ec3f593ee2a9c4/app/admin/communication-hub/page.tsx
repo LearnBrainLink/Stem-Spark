@@ -1441,7 +1441,7 @@ export default function AdminCommunicationHub() {
                                   <img 
                                     src={message.file_url} 
                                     alt={message.file_name || 'Image'}
-                                    className="max-w-full h-auto rounded cursor-pointer"
+                                    className="max-w-full h-auto rounded cursor-pointer hover:opacity-90 transition-opacity"
                                     onClick={() => window.open(message.file_url, '_blank')}
                                   />
                                 </div>

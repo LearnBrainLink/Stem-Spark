@@ -1152,7 +1152,42 @@ export default function CommunicationHub() {
                                           ? 'bg-purple-100 text-purple-900' 
                                           : 'bg-gray-100 text-gray-900'
                                     }`}>
-                                      <p className="text-sm">{message.content}</p>
+                                      {/* Text content */}
+                                      {message.content && (
+                                        <p className="text-sm mb-2">{message.content}</p>
+                                      )}
+                                      
+                                      {/* Image content */}
+                                      {message.message_type === 'image' && message.file_url && (
+                                        <div className="mb-2">
+                                          <img 
+                                            src={message.file_url} 
+                                            alt={message.file_name || 'Image'}
+                                            className="max-w-full h-auto rounded cursor-pointer hover:opacity-90 transition-opacity"
+                                            onClick={() => window.open(message.file_url, '_blank')}
+                                          />
+                                        </div>
+                                      )}
+                                      
+                                      {/* File content */}
+                                      {message.message_type === 'file' && message.file_url && (
+                                        <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded border">
+                                          <Paperclip className="w-4 h-4" />
+                                          <div className="flex-1">
+                                            <p className="text-sm font-medium">{message.file_name}</p>
+                                            <p className="text-xs text-gray-500">
+                                              {message.file_size ? `${(message.file_size / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'}
+                                            </p>
+                                          </div>
+                                          <Button 
+                                            size="sm" 
+                                            variant="outline"
+                                            onClick={() => window.open(message.file_url, '_blank')}
+                                          >
+                                            Download
+                                          </Button>
+                                        </div>
+                                      )}
                                     </div>
 
                                     {/* Message actions */}
