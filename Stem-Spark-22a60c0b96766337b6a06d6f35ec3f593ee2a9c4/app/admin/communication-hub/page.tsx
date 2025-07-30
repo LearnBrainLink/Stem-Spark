@@ -1509,102 +1509,90 @@ export default function AdminCommunicationHub() {
 
                   {/* Message Input */}
                   <div className="border-t p-4">
-                    {/* File Upload Section */}
-                    <div className="flex items-center space-x-2 mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <div className="text-sm text-blue-600 font-medium mr-2">Upload Files:</div>
-                      
-                      {/* Image Upload */}
-                      <input
-                        type="file"
-                        id="image-upload"
-                        className="hidden"
-                        onChange={handleFileSelect}
-                        accept="image/*"
-                      />
-                      <label
-                        htmlFor="image-upload"
-                        className="cursor-pointer flex items-center space-x-1 px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-xs"
-                      >
-                        <ImageIcon className="w-3 h-3" />
-                        <span>📷 Image</span>
-                      </label>
-                      
-                      {/* Document Upload */}
-                      <input
-                        type="file"
-                        id="document-upload"
-                        className="hidden"
-                        onChange={handleFileSelect}
-                        accept=".pdf,.doc,.docx,.txt,.zip,.rar"
-                      />
-                      <label
-                        htmlFor="document-upload"
-                        className="cursor-pointer flex items-center space-x-1 px-2 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors text-xs"
-                      >
-                        <Paperclip className="w-3 h-3" />
-                        <span>📄 Doc</span>
-                      </label>
-                      
-                      {/* General File Upload */}
-                      <input
-                        type="file"
-                        id="file-upload"
-                        className="hidden"
-                        onChange={handleFileSelect}
-                        accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar"
-                      />
-                      <label
-                        htmlFor="file-upload"
-                        className="cursor-pointer flex items-center space-x-1 px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs"
-                      >
-                        <Paperclip className="w-3 h-3" />
-                        <span>📁 File</span>
-                      </label>
-                      
-                      {/* Selected File Display */}
-                      {selectedFile && (
-                        <div className="flex items-center space-x-2 bg-white rounded px-2 py-1 border">
-                          <span className="text-xs text-gray-700 truncate max-w-24">
-                            {selectedFile.name}
-                          </span>
-                          <button
-                            onClick={() => setSelectedFile(null)}
-                            className="text-gray-400 hover:text-gray-600"
+                    {canSendMessage(selectedChannel) && (
+                      <div className="flex space-x-2">
+                        <div className="flex-1 flex space-x-2">
+                          <Input
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            placeholder="Type a message..."
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault()
+                                handleSendMessage()
+                              }
+                            }}
+                            disabled={!canSendMessage(selectedChannel)}
+                            className="flex-1"
+                          />
+                          
+                          {/* Hidden file inputs */}
+                          <input
+                            type="file"
+                            id="file-upload-admin"
+                            onChange={handleFileSelect}
+                            accept=".pdf,.doc,.docx,.txt,.zip,.rar"
+                            className="hidden"
+                          />
+                          <input
+                            type="file"
+                            id="image-upload-admin"
+                            accept="image/*"
+                            onChange={handleFileSelect}
+                            className="hidden"
+                          />
+                          
+                          {/* Upload buttons */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => document.getElementById('file-upload-admin')?.click()}
+                            disabled={uploading}
                           >
-                            <X className="w-3 h-3" />
-                          </button>
+                            <Paperclip className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => document.getElementById('image-upload-admin')?.click()}
+                            disabled={uploading}
+                          >
+                            <ImageIcon className="w-4 h-4" />
+                          </Button>
                         </div>
-                      )}
-                      
-                      {/* Upload Progress */}
-                      {uploading && (
-                        <div className="flex items-center space-x-2 text-xs text-blue-600">
-                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-                          <span>Uploading...</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      <Input
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type a message..."
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault()
-                            handleSendMessage()
-                          }
-                        }}
-                        disabled={!canSendMessage(selectedChannel)}
-                      />
-                      <Button
-                        onClick={handleSendMessage}
-                        disabled={(!newMessage.trim() && !selectedFile) || !canSendMessage(selectedChannel) || uploading}
-                      >
-                        <Send className="w-4 h-4" />
-                      </Button>
-                    </div>
+                        
+                        <Button
+                          onClick={handleSendMessage}
+                          disabled={(!newMessage.trim() && !selectedFile) || !canSendMessage(selectedChannel) || uploading}
+                        >
+                          <Send className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {/* Selected File Display */}
+                    {selectedFile && (
+                      <div className="flex items-center space-x-2 mt-2 p-2 bg-blue-50 rounded border">
+                        <Paperclip className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm text-gray-700 truncate flex-1">
+                          {selectedFile.name}
+                        </span>
+                        <button
+                          onClick={() => setSelectedFile(null)}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* Upload Progress */}
+                    {uploading && (
+                      <div className="flex items-center space-x-2 mt-2 text-sm text-blue-600">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <span>Uploading...</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
