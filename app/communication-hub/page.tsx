@@ -858,8 +858,11 @@ export default function CommunicationHub() {
     }
 
     const isOwn = isOwnMessage(message)
-    const canEdit = isOwn && message.message_type === 'text'
-    const canDelete = isOwn || userRole === 'admin' || userRole === 'super_admin'
+    const isAdmin = userRole === 'admin' || userRole === 'super_admin'
+    
+    // Admins can edit any text message, users can only edit their own.
+    const canEdit = (isOwn || isAdmin) && message.message_type === 'text'
+    const canDelete = isOwn || isAdmin
     const canForward = true // Anyone can forward messages
 
     return (
@@ -952,7 +955,7 @@ export default function CommunicationHub() {
           </div>
           
           {/* Message Actions - Enhanced for all users */}
-          <div className={`flex items-center space-x-2 mt-2 ${isOwn ? 'justify-end' : 'justify-start'} ${(userRole === 'admin' || userRole === 'super_admin') ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+          <div className={`flex items-center space-x-2 mt-2 ${isOwn ? 'justify-end' : 'justify-start'} ${isAdmin ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
             {canEdit && editingMessage !== message.id && (
               <button
                 onClick={() => {
@@ -969,7 +972,7 @@ export default function CommunicationHub() {
             {canDelete && (
               <button
                 onClick={() => {
-                  const deleteForEveryone = userRole === 'admin' || userRole === 'super_admin'
+                  const deleteForEveryone = isAdmin
                   const confirmText = deleteForEveryone 
                     ? 'Delete this message for everyone?' 
                     : 'Delete this message?'
@@ -1004,7 +1007,7 @@ export default function CommunicationHub() {
           </div>
           
           {/* Show message actions info for non-admin users */}
-          {(userRole !== 'admin' && userRole !== 'super_admin') && (
+          {!isAdmin && (
             <div className={`text-xs text-gray-400 mt-1 ${isOwn ? 'text-right' : 'text-left'}`}>
               Hover over message to see actions
             </div>
@@ -1336,7 +1339,9 @@ export default function CommunicationHub() {
                   
                   {/* Admin File Upload Buttons - Next to Text Entry */}
                   {(userRole === 'admin' || userRole === 'super_admin') && selectedChannelData && (
-                    <div className="flex items-center space-x-2 mt-2">
+                    <div className="flex items-center space-x-2 mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="text-xs text-blue-600 font-medium mr-2">Admin Files:</div>
+                      
                       {/* Image Upload Button */}
                       <input
                         type="file"
@@ -1347,11 +1352,11 @@ export default function CommunicationHub() {
                       />
                       <label
                         htmlFor="image-upload"
-                        className="cursor-pointer flex items-center space-x-2 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                        className="cursor-pointer flex items-center space-x-1 px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-xs"
                         title="Upload Image (Admin only)"
                       >
-                        <ImageIcon className="w-4 h-4" />
-                        <span className="text-sm font-medium">📷 Image</span>
+                        <ImageIcon className="w-3 h-3" />
+                        <span>📷 Image</span>
                       </label>
                       
                       {/* Document Upload Button */}
@@ -1364,11 +1369,11 @@ export default function CommunicationHub() {
                       />
                       <label
                         htmlFor="document-upload"
-                        className="cursor-pointer flex items-center space-x-2 px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                        className="cursor-pointer flex items-center space-x-1 px-2 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors text-xs"
                         title="Upload Document (Admin only)"
                       >
-                        <FileText className="w-4 h-4" />
-                        <span className="text-sm font-medium">📄 Document</span>
+                        <FileText className="w-3 h-3" />
+                        <span>📄 Doc</span>
                       </label>
                       
                       {/* General File Upload Button */}
@@ -1381,17 +1386,17 @@ export default function CommunicationHub() {
                       />
                       <label
                         htmlFor="file-upload"
-                        className="cursor-pointer flex items-center space-x-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                        className="cursor-pointer flex items-center space-x-1 px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs"
                         title="Upload Any File (Admin only)"
                       >
-                        <Paperclip className="w-4 h-4" />
-                        <span className="text-sm font-medium">📁 File</span>
+                        <Paperclip className="w-3 h-3" />
+                        <span>📁 File</span>
                       </label>
                       
                       {/* Selected File Display */}
                       {selectedFile && (
-                        <div className="flex items-center space-x-2 bg-gray-100 rounded px-3 py-2 border">
-                          <span className="text-sm text-gray-700 truncate max-w-32">
+                        <div className="flex items-center space-x-2 bg-white rounded px-2 py-1 border">
+                          <span className="text-xs text-gray-700 truncate max-w-24">
                             {selectedFile.name}
                           </span>
                           <button
@@ -1399,81 +1404,25 @@ export default function CommunicationHub() {
                             className="text-gray-400 hover:text-gray-600"
                             title="Remove file"
                           >
-                            <X className="w-4 h-4" />
+                            <X className="w-3 h-3" />
                           </button>
                         </div>
                       )}
                     </div>
                   )}
-                  
-                  {/* File Upload Section - Admin Only (Legacy) */}
-                  {selectedChannelData && canUploadFiles(selectedChannelData) && (
-                    <div className="flex items-center space-x-2 mt-2 p-2 bg-blue-50 rounded-lg border-2 border-blue-200">
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="file"
-                          id="file-upload-legacy"
-                          className="hidden"
-                          onChange={handleFileSelect}
-                          accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar"
-                        />
-                        <label
-                          htmlFor="file-upload-legacy"
-                          className="cursor-pointer flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                          title="Upload file (Admin only)"
-                        >
-                          <Paperclip className="w-5 h-5" />
-                          <span className="text-sm font-semibold">📁 Upload File</span>
-                        </label>
-                        
-                        <span className="text-sm text-blue-700 font-medium">
-                          (Admin only - Images, PDFs, Documents)
-                        </span>
-                      </div>
-                      
-                      {selectedFile && (
-                        <div className="flex items-center space-x-2 bg-white rounded px-3 py-2 border">
-                          <span className="text-sm text-gray-700 truncate max-w-32">
-                            {selectedFile.name}
-                          </span>
-                          <button
-                            onClick={() => setSelectedFile(null)}
-                            className="text-gray-400 hover:text-gray-600"
-                            title="Remove file"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* Fallback Upload Section for Admins */}
-                  {(userRole === 'admin' || userRole === 'super_admin') && (!selectedChannelData || !canUploadFiles(selectedChannelData!)) && (
-                    <div className="mt-2 p-2 bg-red-50 rounded border border-red-200">
-                      <div className="text-xs text-red-800 mb-2">
-                        <strong>Upload Section Not Showing - Debug:</strong>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="file"
-                          id="file-upload-fallback"
-                          className="hidden"
-                          onChange={handleFileSelect}
-                          accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar"
-                        />
-                        <label
-                          htmlFor="file-upload-fallback"
-                          className="cursor-pointer flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-                          title="Upload file (Fallback for Admin)"
-                        >
-                          <Paperclip className="w-5 h-5" />
-                          <span className="text-sm font-semibold">📁 Upload File (Fallback)</span>
-                        </label>
-                      </div>
-                    </div>
-                  )}
-                  
+                </div>
+                
+                <Button
+                  onClick={sendMessage}
+                  disabled={(!newMessage.trim() && !selectedFile) || !canSendMessage(selectedChannelData!)}
+                  className="self-end"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+              
+              <div className="mt-4">
+                <div className="space-y-4">
                   {/* Debug Info for Admin */}
                   {(userRole === 'admin' || userRole === 'super_admin') && (
                     <div className="mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
@@ -1531,42 +1480,16 @@ export default function CommunicationHub() {
                   {/* User Permissions Info */}
                   <div className="mt-2 p-2 bg-gray-50 rounded border border-gray-200">
                     <div className="text-xs text-gray-600">
-                      <strong>Your Permissions:</strong> Role: {userRole} | 
-                      Can Edit Own: <strong>{userRole ? 'Yes' : 'No'}</strong> | 
-                      Can Delete: <strong>{userRole === 'admin' || userRole === 'super_admin' ? 'All' : 'Own'}</strong> | 
-                      Can Forward: <strong>Yes</strong> | 
-                      Can Manage Here: <strong>{selectedChannelData ? String(canManageChannel(selectedChannelData)) : 'N/A'}</strong>
+                      <strong>Your Permissions:</strong><br/>
+                      Role: <strong>{userRole}</strong> | 
+                      Can Edit: <strong>{userRole === 'admin' || userRole === 'super_admin' ? 'All Messages' : 'Own Messages'}</strong><br/>
+                      Can Delete: <strong>{userRole === 'admin' || userRole === 'super_admin' ? 'All Messages' : 'Own Messages'}</strong> | 
+                      Can Forward: <strong>Yes</strong><br/>
+                      Can Manage Channel: <strong>{selectedChannelData && canManageChannel(selectedChannelData) ? 'Yes' : 'No'}</strong>
                     </div>
                   </div>
                 </div>
-                
-                <Button
-                  onClick={sendMessage}
-                  disabled={(!newMessage.trim() && !selectedFile) || messagesLoading || uploadingFile}
-                  className="px-6"
-                >
-                  {uploadingFile ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Uploading...</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <Send className="w-4 h-4" />
-                      <span>Send</span>
-                    </div>
-                  )}
-                </Button>
               </div>
-              
-              {!canSendMessage(selectedChannelData!) && (
-                <div className="mt-2 text-sm text-red-500">
-                  {selectedChannelData?.type === 'announcements' 
-                    ? 'Only administrators can send messages in announcement channels'
-                    : 'You do not have permission to send messages in this channel'
-                  }
-                </div>
-              )}
             </div>
           </>
         ) : (
