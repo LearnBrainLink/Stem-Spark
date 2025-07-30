@@ -22,6 +22,8 @@ import {
   X,
   Download
 } from 'lucide-react'
+import { Label } from '@/components/ui/label'
+import { DialogFooter } from '@/components/ui/dialog'
 
 interface Message {
   id: string
@@ -85,6 +87,11 @@ export default function CommunicationHub() {
     type: 'general' as 'general' | 'announcements' | 'parent_teacher' | 'admin_only',
     selectedUsers: [] as string[]
   })
+  const [editingMessage, setEditingMessage] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState('')
+  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null)
+  const [showForwardDialog, setShowForwardDialog] = useState(false)
+  const [selectedForwardChannel, setSelectedForwardChannel] = useState('')
 
   const supabase = createClient()
 
@@ -453,11 +460,16 @@ export default function CommunicationHub() {
       setMessagesLoading(true)
       
       let messageContent = newMessage.trim()
-      let messageType: 'text' | 'file' | 'image' = 'text'
+      let messageType: 'text' | 'file' | 'image' | 'system' = 'text'
+      let fileUrl: string | null = null
+      let fileName: string | null = null
+      let fileSize: number | null = null
+      let fileType: string | null = null
 
       // Handle file upload if selected
       if (selectedFile) {
-        const fileUrl = await uploadFile(selectedFile)
+        console.log('Uploading file:', selectedFile.name)
+        fileUrl = await uploadFile(selectedFile)
         if (!fileUrl) {
           setMessagesLoading(false)
           return
@@ -465,18 +477,31 @@ export default function CommunicationHub() {
         
         messageType = selectedFile.type.startsWith('image/') ? 'image' : 'file'
         messageContent = newMessage.trim() || `Sent ${selectedFile.name}`
+        fileName = selectedFile.name
+        fileSize = selectedFile.size
+        fileType = selectedFile.type
+        
+        console.log('File uploaded successfully:', fileUrl)
+      }
+
+      const messageData: any = {
+        content: messageContent,
+        sender_id: user.id,
+        chat_id: selectedChannel,
+        message_type: messageType
+      }
+
+      // Add file information if file was uploaded
+      if (fileUrl) {
+        messageData.file_url = fileUrl
+        messageData.file_name = fileName
+        messageData.file_size = fileSize
+        messageData.file_type = fileType
       }
 
       const { data: message, error } = await supabase
         .from('messages')
-        .insert([
-          {
-            content: messageContent,
-            sender_id: user.id,
-            chat_id: selectedChannel,
-            message_type: messageType
-          }
-        ])
+        .insert([messageData])
         .select(`
           *,
           profiles:profiles(full_name)
@@ -628,54 +653,253 @@ export default function CommunicationHub() {
   }
 
   const renderMessage = (message: Message) => {
+    if (message.deleted_for_everyone || message.deleted_for_sender) {
+      return null
+    }
+
     const isOwn = isOwnMessage(message)
-    
+    const canEdit = isOwn && message.message_type === 'text'
+    const canDelete = isOwn || userRole === 'admin' || userRole === 'super_admin'
+    const canForward = true // Anyone can forward messages
+
     return (
-      <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}>
+      <div
+        key={message.id}
+        className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}
+      >
         <div className={`max-w-xs lg:max-w-md ${isOwn ? 'order-2' : 'order-1'}`}>
           {!isOwn && (
-            <div className="flex items-center mb-1">
-              <div className={`w-8 h-8 rounded-full ${getUserColor(message.sender_id)} flex items-center justify-center text-white text-sm font-bold mr-2`}>
-                {message.sender_name.charAt(0).toUpperCase()}
+            <div className="flex items-center space-x-2 mb-1">
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                style={{ backgroundColor: getUserColor(message.sender_id) }}
+              >
+                {message.sender_name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
-              <span className="text-sm text-gray-600">{message.sender_name}</span>
+              <span className="text-sm font-medium text-gray-700">
+                {message.sender_name}
+              </span>
+              <span className="text-xs text-gray-500">
+                {formatTime(message.created_at)}
+              </span>
             </div>
           )}
           
-          <div className={`rounded-lg px-4 py-2 ${
-            isOwn 
-              ? 'bg-blue-500 text-white' 
+          <div className={`rounded-lg px-3 py-2 ${
+            isOwn
+              ? 'bg-blue-500 text-white'
               : 'bg-gray-100 text-gray-800'
           }`}>
-            {message.message_type === 'text' && (
-              <p>{message.content}</p>
-            )}
-            {message.message_type === 'file' && message.file_url && (
-              <div className="flex items-center space-x-2">
-                <FileText className="w-4 h-4 text-gray-500" />
-                <a href={message.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
-                  {message.file_name || 'File'}
-                </a>
-                {message.file_size && <span className="text-xs text-gray-500">({formatFileSize(message.file_size)})</span>}
+            {editingMessage === message.id ? (
+              <div className="space-y-2">
+                <textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  className="w-full p-2 border rounded text-black"
+                  rows={3}
+                />
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => editMessage(message.id, editContent)}
+                    className="px-2 py-1 bg-green-500 text-white rounded text-xs"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingMessage(null)
+                      setEditContent('')
+                    }}
+                    className="px-2 py-1 bg-gray-500 text-white rounded text-xs"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-            )}
-            {message.message_type === 'image' && message.file_url && (
-              <div className="flex items-center space-x-2">
-                <ImageIcon className="w-4 h-4 text-gray-500" />
-                <img src={message.file_url} alt="Image" className="max-w-xs max-h-32 object-contain" />
+            ) : (
+              <div className="space-y-2">
+                {message.message_type === 'text' && (
+                  <p>{message.content}</p>
+                )}
+                {message.message_type === 'file' && message.file_url && (
+                  <div className="flex items-center space-x-2">
+                    <FileText className="w-4 h-4 text-gray-500" />
+                    <a href={message.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                      {message.file_name || 'File'}
+                    </a>
+                    {message.file_size && <span className="text-xs text-gray-500">({formatFileSize(message.file_size)})</span>}
+                  </div>
+                )}
+                {message.message_type === 'image' && message.file_url && (
+                  <div className="flex items-center space-x-2">
+                    <ImageIcon className="w-4 h-4 text-gray-500" />
+                    <img src={message.file_url} alt="Image" className="max-w-xs max-h-32 object-contain" />
+                  </div>
+                )}
+                {message.message_type === 'system' && (
+                  <p className="text-sm text-gray-600 italic">{message.content}</p>
+                )}
+                
+                {message.edited && (
+                  <span className="text-xs text-gray-500 italic">(edited)</span>
+                )}
+                
+                {message.forwarded_from && (
+                  <span className="text-xs text-gray-500 italic">(forwarded)</span>
+                )}
               </div>
-            )}
-            {message.message_type === 'system' && (
-              <p className="text-sm text-gray-600 italic">{message.content}</p>
             )}
           </div>
           
-          <div className={`text-xs text-gray-500 mt-1 ${isOwn ? 'text-right' : 'text-left'}`}>
-            {formatTime(message.created_at)}
+          {/* Message Actions */}
+          <div className={`flex items-center space-x-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+            {canEdit && editingMessage !== message.id && (
+              <button
+                onClick={() => {
+                  setEditingMessage(message.id)
+                  setEditContent(message.content)
+                }}
+                className="text-xs text-gray-500 hover:text-gray-700"
+                title="Edit message"
+              >
+                Edit
+              </button>
+            )}
+            
+            {canDelete && (
+              <button
+                onClick={() => {
+                  if (confirm('Delete this message?')) {
+                    deleteMessage(message.id, userRole === 'admin' || userRole === 'super_admin')
+                  }
+                }}
+                className="text-xs text-red-500 hover:text-red-700"
+                title="Delete message"
+              >
+                Delete
+              </button>
+            )}
+            
+            {canForward && (
+              <button
+                onClick={() => {
+                  setForwardingMessage(message)
+                  setShowForwardDialog(true)
+                }}
+                className="text-xs text-gray-500 hover:text-gray-700"
+                title="Forward message"
+              >
+                Forward
+              </button>
+            )}
           </div>
         </div>
       </div>
     )
+  }
+
+  const editMessage = async (messageId: string, newContent: string) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({
+          content: newContent,
+          edited: true,
+          edited_at: new Date().toISOString()
+        })
+        .eq('id', messageId)
+        .eq('sender_id', user?.id) // Only allow editing own messages
+
+      if (error) {
+        console.error('Error editing message:', error)
+        alert('Failed to edit message')
+        return
+      }
+
+      // Update local state
+      setMessages(prev => prev.map(msg => 
+        msg.id === messageId 
+          ? { ...msg, content: newContent, edited: true, edited_at: new Date().toISOString() }
+          : msg
+      ))
+
+      setEditingMessage(null)
+      setEditContent('')
+    } catch (error) {
+      console.error('Error in editMessage:', error)
+      alert('Failed to edit message')
+    }
+  }
+
+  const deleteMessage = async (messageId: string, deleteForEveryone: boolean = false) => {
+    try {
+      if (deleteForEveryone) {
+        // Delete for everyone (admin only)
+        const { error } = await supabase
+          .from('messages')
+          .update({ deleted_for_everyone: true })
+          .eq('id', messageId)
+
+        if (error) {
+          console.error('Error deleting message for everyone:', error)
+          alert('Failed to delete message')
+          return
+        }
+
+        // Remove from local state
+        setMessages(prev => prev.filter(msg => msg.id !== messageId))
+      } else {
+        // Delete for sender only
+        const { error } = await supabase
+          .from('messages')
+          .update({ deleted_for_sender: true })
+          .eq('id', messageId)
+          .eq('sender_id', user?.id)
+
+        if (error) {
+          console.error('Error deleting message for sender:', error)
+          alert('Failed to delete message')
+          return
+        }
+
+        // Remove from local state
+        setMessages(prev => prev.filter(msg => msg.id !== messageId))
+      }
+    } catch (error) {
+      console.error('Error in deleteMessage:', error)
+      alert('Failed to delete message')
+    }
+  }
+
+  const forwardMessage = async (message: Message, targetChannelId: string) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert([{
+          content: message.content,
+          sender_id: user?.id,
+          chat_id: targetChannelId,
+          message_type: message.message_type,
+          file_url: message.file_url,
+          file_name: message.file_name,
+          file_size: message.file_size,
+          file_type: message.file_type,
+          forwarded_from: message.id
+        }])
+
+      if (error) {
+        console.error('Error forwarding message:', error)
+        alert('Failed to forward message')
+        return
+      }
+
+      setShowForwardDialog(false)
+      setForwardingMessage(null)
+      setSelectedForwardChannel('')
+    } catch (error) {
+      console.error('Error in forwardMessage:', error)
+      alert('Failed to forward message')
+    }
   }
 
   if (loading) {
@@ -851,32 +1075,40 @@ export default function CommunicationHub() {
                     }}
                   />
                   
-                  {/* File Upload Section */}
+                  {/* File Upload Section - Admin Only */}
                   {canUploadFiles(selectedChannelData!) && (
-                    <div className="flex items-center space-x-2 mt-2">
-                      <input
-                        type="file"
-                        id="file-upload"
-                        className="hidden"
-                        onChange={handleFileSelect}
-                        accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar"
-                      />
-                      <label
-                        htmlFor="file-upload"
-                        className="cursor-pointer p-2 text-gray-500 hover:text-gray-700 transition-colors"
-                        title="Upload file (Admin only)"
-                      >
-                        <Paperclip className="w-5 h-5" />
-                      </label>
+                    <div className="flex items-center space-x-2 mt-2 p-2 bg-blue-50 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="file"
+                          id="file-upload"
+                          className="hidden"
+                          onChange={handleFileSelect}
+                          accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar"
+                        />
+                        <label
+                          htmlFor="file-upload"
+                          className="cursor-pointer flex items-center space-x-2 px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                          title="Upload file (Admin only)"
+                        >
+                          <Paperclip className="w-4 h-4" />
+                          <span className="text-sm">Upload File</span>
+                        </label>
+                        
+                        <span className="text-xs text-gray-600">
+                          (Admin only - Images, PDFs, Documents)
+                        </span>
+                      </div>
                       
                       {selectedFile && (
-                        <div className="flex items-center space-x-2 bg-gray-100 rounded px-2 py-1">
-                          <span className="text-sm text-gray-600 truncate max-w-32">
+                        <div className="flex items-center space-x-2 bg-white rounded px-3 py-2 border">
+                          <span className="text-sm text-gray-700 truncate max-w-32">
                             {selectedFile.name}
                           </span>
                           <button
                             onClick={() => setSelectedFile(null)}
                             className="text-gray-400 hover:text-gray-600"
+                            title="Remove file"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -994,6 +1226,74 @@ export default function CommunicationHub() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Forward Message Dialog */}
+      {showForwardDialog && forwardingMessage && (
+        <Dialog open={showForwardDialog} onOpenChange={setShowForwardDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Forward Message</DialogTitle>
+              <DialogDescription>
+                Select a channel to forward this message to.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="forward-channel">Select Channel</Label>
+                <Select
+                  value={selectedForwardChannel}
+                  onValueChange={setSelectedForwardChannel}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a channel" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {channels.map((channel) => (
+                      <SelectItem key={channel.id} value={channel.id}>
+                        {channel.name} ({channel.type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="p-3 bg-gray-50 rounded">
+                <p className="text-sm text-gray-600">Message to forward:</p>
+                <p className="text-sm mt-1">{forwardingMessage.content}</p>
+                {forwardingMessage.file_name && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    File: {forwardingMessage.file_name}
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowForwardDialog(false)
+                  setForwardingMessage(null)
+                  setSelectedForwardChannel('')
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (selectedForwardChannel) {
+                    forwardMessage(forwardingMessage, selectedForwardChannel)
+                  }
+                }}
+                disabled={!selectedForwardChannel}
+              >
+                Forward
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 } 
