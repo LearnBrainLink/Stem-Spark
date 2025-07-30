@@ -610,10 +610,17 @@ export default function CommunicationHub() {
   }
 
   const canUploadFiles = (channel: Channel) => {
-    if (!user) return false
+    if (!user) {
+      console.log('canUploadFiles: No user found')
+      return false
+    }
+    
+    console.log('canUploadFiles: User role:', userRole, 'User ID:', user.id)
     
     // Only admins and super admins can upload files
-    return userRole === 'admin' || userRole === 'super_admin'
+    const canUpload = userRole === 'admin' || userRole === 'super_admin'
+    console.log('canUploadFiles: Can upload:', canUpload)
+    return canUpload
   }
 
   const canViewChannel = (channel: Channel) => {
@@ -1076,8 +1083,8 @@ export default function CommunicationHub() {
                   />
                   
                   {/* File Upload Section - Admin Only */}
-                  {canUploadFiles(selectedChannelData!) && (
-                    <div className="flex items-center space-x-2 mt-2 p-2 bg-blue-50 rounded-lg">
+                  {selectedChannelData && canUploadFiles(selectedChannelData) && (
+                    <div className="flex items-center space-x-2 mt-2 p-2 bg-blue-50 rounded-lg border-2 border-blue-200">
                       <div className="flex items-center space-x-2">
                         <input
                           type="file"
@@ -1088,14 +1095,14 @@ export default function CommunicationHub() {
                         />
                         <label
                           htmlFor="file-upload"
-                          className="cursor-pointer flex items-center space-x-2 px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                          className="cursor-pointer flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                           title="Upload file (Admin only)"
                         >
-                          <Paperclip className="w-4 h-4" />
-                          <span className="text-sm">Upload File</span>
+                          <Paperclip className="w-5 h-5" />
+                          <span className="text-sm font-semibold">📁 Upload File</span>
                         </label>
                         
-                        <span className="text-xs text-gray-600">
+                        <span className="text-sm text-blue-700 font-medium">
                           (Admin only - Images, PDFs, Documents)
                         </span>
                       </div>
@@ -1114,6 +1121,74 @@ export default function CommunicationHub() {
                           </button>
                         </div>
                       )}
+                    </div>
+                  )}
+                  
+                  {/* Debug Info for Admin */}
+                  {(userRole === 'admin' || userRole === 'super_admin') && (
+                    <div className="mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
+                      <div className="text-xs text-yellow-800">
+                        <strong>Debug Info:</strong> User Role: {userRole} | 
+                        Can Upload: {selectedChannelData ? canUploadFiles(selectedChannelData) : 'No Channel'} | 
+                        Channel: {selectedChannelData?.name || 'None'} ({selectedChannelData?.type || 'None'})
+                      </div>
+                      <div className="mt-2 flex space-x-2">
+                        <button
+                          onClick={() => {
+                            console.log('Test upload button clicked')
+                            console.log('User:', user)
+                            console.log('User Role:', userRole)
+                            console.log('Selected Channel:', selectedChannelData)
+                          }}
+                          className="px-2 py-1 bg-blue-500 text-white rounded text-xs"
+                        >
+                          Test Upload Debug
+                        </button>
+                        <button
+                          onClick={() => {
+                            const input = document.createElement('input')
+                            input.type = 'file'
+                            input.accept = 'image/*,.pdf,.doc,.docx,.txt,.zip,.rar'
+                            input.onchange = (e) => {
+                              const file = (e.target as HTMLInputElement).files?.[0]
+                              if (file) {
+                                console.log('Test file selected:', file.name, file.size, file.type)
+                                setSelectedFile(file)
+                              }
+                            }
+                            input.click()
+                          }}
+                          className="px-2 py-1 bg-green-500 text-white rounded text-xs"
+                        >
+                          Test File Select
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Fallback Upload Section for Admins */}
+                  {(userRole === 'admin' || userRole === 'super_admin') && (!selectedChannelData || !canUploadFiles(selectedChannelData!)) && (
+                    <div className="mt-2 p-2 bg-red-50 rounded border border-red-200">
+                      <div className="text-xs text-red-800 mb-2">
+                        <strong>Upload Section Not Showing - Debug:</strong>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="file"
+                          id="file-upload-fallback"
+                          className="hidden"
+                          onChange={handleFileSelect}
+                          accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar"
+                        />
+                        <label
+                          htmlFor="file-upload-fallback"
+                          className="cursor-pointer flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                          title="Upload file (Fallback for Admin)"
+                        >
+                          <Paperclip className="w-5 h-5" />
+                          <span className="text-sm font-semibold">📁 Upload File (Fallback)</span>
+                        </label>
+                      </div>
                     </div>
                   )}
                 </div>
