@@ -45,8 +45,8 @@ export async function POST(request: NextRequest) {
 
     // Get channel to check permissions
     const { data: channel } = await supabase
-      .from('chat_channels')
-      .select('channel_type')
+      .from('channels')
+      .select('type')
       .eq('id', channel_id)
       .single()
 
@@ -60,14 +60,10 @@ export async function POST(request: NextRequest) {
     // Check permissions based on channel type
     const isAdmin = profile.role === 'admin' || profile.is_super_admin
     const canSendMessage = 
-      channel.channel_type === 'public' ||
-      channel.channel_type === 'group' ||
-      channel.channel_type === 'private' ||
-      (channel.channel_type === 'announcement' && isAdmin) ||
-      channel.channel_type === 'admin_group' ||
-      channel.channel_type === 'intern_group' ||
-      channel.channel_type === 'parent_group' ||
-      channel.channel_type === 'student_group'
+      channel.type === 'general' ||
+      channel.type === 'parent_teacher' ||
+      (channel.type === 'announcements' && isAdmin) ||
+      channel.type === 'admin_only'
 
     if (!canSendMessage) {
       return NextResponse.json(
@@ -80,9 +76,8 @@ export async function POST(request: NextRequest) {
     const messageData: any = {
       content,
       sender_id: user.id,
-      channel_id,
-      message_type,
-      read_by: [user.id] // Mark as read by sender
+      chat_id: channel_id,
+      message_type
     }
 
     // Add optional fields if provided
@@ -95,13 +90,11 @@ export async function POST(request: NextRequest) {
     if (reply_to_id) messageData.reply_to_id = reply_to_id
 
     const { data: message, error } = await supabase
-      .from('chat_messages')
+      .from('messages')
       .insert([messageData])
       .select(`
         *,
-        profiles:profiles(full_name, avatar_url),
-        reply_to:chat_messages!reply_to_id(content, profiles(full_name)),
-        forwarded_from:chat_messages!forwarded_from_id(content, profiles(full_name))
+        sender:profiles(full_name, role)
       `)
       .single()
 
@@ -143,7 +136,7 @@ export async function GET(request: NextRequest) {
 
     // Check if user is member of the channel
     const { data: membership } = await supabase
-      .from('chat_channel_members')
+      .from('channel_members')
       .select('*')
       .eq('channel_id', channelId)
       .eq('user_id', user.id)
@@ -158,15 +151,12 @@ export async function GET(request: NextRequest) {
 
     // Get messages with enhanced data
     const { data: messages, error } = await supabase
-      .from('chat_messages')
+      .from('messages')
       .select(`
         *,
-        profiles:profiles(full_name, avatar_url),
-        reply_to:chat_messages!reply_to_id(content, profiles(full_name)),
-        forwarded_from:chat_messages!forwarded_from_id(content, profiles(full_name))
+        sender:profiles(full_name, role)
       `)
-      .eq('channel_id', channelId)
-      .eq('is_deleted', false)
+      .eq('chat_id', channelId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -203,7 +193,7 @@ export async function DELETE(request: NextRequest) {
 
     // Check if user can delete the message
     const { data: message } = await supabase
-      .from('chat_messages')
+      .from('messages')
       .select('*')
       .eq('id', messageId)
       .single()
@@ -233,7 +223,7 @@ export async function DELETE(request: NextRequest) {
 
     // Delete message
     const { error } = await supabase
-      .from('chat_messages')
+      .from('messages')
       .delete()
       .eq('id', messageId)
 
