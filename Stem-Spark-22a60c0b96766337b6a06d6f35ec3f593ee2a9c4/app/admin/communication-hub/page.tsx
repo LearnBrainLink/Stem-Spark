@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase/client'
+import { toast } from '@/hooks/use-toast'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -147,6 +148,10 @@ export default function AdminCommunicationHub() {
   const [newTodoContent, setNewTodoContent] = useState('')
   const [newTodoPriority, setNewTodoPriority] = useState<'low' | 'medium' | 'high'>('medium')
   const [newTodoDueDate, setNewTodoDueDate] = useState('')
+  
+  // File upload state
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
   
   // Enhanced connection state management
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.CONNECTING)
@@ -625,9 +630,9 @@ export default function AdminCommunicationHub() {
     }
   }
 
-  // Enhanced message sending with optimistic updates
+  // Enhanced message sending with optimistic updates and file upload support
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !user || !selectedChannel) return
+    if ((!newMessage.trim() && !selectedFile) || !user || !selectedChannel) return
 
     const tempId = `temp-${Date.now()}`
     const tempMessage: Message = {
@@ -647,16 +652,35 @@ export default function AdminCommunicationHub() {
 
     // Optimistic update
     setMessages(prev => [...prev, tempMessage])
+    const originalMessage = newMessage.trim()
     setNewMessage('')
     setReplyToMessage(null)
 
     try {
-      const messageData = {
-        content: newMessage.trim(),
+      let messageData: any = {
+        content: originalMessage,
         chat_id: selectedChannel.id,
         sender_id: user.id,
         message_type: 'text' as const,
         ...(replyToMessage && { reply_to_id: replyToMessage.id })
+      }
+
+      // Handle file upload
+      if (selectedFile) {
+        const fileUrl = await uploadFile(selectedFile)
+        if (fileUrl) {
+          messageData.file_url = fileUrl
+          messageData.file_name = selectedFile.name
+          messageData.file_size = selectedFile.size
+          messageData.file_type = selectedFile.type
+          messageData.message_type = selectedFile.type.startsWith('image/') ? 'image' : 'file'
+        } else {
+          // Remove optimistic update on upload failure
+          setMessages(prev => prev.filter(msg => msg.id !== tempId))
+          setNewMessage(originalMessage)
+          setSelectedFile(null)
+          return
+        }
       }
 
       const { data: insertedMessage, error } = await supabase
@@ -674,6 +698,9 @@ export default function AdminCommunicationHub() {
           : msg
       ))
 
+      // Clear selected file after successful send
+      setSelectedFile(null)
+
     } catch (error) {
       console.error('Error sending message:', error)
       
@@ -681,8 +708,12 @@ export default function AdminCommunicationHub() {
       setMessages(prev => prev.filter(msg => msg.id !== tempId))
       
       // Restore message for retry
-      setNewMessage(newMessage.trim())
-      alert('Failed to send message. Please try again.')
+      setNewMessage(originalMessage)
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive"
+      })
     }
   }
 
@@ -1026,6 +1057,57 @@ export default function AdminCommunicationHub() {
     }
   }
 
+  // File upload functions
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      // Validate file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select a file smaller than 10MB",
+          variant: "destructive"
+        })
+        return
+      }
+      setSelectedFile(file)
+    }
+  }
+
+  const uploadFile = async (file: File): Promise<string | null> => {
+    try {
+      setUploading(true)
+      
+      // Create FormData
+      const formData = new FormData()
+      formData.append('file', file)
+
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('chat-files')
+        .upload(`${Date.now()}-${file.name}`, file)
+
+      if (error) throw error
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('chat-files')
+        .getPublicUrl(data.path)
+
+      return urlData.publicUrl
+    } catch (error) {
+      console.error('Upload error:', error)
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload file. Please try again.",
+        variant: "destructive"
+      })
+      return null
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const getDashboardUrl = () => {
     switch (userRole) {
       case 'admin':
@@ -1348,7 +1430,42 @@ export default function AdminCommunicationHub() {
                                   ? 'bg-purple-100 text-purple-900' 
                                   : 'bg-gray-100 text-gray-900'
                             }`}>
-                              <p className="text-sm">{message.content}</p>
+                              {/* Text content */}
+                              {message.content && (
+                                <p className="text-sm mb-2">{message.content}</p>
+                              )}
+                              
+                              {/* Image content */}
+                              {message.message_type === 'image' && message.file_url && (
+                                <div className="mb-2">
+                                  <img 
+                                    src={message.file_url} 
+                                    alt={message.file_name || 'Image'}
+                                    className="max-w-full h-auto rounded cursor-pointer"
+                                    onClick={() => window.open(message.file_url, '_blank')}
+                                  />
+                                </div>
+                              )}
+                              
+                              {/* File content */}
+                              {message.message_type === 'file' && message.file_url && (
+                                <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded border">
+                                  <Paperclip className="w-4 h-4" />
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium">{message.file_name}</p>
+                                    <p className="text-xs text-gray-500">
+                                      {message.file_size ? `${(message.file_size / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'}
+                                    </p>
+                                  </div>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => window.open(message.file_url, '_blank')}
+                                  >
+                                    Download
+                                  </Button>
+                                </div>
+                              )}
                             </div>
 
                             {/* Message actions */}
@@ -1392,6 +1509,82 @@ export default function AdminCommunicationHub() {
 
                   {/* Message Input */}
                   <div className="border-t p-4">
+                    {/* File Upload Section */}
+                    <div className="flex items-center space-x-2 mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="text-sm text-blue-600 font-medium mr-2">Upload Files:</div>
+                      
+                      {/* Image Upload */}
+                      <input
+                        type="file"
+                        id="image-upload"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                        accept="image/*"
+                      />
+                      <label
+                        htmlFor="image-upload"
+                        className="cursor-pointer flex items-center space-x-1 px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-xs"
+                      >
+                        <ImageIcon className="w-3 h-3" />
+                        <span>📷 Image</span>
+                      </label>
+                      
+                      {/* Document Upload */}
+                      <input
+                        type="file"
+                        id="document-upload"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                        accept=".pdf,.doc,.docx,.txt,.zip,.rar"
+                      />
+                      <label
+                        htmlFor="document-upload"
+                        className="cursor-pointer flex items-center space-x-1 px-2 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors text-xs"
+                      >
+                        <Paperclip className="w-3 h-3" />
+                        <span>📄 Doc</span>
+                      </label>
+                      
+                      {/* General File Upload */}
+                      <input
+                        type="file"
+                        id="file-upload"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                        accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar"
+                      />
+                      <label
+                        htmlFor="file-upload"
+                        className="cursor-pointer flex items-center space-x-1 px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs"
+                      >
+                        <Paperclip className="w-3 h-3" />
+                        <span>📁 File</span>
+                      </label>
+                      
+                      {/* Selected File Display */}
+                      {selectedFile && (
+                        <div className="flex items-center space-x-2 bg-white rounded px-2 py-1 border">
+                          <span className="text-xs text-gray-700 truncate max-w-24">
+                            {selectedFile.name}
+                          </span>
+                          <button
+                            onClick={() => setSelectedFile(null)}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                      
+                      {/* Upload Progress */}
+                      {uploading && (
+                        <div className="flex items-center space-x-2 text-xs text-blue-600">
+                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                          <span>Uploading...</span>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="flex items-center space-x-2">
                       <Input
                         value={newMessage}
@@ -1407,7 +1600,7 @@ export default function AdminCommunicationHub() {
                       />
                       <Button
                         onClick={handleSendMessage}
-                        disabled={!newMessage.trim() || !canSendMessage(selectedChannel)}
+                        disabled={(!newMessage.trim() && !selectedFile) || !canSendMessage(selectedChannel) || uploading}
                       >
                         <Send className="w-4 h-4" />
                       </Button>
