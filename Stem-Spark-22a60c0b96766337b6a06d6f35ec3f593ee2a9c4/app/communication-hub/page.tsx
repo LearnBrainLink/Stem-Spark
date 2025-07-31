@@ -486,6 +486,8 @@ export default function CommunicationHub() {
 
   const setupDefaultChannels = async (userId: string) => {
     try {
+      console.log('Setting up default channels for user:', userId)
+      
       // Get user profile to determine role
       const { data: profile } = await supabase
         .from('profiles')
@@ -493,44 +495,56 @@ export default function CommunicationHub() {
         .eq('id', userId)
         .single()
 
-      if (!profile) return
+      if (!profile) {
+        console.log('No profile found for user:', userId)
+        return
+      }
 
-      // Default channels configuration
+      console.log('User role:', profile.role)
+
+      // Default channels configuration with proper account type linking
       const defaultChannels = [
         {
           name: 'General',
           description: 'General discussion for all members',
           type: 'general',
-          roles: ['student', 'admin', 'super_admin', 'parent', 'teacher', 'intern']
+          roles: ['student', 'admin', 'super_admin', 'parent', 'teacher', 'intern'],
+          accountTypes: ['student', 'admin', 'parent', 'intern']
         },
         {
           name: 'Announcements',
           description: 'Important announcements from administrators',
           type: 'announcements',
-          roles: ['admin', 'super_admin']
+          roles: ['admin', 'super_admin'],
+          accountTypes: ['admin']
         },
         {
           name: 'Student Lounge',
           description: 'Student-only discussion area',
           type: 'general',
-          roles: ['student']
+          roles: ['student'],
+          accountTypes: ['student']
         },
         {
           name: 'Parent-Teacher',
           description: 'Communication between parents and teachers',
           type: 'parent_teacher',
-          roles: ['parent', 'teacher', 'admin', 'super_admin']
+          roles: ['parent', 'teacher', 'admin', 'super_admin'],
+          accountTypes: ['parent', 'admin']
         },
         {
           name: 'Admin Hub',
           description: 'Administrative discussions',
           type: 'admin_only',
-          roles: ['admin', 'super_admin']
+          roles: ['admin', 'super_admin'],
+          accountTypes: ['admin']
         }
       ]
 
       // Check if channels exist, create if not
       for (const channelConfig of defaultChannels) {
+        console.log(`Processing channel: ${channelConfig.name}`)
+        
         const { data: existingChannel } = await supabase
           .from('channels')
           .select('id')
@@ -538,6 +552,8 @@ export default function CommunicationHub() {
           .single()
 
         if (!existingChannel) {
+          console.log(`Creating new channel: ${channelConfig.name}`)
+          
           // Create channel
           const { data: newChannel, error: channelError } = await supabase
             .from('channels')
@@ -555,11 +571,20 @@ export default function CommunicationHub() {
             continue
           }
 
-          // Add all users with matching roles to the channel
-          const { data: usersWithRole } = await supabase
+          console.log(`Channel created: ${newChannel.id}`)
+
+          // Add all users with matching account types to the channel
+          const { data: usersWithRole, error: usersError } = await supabase
             .from('profiles')
-            .select('id')
-            .in('role', channelConfig.roles)
+            .select('id, full_name, role')
+            .in('role', channelConfig.accountTypes)
+
+          if (usersError) {
+            console.error('Error fetching users:', usersError)
+            continue
+          }
+
+          console.log(`Found ${usersWithRole?.length || 0} users for channel ${channelConfig.name}`)
 
           if (usersWithRole && usersWithRole.length > 0) {
             const membersToAdd = usersWithRole.map(user => ({
@@ -574,11 +599,15 @@ export default function CommunicationHub() {
 
             if (memberError) {
               console.error(`Error adding members to ${channelConfig.name}:`, memberError)
+            } else {
+              console.log(`Successfully added ${membersToAdd.length} members to ${channelConfig.name}`)
             }
           }
         } else {
+          console.log(`Channel already exists: ${channelConfig.name}`)
+          
           // Channel exists, ensure user is a member if they should be
-          const shouldBeMember = channelConfig.roles.includes(profile.role)
+          const shouldBeMember = channelConfig.accountTypes.includes(profile.role)
           
           if (shouldBeMember) {
             const { data: existingMember } = await supabase
@@ -624,20 +653,27 @@ export default function CommunicationHub() {
 
   const loadChannels = async () => {
     try {
+      console.log('Loading channels...')
+      
       const { data: channelData, error } = await supabase
         .from('channels')
         .select('*')
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error('Error loading channels:', error)
+        throw error
+      }
+      
+      console.log('Channels loaded:', channelData)
       
       if (channelData) {
         const channelsWithMemberCount = await Promise.all(
           channelData.map(async (channel) => {
             const { count } = await supabase
-              .from('chat_participants')
+              .from('channel_members')
               .select('*', { count: 'exact', head: true })
-              .eq('chat_id', channel.id)
+              .eq('channel_id', channel.id)
             
             return {
               ...channel,
@@ -645,6 +681,7 @@ export default function CommunicationHub() {
             }
           })
         )
+        console.log('Channels with member count:', channelsWithMemberCount)
         setChannels(channelsWithMemberCount)
       }
     } catch (error) {
