@@ -161,6 +161,8 @@ export default function CommunicationHub() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [fileCaption, setFileCaption] = useState<string>('')
+  const [imageCaption, setImageCaption] = useState<string>('')
   
   // Enhanced connection state management
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.CONNECTING)
@@ -744,6 +746,7 @@ export default function CommunicationHub() {
           messageData.file_size = selectedImage.size
           messageData.file_type = selectedImage.type
           messageData.message_type = 'image'
+          messageData.image_caption = imageCaption
         }
       }
 
@@ -756,6 +759,7 @@ export default function CommunicationHub() {
           messageData.file_size = selectedFile.size
           messageData.file_type = selectedFile.type
           messageData.message_type = selectedFile.type.startsWith('image/') ? 'image' : 'file'
+          messageData.image_caption = fileCaption
         }
       }
 
@@ -772,6 +776,8 @@ export default function CommunicationHub() {
       setSelectedImage(null)
       setImagePreview(null)
       setSelectedFile(null)
+      setImageCaption('')
+      setFileCaption('')
 
     } catch (error) {
       console.error('Error sending message:', error)
@@ -966,18 +972,34 @@ export default function CommunicationHub() {
     if (!selectedChannel) return
 
     try {
+      console.log('Fetching members for channel:', selectedChannel.id)
+      
       const { data, error } = await supabase
         .from('channel_members')
         .select(`
-          *,
-          user:profiles(id, full_name, role, email)
+          id,
+          channel_id,
+          user_id,
+          role,
+          joined_at,
+          user:profiles!inner(id, full_name, role, email)
         `)
         .eq('channel_id', selectedChannel.id)
 
-      if (error) throw error
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
+      
+      console.log('Fetched members:', data)
       setChannelMembers(data || [])
     } catch (error) {
       console.error('Error fetching channel members:', error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch channel members",
+        variant: "destructive"
+      })
     }
   }
 
@@ -1438,26 +1460,38 @@ export default function CommunicationHub() {
                                             className="max-w-full h-auto rounded cursor-pointer hover:opacity-90 transition-opacity"
                                             onClick={() => window.open(message.file_url, '_blank')}
                                           />
+                                          {message.image_caption && (
+                                            <p className="text-xs text-gray-600 mt-1 italic">
+                                              {message.image_caption}
+                                            </p>
+                                          )}
                                         </div>
                                       )}
                                       
                                       {/* File content */}
                                       {message.message_type === 'file' && message.file_url && (
-                                        <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded border">
-                                          <Paperclip className="w-4 h-4" />
-                                          <div className="flex-1">
-                                            <p className="text-sm font-medium">{message.file_name}</p>
-                                            <p className="text-xs text-gray-500">
-                                              {message.file_size ? `${(message.file_size / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'}
-                                            </p>
+                                        <div className="space-y-2">
+                                          <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded border">
+                                            <Paperclip className="w-4 h-4" />
+                                            <div className="flex-1">
+                                              <p className="text-sm font-medium">{message.file_name}</p>
+                                              <p className="text-xs text-gray-500">
+                                                {message.file_size ? `${(message.file_size / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'}
+                                              </p>
+                                            </div>
+                                            <Button 
+                                              size="sm" 
+                                              variant="outline"
+                                              onClick={() => window.open(message.file_url, '_blank')}
+                                            >
+                                              Download
+                                            </Button>
                                           </div>
-                                          <Button 
-                                            size="sm" 
-                                            variant="outline"
-                                            onClick={() => window.open(message.file_url, '_blank')}
-                                          >
-                                            Download
-                                          </Button>
+                                          {message.image_caption && (
+                                            <p className="text-xs text-gray-600 italic">
+                                              {message.image_caption}
+                                            </p>
+                                          )}
                                         </div>
                                       )}
                                     </div>
@@ -1526,23 +1560,63 @@ export default function CommunicationHub() {
                           <div className="flex flex-col space-y-2 p-4 border-t">
                             {/* Image preview */}
                             {imagePreview && (
-                              <div className="relative inline-block">
-                                <img 
-                                  src={imagePreview} 
-                                  alt="Preview" 
-                                  className="max-w-xs max-h-32 rounded border"
+                              <div className="space-y-2">
+                                <div className="relative inline-block">
+                                  <img 
+                                    src={imagePreview} 
+                                    alt="Preview" 
+                                    className="max-w-xs max-h-32 rounded border"
+                                  />
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    className="absolute top-1 right-1 h-6 w-6 p-0"
+                                    onClick={() => {
+                                      setSelectedImage(null)
+                                      setImagePreview(null)
+                                      setImageCaption('')
+                                    }}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                                <Input
+                                  value={imageCaption}
+                                  onChange={(e) => setImageCaption(e.target.value)}
+                                  placeholder="Add a caption for the image..."
+                                  className="max-w-xs"
                                 />
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  className="absolute top-1 right-1 h-6 w-6 p-0"
-                                  onClick={() => {
-                                    setSelectedImage(null)
-                                    setImagePreview(null)
-                                  }}
-                                >
-                                  <X className="w-3 h-3" />
-                                </Button>
+                              </div>
+                            )}
+
+                            {/* File preview */}
+                            {selectedFile && (
+                              <div className="space-y-2">
+                                <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded border">
+                                  <FileText className="w-4 h-4" />
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium">{selectedFile.name}</p>
+                                    <p className="text-xs text-gray-500">
+                                      {selectedFile.size ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => {
+                                      setSelectedFile(null)
+                                      setFileCaption('')
+                                    }}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                                <Input
+                                  value={fileCaption}
+                                  onChange={(e) => setFileCaption(e.target.value)}
+                                  placeholder="Add a caption for the file..."
+                                  className="max-w-xs"
+                                />
                               </div>
                             )}
                             
