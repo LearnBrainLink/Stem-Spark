@@ -43,7 +43,7 @@ interface Message {
   id: string
   content: string
   sender_id: string
-  sender_name: string
+  sender_name?: string
   chat_id: string
   created_at: string
   message_type: 'text' | 'file' | 'image' | 'system'
@@ -653,39 +653,69 @@ export default function CommunicationHub() {
 
   const loadChannels = async () => {
     try {
-      console.log('Loading channels...')
+      console.log('Loading channels for user:', user?.id, 'with role:', user?.role)
       
-      const { data: channelData, error } = await supabase
-        .from('channels')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Error loading channels:', error)
-        throw error
+      if (!user) {
+        console.log('No user found, skipping channel load')
+        return
       }
-      
-      console.log('Channels loaded:', channelData)
-      
-      if (channelData) {
+
+      // Get channels where user is a member
+      const { data: userChannels, error: memberError } = await supabase
+        .from('channel_members')
+        .select(`
+          channel_id,
+          channels (
+            id,
+            name,
+            description,
+            type,
+            created_by,
+            created_at
+          )
+        `)
+        .eq('user_id', user.id)
+
+      if (memberError) {
+        console.error('Error loading user channels:', memberError)
+        throw memberError
+      }
+
+      console.log('User channels:', userChannels)
+
+      if (userChannels && userChannels.length > 0) {
         const channelsWithMemberCount = await Promise.all(
-          channelData.map(async (channel) => {
+          userChannels.map(async (userChannel) => {
+            const channel = userChannel.channels as any
+            if (!channel) return null
+
             const { count } = await supabase
               .from('channel_members')
               .select('*', { count: 'exact', head: true })
               .eq('channel_id', channel.id)
             
             return {
-              ...channel,
+              id: channel.id,
+              name: channel.name,
+              description: channel.description,
+              channel_type: channel.type || 'general',
+              created_by: channel.created_by,
+              created_at: channel.created_at,
               member_count: count || 0
-            }
+            } as Channel
           })
         )
-        console.log('Channels with member count:', channelsWithMemberCount)
-        setChannels(channelsWithMemberCount)
+
+        const validChannels = channelsWithMemberCount.filter(channel => channel !== null) as Channel[]
+        console.log('Filtered channels with member count:', validChannels)
+        setChannels(validChannels)
+      } else {
+        console.log('No channels found for user')
+        setChannels([])
       }
     } catch (error) {
       console.error('Error loading channels:', error)
+      setChannels([])
     }
   }
 
@@ -1384,13 +1414,13 @@ export default function CommunicationHub() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Messages Area */}
                 <div className="lg:col-span-2">
-                  <Card>
-                    <CardHeader>
+            <Card>
+              <CardHeader>
                       <div className="flex items-center justify-between">
                         <CardTitle className="flex items-center space-x-2">
                           <span>#{selectedChannel.name}</span>
                           <Badge variant="outline">{selectedChannel.channel_type}</Badge>
-                        </CardTitle>
+                </CardTitle>
                         <div className="flex items-center space-x-2">
                           {canViewMembers() && (
                             <Button
@@ -1435,54 +1465,54 @@ export default function CommunicationHub() {
                           )}
                         </div>
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-col h-[calc(100vh-20rem)]">
-                        {/* Messages */}
+              </CardHeader>
+              <CardContent>
+                  <div className="flex flex-col h-[calc(100vh-20rem)]">
+                    {/* Messages */}
                         <ScrollArea className="flex-1 p-4">
                           <div className="space-y-4">
-                            {messages.map((message) => {
-                              const isOwn = message.sender_id === user?.id
-                              const isAdmin = message.sender?.role === 'admin' || message.sender?.role === 'super_admin'
-                              
-                              return (
-                                <div key={message.id} className={`flex space-x-3 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                      {messages.map((message) => {
+                        const isOwn = message.sender_id === user?.id
+                        const isAdmin = message.sender?.role === 'admin' || message.sender?.role === 'super_admin'
+                        
+                        return (
+                          <div key={message.id} className={`flex space-x-3 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
                                   <Avatar className="w-8 h-8">
                                     <AvatarFallback className={isOwn ? 'bg-green-500 text-white' : isAdmin ? 'bg-purple-500 text-white' : 'bg-blue-500 text-white'}>
-                                      {isAdmin ? <Crown className="w-4 h-4" /> : message.sender_name.charAt(0).toUpperCase()}
+                                {isAdmin ? <Crown className="w-4 h-4" /> : message.sender_name.charAt(0).toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <div className={`flex-1 ${isOwn ? 'text-right' : ''}`}>
-                                    <div className={`flex items-center space-x-2 ${isOwn ? 'justify-end' : ''}`}>
-                                      <span className="text-sm font-medium text-gray-900">
-                                        {message.sender_name}
-                                        {isAdmin && <Crown className="w-3 h-3 ml-1 text-purple-500" />}
-                                      </span>
-                                      <span className="text-xs text-gray-500">
-                                        {new Date(message.created_at).toLocaleString()}
-                                      </span>
-                                    </div>
-                                    
-                                    {/* Reply context */}
-                                    {message.reply_to && (
-                                      <div className="mt-1 p-2 bg-gray-100 rounded border-l-2 border-gray-300">
-                                        <p className="text-xs text-gray-600">
-                                          Replying to {message.reply_to.profiles.full_name}
-                                        </p>
-                                        <p className="text-sm text-gray-800 truncate">
-                                          {message.reply_to.content}
-                                        </p>
-                                      </div>
-                                    )}
+                            <div className={`flex-1 ${isOwn ? 'text-right' : ''}`}>
+                              <div className={`flex items-center space-x-2 ${isOwn ? 'justify-end' : ''}`}>
+                                <span className="text-sm font-medium text-gray-900">
+                                  {message.sender_name}
+                                  {isAdmin && <Crown className="w-3 h-3 ml-1 text-purple-500" />}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {new Date(message.created_at).toLocaleString()}
+                                </span>
+                              </div>
+                              
+                              {/* Reply context */}
+                              {message.reply_to && (
+                                <div className="mt-1 p-2 bg-gray-100 rounded border-l-2 border-gray-300">
+                                  <p className="text-xs text-gray-600">
+                                    Replying to {message.reply_to.profiles.full_name}
+                                  </p>
+                                  <p className="text-sm text-gray-800 truncate">
+                                    {message.reply_to.content}
+                                  </p>
+                                </div>
+                              )}
 
-                                    {/* Message content */}
-                                    <div className={`inline-block p-3 rounded-lg ${
-                                      isOwn 
-                                        ? 'bg-green-500 text-white' 
-                                        : isAdmin 
-                                          ? 'bg-purple-100 text-purple-900' 
-                                          : 'bg-gray-100 text-gray-900'
-                                    }`}>
+                              {/* Message content */}
+                              <div className={`inline-block p-3 rounded-lg ${
+                                isOwn 
+                                  ? 'bg-green-500 text-white' 
+                                  : isAdmin 
+                                    ? 'bg-purple-100 text-purple-900' 
+                                    : 'bg-gray-100 text-gray-900'
+                              }`}>
                                       {/* Text content */}
                                       {message.content && (
                                         <p className="text-sm mb-2">{message.content}</p>
@@ -1531,69 +1561,69 @@ export default function CommunicationHub() {
                                           )}
                                         </div>
                                       )}
-                                    </div>
+                              </div>
 
-                                    {/* Message actions */}
-                                    <div className="flex items-center space-x-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      {!isOwn && (
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => handleReply(message)}
-                                          className="h-6 w-6 p-0"
-                                        >
-                                          <Reply className="w-3 h-3" />
-                                        </Button>
-                                      )}
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => {
-                                          setForwardingMessage(message)
-                                          setShowForwardDialog(true)
-                                        }}
-                                        className="h-6 w-6 p-0"
-                                      >
-                                        <Forward className="w-3 h-3" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleDeleteMessage(message.id)}
-                                        className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
-                                      >
-                                        <X className="w-3 h-3" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                            <div ref={messagesEndRef} />
+                              {/* Message actions */}
+                              <div className="flex items-center space-x-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {!isOwn && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleReply(message)}
+                                    className="h-6 w-6 p-0"
+                                  >
+                                    <Reply className="w-3 h-3" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setForwardingMessage(message)
+                                    setShowForwardDialog(true)
+                                  }}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Forward className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteMessage(message.id)}
+                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
                           </div>
+                        )
+                      })}
+                      <div ref={messagesEndRef} />
+                    </div>
                         </ScrollArea>
 
-                        {/* Reply banner */}
-                        {replyTo && (
-                          <div className="p-2 bg-blue-50 border-t border-blue-200 flex items-center justify-between">
-                            <div className="flex-1">
-                              <p className="text-sm text-blue-800">
-                                Replying to {replyTo.sender_name}: {replyTo.content.substring(0, 50)}...
-                              </p>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={cancelReply}
-                              className="text-blue-600"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        )}
+                    {/* Reply banner */}
+                    {replyTo && (
+                      <div className="p-2 bg-blue-50 border-t border-blue-200 flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="text-sm text-blue-800">
+                            Replying to {replyTo.sender_name}: {replyTo.content.substring(0, 50)}...
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={cancelReply}
+                          className="text-blue-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
 
-                        {/* Message input */}
-                        {canSendMessage(selectedChannel) && (
+                    {/* Message input */}
+                    {canSendMessage(selectedChannel) && (
                           <div className="flex flex-col space-y-2 p-4 border-t">
                             {/* Image preview */}
                             {imagePreview && (
@@ -1657,54 +1687,54 @@ export default function CommunicationHub() {
                               </div>
                             )}
                             
-                              <div className="flex-1 flex space-x-2">
-                                <Input
-                                  value={newMessage}
-                                  onChange={(e) => setNewMessage(e.target.value)}
-                                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                                  placeholder="Type your message..."
-                                  className="flex-1"
-                                />
-                                <input
-                                  type="file"
-                                  ref={fileInputRef}
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0]
-                                    if (file) handleFileUpload(file)
-                                  }}
-                                  className="hidden"
-                                />
-                                <input
-                                  type="file"
-                                  ref={imageInputRef}
-                                  accept="image/*"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0]
+                        <div className="flex-1 flex space-x-2">
+                          <Input
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                            placeholder="Type your message..."
+                            className="flex-1"
+                          />
+                          <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) handleFileUpload(file)
+                            }}
+                            className="hidden"
+                          />
+                          <input
+                            type="file"
+                            ref={imageInputRef}
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
                                     if (file) handleImageSelect(file)
-                                  }}
-                                  className="hidden"
-                                />
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => fileInputRef.current?.click()}
-                                >
-                                  <Upload className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => imageInputRef.current?.click()}
-                                >
-                                  <ImageIcon className="w-4 h-4" />
-                                </Button>
-                              </div>
-                              <Button onClick={handleSendMessage}>
-                                <Send className="w-4 h-4" />
-                              </Button>
-                            </div>
-                        )}
+                            }}
+                            className="hidden"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <Upload className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => imageInputRef.current?.click()}
+                          >
+                            <ImageIcon className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <Button onClick={handleSendMessage}>
+                          <Send className="w-4 h-4" />
+                        </Button>
                       </div>
+                    )}
+                  </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -1783,16 +1813,16 @@ export default function CommunicationHub() {
                             </div>
                           ))}
                           {todoItems.length === 0 && (
-                            <div className="text-center text-gray-500 py-8">
+                  <div className="text-center text-gray-500 py-8">
                               <CheckCircle className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                               <p className="text-sm">No todo items yet</p>
                               <p className="text-xs">Click the + button to add one</p>
-                            </div>
-                          )}
+                  </div>
+                )}
                         </div>
                       </ScrollArea>
-                    </CardContent>
-                  </Card>
+              </CardContent>
+            </Card>
                 </div>
               </div>
             ) : (
