@@ -483,9 +483,13 @@ export default function AdminCommunicationHub() {
       // Setup default channels first
       await setupDefaultChannels(userId)
       
-      // Then load all communication data
+      // Wait a bit for setup to complete, then load channels
+      setTimeout(async () => {
+        await loadChannels()
+      }, 1000)
+      
+      // Load other data immediately
       await Promise.all([
-        loadChannels(),
         loadUsers(),
         loadUnreadCounts(userId)
       ])
@@ -663,39 +667,149 @@ export default function AdminCommunicationHub() {
 
   const loadChannels = async () => {
     try {
-      console.log('Loading channels for admin...')
+      console.log('Loading channels for admin user:', user?.id, 'with role:', user?.role)
       
-      const { data: channelData, error: channelError } = await supabase
-        .from('channels')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (channelError) {
-        console.error('Error loading channels:', channelError)
-        throw channelError
+      if (!user) {
+        console.log('No user found, skipping channel load')
+        return
       }
-      
-      console.log('Channels loaded for admin:', channelData)
-      
-      if (channelData) {
+
+      // Get channels where user is a member
+      const { data: userChannels, error: memberError } = await supabase
+        .from('channel_members')
+        .select(`
+          channel_id,
+          channels (
+            id,
+            name,
+            description,
+            type,
+            created_by,
+            created_at
+          )
+        `)
+        .eq('user_id', user.id)
+
+      if (memberError) {
+        console.error('Error loading user channels:', memberError)
+        throw memberError
+      }
+
+      console.log('User channels for admin:', userChannels)
+
+      if (userChannels && userChannels.length > 0) {
         const channelsWithMemberCount = await Promise.all(
-          channelData.map(async (channel) => {
+          userChannels.map(async (userChannel) => {
+            const channel = userChannel.channels as any
+            if (!channel) return null
+
             const { count } = await supabase
               .from('channel_members')
               .select('*', { count: 'exact', head: true })
               .eq('channel_id', channel.id)
             
             return {
-              ...channel,
+              id: channel.id,
+              name: channel.name,
+              description: channel.description,
+              channel_type: channel.type || 'general',
+              created_by: channel.created_by,
+              created_at: channel.created_at,
               member_count: count || 0
-            }
+            } as Channel
           })
         )
-        console.log('Channels with member count for admin:', channelsWithMemberCount)
-        setChannels(channelsWithMemberCount)
+
+        const validChannels = channelsWithMemberCount.filter(channel => channel !== null) as Channel[]
+        console.log('Filtered channels with member count for admin:', validChannels)
+        setChannels(validChannels)
+      } else {
+        console.log('No channels found for admin user, trying fallback...')
+        
+        // Fallback: Try to add user to default channels based on their role
+        if (user && user.role) {
+          console.log('Attempting to add admin user to default channels based on role:', user.role)
+          
+          // Get all channels that match the user's role
+          const { data: allChannels } = await supabase
+            .from('channels')
+            .select('*')
+            .order('created_at', { ascending: false })
+          
+          if (allChannels) {
+            const channelsToAdd = []
+            
+            for (const channel of allChannels) {
+              // Check if user should be in this channel based on role
+              let shouldAdd = false
+              
+              if (channel.name === 'General') {
+                shouldAdd = true // Everyone gets General
+              } else if (channel.name === 'Student Lounge' && user.role === 'student') {
+                shouldAdd = true
+              } else if (channel.name === 'Announcements' && (user.role === 'admin' || user.role === 'super_admin')) {
+                shouldAdd = true
+              } else if (channel.name === 'Admin Hub' && (user.role === 'admin' || user.role === 'super_admin')) {
+                shouldAdd = true
+              } else if (channel.name === 'Parent-Teacher' && (user.role === 'parent' || user.role === 'admin' || user.role === 'super_admin')) {
+                shouldAdd = true
+              }
+              
+              if (shouldAdd) {
+                // Check if user is already a member
+                const { data: existingMember } = await supabase
+                  .from('channel_members')
+                  .select('id')
+                  .eq('channel_id', channel.id)
+                  .eq('user_id', user.id)
+                  .single()
+                
+                if (!existingMember) {
+                  // Add user to channel
+                  await supabase
+                    .from('channel_members')
+                    .insert([{
+                      channel_id: channel.id,
+                      user_id: user.id,
+                      role: 'member'
+                    }])
+                  
+                  channelsToAdd.push({
+                    id: channel.id,
+                    name: channel.name,
+                    description: channel.description,
+                    channel_type: channel.type || 'general',
+                    created_by: channel.created_by,
+                    created_at: channel.created_at,
+                    member_count: 1
+                  } as Channel)
+                } else {
+                  channelsToAdd.push({
+                    id: channel.id,
+                    name: channel.name,
+                    description: channel.description,
+                    channel_type: channel.type || 'general',
+                    created_by: channel.created_by,
+                    created_at: channel.created_at,
+                    member_count: 1
+                  } as Channel)
+                }
+              }
+            }
+            
+            if (channelsToAdd.length > 0) {
+              console.log('Added admin user to channels:', channelsToAdd)
+              setChannels(channelsToAdd)
+              return
+            }
+          }
+        }
+        
+        setChannels([])
       }
     } catch (error) {
       console.error('Error loading channels for admin:', error)
+      setChannels([])
     }
   }
 

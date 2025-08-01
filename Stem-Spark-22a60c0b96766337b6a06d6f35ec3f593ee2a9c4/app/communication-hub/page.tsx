@@ -463,20 +463,24 @@ export default function CommunicationHub() {
       
       await loadUserProfile(authUser.id)
       await setupDefaultChannels(authUser.id)
-      await loadChannels()
       
-      // Load channel from URL if available
-      if (typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search)
-        const channelIdFromUrl = urlParams.get('channel')
+      // Wait a bit for setup to complete, then load channels
+      setTimeout(async () => {
+        await loadChannels()
         
-        if (channelIdFromUrl && channels.length > 0) {
-          const channelToSelect = channels.find(c => c.id === channelIdFromUrl)
-          if (channelToSelect) {
-            setSelectedChannel(channelToSelect)
+        // Load channel from URL if available
+        if (typeof window !== 'undefined') {
+          const urlParams = new URLSearchParams(window.location.search)
+          const channelIdFromUrl = urlParams.get('channel')
+          
+          if (channelIdFromUrl && channels.length > 0) {
+            const channelToSelect = channels.find(c => c.id === channelIdFromUrl)
+            if (channelToSelect) {
+              setSelectedChannel(channelToSelect)
+            }
           }
         }
-      }
+      }, 1000)
     } catch (error) {
       console.error('Error initializing component:', error)
     } finally {
@@ -710,7 +714,87 @@ export default function CommunicationHub() {
         console.log('Filtered channels with member count:', validChannels)
         setChannels(validChannels)
       } else {
-        console.log('No channels found for user')
+        console.log('No channels found for user, trying fallback...')
+        
+        // Fallback: Try to add user to default channels based on their role
+        if (user && user.role) {
+          console.log('Attempting to add user to default channels based on role:', user.role)
+          
+          // Get all channels that match the user's role
+          const { data: allChannels } = await supabase
+            .from('channels')
+            .select('*')
+            .order('created_at', { ascending: false })
+          
+          if (allChannels) {
+            const channelsToAdd = []
+            
+            for (const channel of allChannels) {
+              // Check if user should be in this channel based on role
+              let shouldAdd = false
+              
+              if (channel.name === 'General') {
+                shouldAdd = true // Everyone gets General
+              } else if (channel.name === 'Student Lounge' && user.role === 'student') {
+                shouldAdd = true
+              } else if (channel.name === 'Announcements' && (user.role === 'admin' || user.role === 'super_admin')) {
+                shouldAdd = true
+              } else if (channel.name === 'Admin Hub' && (user.role === 'admin' || user.role === 'super_admin')) {
+                shouldAdd = true
+              } else if (channel.name === 'Parent-Teacher' && (user.role === 'parent' || user.role === 'admin' || user.role === 'super_admin')) {
+                shouldAdd = true
+              }
+              
+              if (shouldAdd) {
+                // Check if user is already a member
+                const { data: existingMember } = await supabase
+                  .from('channel_members')
+                  .select('id')
+                  .eq('channel_id', channel.id)
+                  .eq('user_id', user.id)
+                  .single()
+                
+                if (!existingMember) {
+                  // Add user to channel
+                  await supabase
+                    .from('channel_members')
+                    .insert([{
+                      channel_id: channel.id,
+                      user_id: user.id,
+                      role: 'member'
+                    }])
+                  
+                  channelsToAdd.push({
+                    id: channel.id,
+                    name: channel.name,
+                    description: channel.description,
+                    channel_type: channel.type || 'general',
+                    created_by: channel.created_by,
+                    created_at: channel.created_at,
+                    member_count: 1
+                  } as Channel)
+                } else {
+                  channelsToAdd.push({
+                    id: channel.id,
+                    name: channel.name,
+                    description: channel.description,
+                    channel_type: channel.type || 'general',
+                    created_by: channel.created_by,
+                    created_at: channel.created_at,
+                    member_count: 1
+                  } as Channel)
+                }
+              }
+            }
+            
+            if (channelsToAdd.length > 0) {
+              console.log('Added user to channels:', channelsToAdd)
+              setChannels(channelsToAdd)
+              return
+            }
+          }
+        }
+        
         setChannels([])
       }
     } catch (error) {
