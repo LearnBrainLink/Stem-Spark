@@ -1231,10 +1231,34 @@ export default function CommunicationHub() {
   }
 
   const canSendMessage = (channel: Channel) => {
+    if (!channel) return false
+    
+    // Only admins can send messages in announcements
     if (channel.channel_type === 'announcement') {
       return userRole === 'admin' || userRole === 'super_admin'
     }
-    return true
+    
+    // Students can only send messages in General and Student Lounge
+    if (userRole === 'student') {
+      return channel.name === 'General' || channel.name === 'Student Lounge'
+    }
+    
+    // Parents can send messages in General and Parent-Teacher
+    if (userRole === 'parent') {
+      return channel.name === 'General' || channel.name === 'Parent-Teacher'
+    }
+    
+    // Admins can send messages everywhere
+    if (userRole === 'admin' || userRole === 'super_admin') {
+      return true
+    }
+    
+    // Interns can send messages in General channels
+    if (userRole === 'intern') {
+      return channel.name === 'General'
+    }
+    
+    return false
   }
 
   // Todo list functions
