@@ -664,41 +664,70 @@ export default function CommunicationHub() {
         return
       }
 
-      // Get channels where user is a member
-      const { data: userChannels, error: memberError } = await supabase
-        .from('channel_members')
-        .select(`
-          channel_id,
-          channels (
-            id,
-            name,
-            description,
-            type,
-            created_by,
-            created_at
-          )
-        `)
-        .eq('user_id', user.id)
+      // Get all channels and filter based on user role and membership
+      const { data: allChannels, error: channelError } = await supabase
+        .from('channels')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-      if (memberError) {
-        console.error('Error loading user channels:', memberError)
-        throw memberError
+      if (channelError) {
+        console.error('Error loading channels:', channelError)
+        throw channelError
       }
 
-      console.log('User channels:', userChannels)
+      console.log('All channels:', allChannels)
 
-      if (userChannels && userChannels.length > 0) {
-        const channelsWithMemberCount = await Promise.all(
-          userChannels.map(async (userChannel) => {
-            const channel = userChannel.channels as any
-            if (!channel) return null
-
+      if (allChannels) {
+        const accessibleChannels = []
+        
+        for (const channel of allChannels) {
+          let shouldShow = false
+          
+          // Check if user should see this channel based on role
+          if (channel.name === 'General') {
+            shouldShow = true // Everyone can see General
+          } else if (channel.name === 'Student Lounge' && user.role === 'student') {
+            shouldShow = true
+          } else if (channel.name === 'Announcements' && (user.role === 'admin' || user.role === 'super_admin')) {
+            shouldShow = true
+          } else if (channel.name === 'Admin Hub' && (user.role === 'admin' || user.role === 'super_admin')) {
+            shouldShow = true
+          } else if (channel.name === 'Parent-Teacher' && (user.role === 'parent' || user.role === 'admin' || user.role === 'super_admin')) {
+            shouldShow = true
+          } else if (channel.name === 'Test Management Channel' || channel.name === 'general' || channel.name === 'announcements' || channel.name === 'admin-only' || channel.name === 'parent-teacher') {
+            // Show legacy channels to admins
+            if (user.role === 'admin' || user.role === 'super_admin') {
+              shouldShow = true
+            }
+          }
+          
+          if (shouldShow) {
+            // Get member count for this channel
             const { count } = await supabase
               .from('channel_members')
               .select('*', { count: 'exact', head: true })
               .eq('channel_id', channel.id)
             
-            return {
+            // Check if user is already a member
+            const { data: existingMember } = await supabase
+              .from('channel_members')
+              .select('id')
+              .eq('channel_id', channel.id)
+              .eq('user_id', user.id)
+              .single()
+            
+            // If user should be in this channel but isn't, add them
+            if (!existingMember) {
+              await supabase
+                .from('channel_members')
+                .insert([{
+                  channel_id: channel.id,
+                  user_id: user.id,
+                  role: 'member'
+                }])
+            }
+            
+            accessibleChannels.push({
               id: channel.id,
               name: channel.name,
               description: channel.description,
@@ -706,95 +735,13 @@ export default function CommunicationHub() {
               created_by: channel.created_by,
               created_at: channel.created_at,
               member_count: count || 0
-            } as Channel
-          })
-        )
-
-        const validChannels = channelsWithMemberCount.filter(channel => channel !== null) as Channel[]
-        console.log('Filtered channels with member count:', validChannels)
-        setChannels(validChannels)
-      } else {
-        console.log('No channels found for user, trying fallback...')
-        
-        // Fallback: Try to add user to default channels based on their role
-        if (user && user.role) {
-          console.log('Attempting to add user to default channels based on role:', user.role)
-          
-          // Get all channels that match the user's role
-          const { data: allChannels } = await supabase
-            .from('channels')
-            .select('*')
-            .order('created_at', { ascending: false })
-          
-          if (allChannels) {
-            const channelsToAdd = []
-            
-            for (const channel of allChannels) {
-              // Check if user should be in this channel based on role
-              let shouldAdd = false
-              
-              if (channel.name === 'General') {
-                shouldAdd = true // Everyone gets General
-              } else if (channel.name === 'Student Lounge' && user.role === 'student') {
-                shouldAdd = true
-              } else if (channel.name === 'Announcements' && (user.role === 'admin' || user.role === 'super_admin')) {
-                shouldAdd = true
-              } else if (channel.name === 'Admin Hub' && (user.role === 'admin' || user.role === 'super_admin')) {
-                shouldAdd = true
-              } else if (channel.name === 'Parent-Teacher' && (user.role === 'parent' || user.role === 'admin' || user.role === 'super_admin')) {
-                shouldAdd = true
-              }
-              
-              if (shouldAdd) {
-                // Check if user is already a member
-                const { data: existingMember } = await supabase
-                  .from('channel_members')
-                  .select('id')
-                  .eq('channel_id', channel.id)
-                  .eq('user_id', user.id)
-                  .single()
-                
-                if (!existingMember) {
-                  // Add user to channel
-                  await supabase
-                    .from('channel_members')
-                    .insert([{
-                      channel_id: channel.id,
-                      user_id: user.id,
-                      role: 'member'
-                    }])
-                  
-                  channelsToAdd.push({
-                    id: channel.id,
-                    name: channel.name,
-                    description: channel.description,
-                    channel_type: channel.type || 'general',
-                    created_by: channel.created_by,
-                    created_at: channel.created_at,
-                    member_count: 1
-                  } as Channel)
-                } else {
-                  channelsToAdd.push({
-                    id: channel.id,
-                    name: channel.name,
-                    description: channel.description,
-                    channel_type: channel.type || 'general',
-                    created_by: channel.created_by,
-                    created_at: channel.created_at,
-                    member_count: 1
-                  } as Channel)
-                }
-              }
-            }
-            
-            if (channelsToAdd.length > 0) {
-              console.log('Added user to channels:', channelsToAdd)
-              setChannels(channelsToAdd)
-              return
-            }
+            } as Channel)
           }
         }
         
+        console.log('Accessible channels for user:', accessibleChannels)
+        setChannels(accessibleChannels)
+      } else {
         setChannels([])
       }
     } catch (error) {
@@ -1455,7 +1402,16 @@ export default function CommunicationHub() {
                     <Hash className="w-5 h-5 mr-2" />
                     Channels
                   </span>
-                  <Badge variant="secondary">{channels.length}</Badge>
+                  <div className="flex items-center space-x-2">
+                    <Badge variant="secondary">{channels.length}</Badge>
+                    <Button
+                      size="sm"
+                      onClick={() => setShowCreateChannel(true)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
