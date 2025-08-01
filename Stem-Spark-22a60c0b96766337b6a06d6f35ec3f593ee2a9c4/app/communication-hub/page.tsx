@@ -452,7 +452,7 @@ export default function CommunicationHub() {
     messageQueueRef.current = []
   }, [stopHeartbeat])
 
-  const initializeComponent = async () => {
+    const initializeComponent = async () => {
     try {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
       
@@ -464,23 +464,28 @@ export default function CommunicationHub() {
       await loadUserProfile(authUser.id)
       await setupDefaultChannels(authUser.id)
       
-      // Wait a bit for setup to complete, then load channels
-      setTimeout(async () => {
-        await loadChannels()
+      // Get user profile to get role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', authUser.id)
+        .single()
+      
+      // Load channels immediately with user info
+      await loadChannels(authUser.id, profile?.role)
+      
+      // Load channel from URL if available
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search)
+        const channelIdFromUrl = urlParams.get('channel')
         
-        // Load channel from URL if available
-        if (typeof window !== 'undefined') {
-          const urlParams = new URLSearchParams(window.location.search)
-          const channelIdFromUrl = urlParams.get('channel')
-          
-          if (channelIdFromUrl && channels.length > 0) {
-            const channelToSelect = channels.find(c => c.id === channelIdFromUrl)
-            if (channelToSelect) {
-              setSelectedChannel(channelToSelect)
-            }
+        if (channelIdFromUrl && channels.length > 0) {
+          const channelToSelect = channels.find(c => c.id === channelIdFromUrl)
+          if (channelToSelect) {
+            setSelectedChannel(channelToSelect)
           }
         }
-      }, 1000)
+      }
     } catch (error) {
       console.error('Error initializing component:', error)
     } finally {
@@ -655,11 +660,12 @@ export default function CommunicationHub() {
     }
   }
 
-  const loadChannels = async () => {
+  const loadChannels = async (userId?: string, userRole?: string) => {
     try {
-      console.log('Loading channels for user:', user?.id, 'with role:', user?.role)
+      const currentUser = user || { id: userId, role: userRole }
+      console.log('Loading channels for user:', currentUser?.id, 'with role:', currentUser?.role)
       
-      if (!user) {
+      if (!currentUser?.id) {
         console.log('No user found, skipping channel load')
         return
       }
@@ -686,17 +692,17 @@ export default function CommunicationHub() {
           // Check if user should see this channel based on role
           if (channel.name === 'General') {
             shouldShow = true // Everyone can see General
-          } else if (channel.name === 'Student Lounge' && user.role === 'student') {
+          } else if (channel.name === 'Student Lounge' && currentUser.role === 'student') {
             shouldShow = true
-          } else if (channel.name === 'Announcements' && (user.role === 'admin' || user.role === 'super_admin')) {
+          } else if (channel.name === 'Announcements' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
             shouldShow = true
-          } else if (channel.name === 'Admin Hub' && (user.role === 'admin' || user.role === 'super_admin')) {
+          } else if (channel.name === 'Admin Hub' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
             shouldShow = true
-          } else if (channel.name === 'Parent-Teacher' && (user.role === 'parent' || user.role === 'admin' || user.role === 'super_admin')) {
+          } else if (channel.name === 'Parent-Teacher' && (currentUser.role === 'parent' || currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
             shouldShow = true
           } else if (channel.name === 'Test Management Channel' || channel.name === 'general' || channel.name === 'announcements' || channel.name === 'admin-only' || channel.name === 'parent-teacher') {
             // Show legacy channels to admins
-            if (user.role === 'admin' || user.role === 'super_admin') {
+            if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
               shouldShow = true
             }
           }
@@ -713,7 +719,7 @@ export default function CommunicationHub() {
               .from('channel_members')
               .select('id')
               .eq('channel_id', channel.id)
-              .eq('user_id', user.id)
+              .eq('user_id', currentUser.id)
               .single()
             
             // If user should be in this channel but isn't, add them
@@ -722,7 +728,7 @@ export default function CommunicationHub() {
                 .from('channel_members')
                 .insert([{
                   channel_id: channel.id,
-                  user_id: user.id,
+                  user_id: currentUser.id,
                   role: 'member'
                 }])
             }
@@ -1403,7 +1409,7 @@ export default function CommunicationHub() {
                     Channels
                   </span>
                   <div className="flex items-center space-x-2">
-                    <Badge variant="secondary">{channels.length}</Badge>
+                  <Badge variant="secondary">{channels.length}</Badge>
                     <Button
                       size="sm"
                       onClick={() => setShowCreateChannel(true)}

@@ -483,10 +483,15 @@ export default function AdminCommunicationHub() {
       // Setup default channels first
       await setupDefaultChannels(userId)
       
-      // Wait a bit for setup to complete, then load channels
-      setTimeout(async () => {
-        await loadChannels()
-      }, 1000)
+      // Get user profile to get role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single()
+      
+      // Load channels immediately with user info
+      await loadChannels(userId, profile?.role)
       
       // Load other data immediately
       await Promise.all([
@@ -665,11 +670,12 @@ export default function AdminCommunicationHub() {
     }
   }
 
-  const loadChannels = async () => {
+  const loadChannels = async (userId?: string, userRole?: string) => {
     try {
-      console.log('Loading channels for admin user:', user?.id, 'with role:', user?.role)
+      const currentUser = user || { id: userId, role: userRole }
+      console.log('Loading channels for admin user:', currentUser?.id, 'with role:', currentUser?.role)
       
-      if (!user) {
+      if (!currentUser?.id) {
         console.log('No user found, skipping channel load')
         return
       }
@@ -696,17 +702,17 @@ export default function AdminCommunicationHub() {
           // Check if user should see this channel based on role
           if (channel.name === 'General') {
             shouldShow = true // Everyone can see General
-          } else if (channel.name === 'Student Lounge' && user.role === 'student') {
+          } else if (channel.name === 'Student Lounge' && currentUser.role === 'student') {
             shouldShow = true
-          } else if (channel.name === 'Announcements' && (user.role === 'admin' || user.role === 'super_admin')) {
+          } else if (channel.name === 'Announcements' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
             shouldShow = true
-          } else if (channel.name === 'Admin Hub' && (user.role === 'admin' || user.role === 'super_admin')) {
+          } else if (channel.name === 'Admin Hub' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
             shouldShow = true
-          } else if (channel.name === 'Parent-Teacher' && (user.role === 'parent' || user.role === 'admin' || user.role === 'super_admin')) {
+          } else if (channel.name === 'Parent-Teacher' && (currentUser.role === 'parent' || currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
             shouldShow = true
           } else if (channel.name === 'Test Management Channel' || channel.name === 'general' || channel.name === 'announcements' || channel.name === 'admin-only' || channel.name === 'parent-teacher') {
             // Show legacy channels to admins
-            if (user.role === 'admin' || user.role === 'super_admin') {
+            if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
               shouldShow = true
             }
           }
@@ -723,7 +729,7 @@ export default function AdminCommunicationHub() {
               .from('channel_members')
               .select('id')
               .eq('channel_id', channel.id)
-              .eq('user_id', user.id)
+              .eq('user_id', currentUser.id)
               .single()
             
             // If user should be in this channel but isn't, add them
@@ -732,7 +738,7 @@ export default function AdminCommunicationHub() {
                 .from('channel_members')
                 .insert([{
                   channel_id: channel.id,
-                  user_id: user.id,
+                  user_id: currentUser.id,
                   role: 'member'
                 }])
             }
