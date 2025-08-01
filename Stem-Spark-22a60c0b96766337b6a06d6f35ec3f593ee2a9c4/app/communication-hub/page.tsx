@@ -694,8 +694,8 @@ export default function CommunicationHub() {
             shouldShow = true // Everyone can see General
           } else if (channel.name === 'Student Lounge' && currentUser.role === 'student') {
             shouldShow = true
-          } else if (channel.name === 'Announcements' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
-            shouldShow = true
+          } else if (channel.name === 'Announcements') {
+            shouldShow = true // Everyone can see Announcements, but only admins can message
           } else if (channel.name === 'Admin Hub' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
             shouldShow = true
           } else if (channel.name === 'Parent-Teacher' && (currentUser.role === 'parent' || currentUser.role === 'admin' || currentUser.role === 'super_admin')) {

@@ -699,21 +699,30 @@ export default function AdminCommunicationHub() {
         for (const channel of allChannels) {
           let shouldShow = false
           
-          // Check if user should see this channel based on role
-          if (channel.name === 'General') {
-            shouldShow = true // Everyone can see General
-          } else if (channel.name === 'Student Lounge' && currentUser.role === 'student') {
-            shouldShow = true
-          } else if (channel.name === 'Announcements' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
-            shouldShow = true
-          } else if (channel.name === 'Admin Hub' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
-            shouldShow = true
-          } else if (channel.name === 'Parent-Teacher' && (currentUser.role === 'parent' || currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
-            shouldShow = true
-          } else if (channel.name === 'Test Management Channel' || channel.name === 'general' || channel.name === 'announcements' || channel.name === 'admin-only' || channel.name === 'parent-teacher') {
-            // Show legacy channels to admins
-            if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
+          // For admin communication hub, show specific channels to admins
+          if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
+            // Admins should see: General, Announcements, Admin Hub, Test Management Channel
+            if (channel.name === 'General' || 
+                channel.name === 'Announcements' || 
+                channel.name === 'Admin Hub' || 
+                channel.name === 'Test Management Channel') {
               shouldShow = true
+            }
+          } else {
+            // For non-admin users in admin hub, show based on role
+            if (channel.name === 'General') {
+              shouldShow = true // Everyone can see General
+            } else if (channel.name === 'Student Lounge' && currentUser.role === 'student') {
+              shouldShow = true
+            } else if (channel.name === 'Announcements' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
+              shouldShow = true
+            } else if (channel.name === 'Admin Hub' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
+              shouldShow = true
+            } else if (channel.name === 'Test Management Channel' || channel.name === 'general' || channel.name === 'announcements' || channel.name === 'admin-only') {
+              // Show legacy channels to admins
+              if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
+                shouldShow = true
+              }
             }
           }
           
@@ -1214,6 +1223,11 @@ export default function AdminCommunicationHub() {
   const canSendMessage = (channel: Channel) => {
     if (!channel) return false
     
+    // For admin communication hub, admins should be able to send messages everywhere
+    if (userRole === 'admin' || userRole === 'super_admin') {
+      return true
+    }
+    
     // Only admins can send messages in announcements
     if (channel.channel_type === 'announcement') {
       return userRole === 'admin' || userRole === 'super_admin'
@@ -1227,11 +1241,6 @@ export default function AdminCommunicationHub() {
     // Parents can send messages in General and Parent-Teacher
     if (userRole === 'parent') {
       return channel.name === 'General' || channel.name === 'Parent-Teacher'
-    }
-    
-    // Admins can send messages everywhere
-    if (userRole === 'admin' || userRole === 'super_admin') {
-      return true
     }
     
     // Interns can send messages in General channels
