@@ -1821,8 +1821,9 @@ export default function AdminCommunicationHub() {
                 <Button
                   variant="ghost"
                   className="h-auto p-0 text-lg font-semibold hover:bg-transparent"
-                  onClick={() => {
-                    fetchChannelMembers()
+                  onClick={async () => {
+                    await fetchChannelMembers()
+                    await fetchAvailableUsers()
                     setShowMembersDialog(true)
                   }}
                 >

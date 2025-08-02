@@ -22,7 +22,8 @@ import {
   Home,
   GraduationCap,
   MessageCircle,
-  Clock
+  Clock,
+  Bot
 } from 'lucide-react'
 
 interface Course {
@@ -254,6 +255,12 @@ export default function StudentDashboard() {
             </div>
             <div className="flex items-center space-x-4">
               <Button variant="outline" size="sm" asChild>
+                <Link href="/ai-tutor">
+                  <Bot className="h-4 w-4 mr-2" />
+                  AI Tutor
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
                 <Link href="/communication-hub">
                   <MessageCircle className="h-4 w-4 mr-2" />
                   Messages
@@ -463,6 +470,12 @@ export default function StudentDashboard() {
                     <Link href="/tutoring">
                       <Users className="h-4 w-4 mr-2" />
                       Book Tutoring Session
+                    </Link>
+                  </Button>
+                  <Button className="w-full justify-start" variant="outline" asChild>
+                    <Link href="/ai-tutor">
+                      <Bot className="h-4 w-4 mr-2" />
+                      AI Tutor
                     </Link>
                   </Button>
                   <Button className="w-full justify-start" variant="outline" asChild>

@@ -1488,60 +1488,21 @@ export default function CommunicationHub() {
               <CardHeader>
                       <div className="flex items-center justify-between">
                         <CardTitle className="flex items-center space-x-2">
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 text-lg font-semibold hover:bg-transparent"
-                            onClick={() => {
-                              fetchChannelMembers()
-                              setShowMembersDialog(true)
-                            }}
-                          >
+                                            <Button
+                    variant="ghost"
+                    className="h-auto p-0 text-lg font-semibold hover:bg-transparent"
+                    onClick={async () => {
+                      await fetchChannelMembers()
+                      await fetchAvailableUsers()
+                      setShowMembersDialog(true)
+                    }}
+                  >
                             #{selectedChannel.name}
                           </Button>
                           <Badge variant="outline">{selectedChannel.channel_type}</Badge>
                 </CardTitle>
                         <div className="flex items-center space-x-2">
-                          {canViewMembers() && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                fetchChannelMembers()
-                                setShowMembersDialog(true)
-                              }}
-                            >
-                              <Users className="w-4 h-4 mr-1" />
-                              Members
-                            </Button>
-                          )}
-                          
-                          {canManageChannel(selectedChannel) && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  fetchAvailableUsers()
-                                  setShowAddUserDialog(true)
-                                }}
-                              >
-                                <UserPlus className="w-4 h-4 mr-1" />
-                                Add User
-                              </Button>
-                              
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  fetchChannelMembers()
-                                  setShowRemoveUserDialog(true)
-                                }}
-                              >
-                                <UserMinus className="w-4 h-4 mr-1" />
-                                Remove User
-                              </Button>
-                            </>
-                          )}
+                          {/* Member management is now handled through the channel name button */}
                         </div>
                       </div>
               </CardHeader>
@@ -2028,38 +1989,98 @@ export default function CommunicationHub() {
           </DialogContent>
         </Dialog>
 
-        {/* View Members Dialog */}
+        {/* Member Management Dialog */}
         <Dialog open={showMembersDialog} onOpenChange={setShowMembersDialog}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Channel Members</DialogTitle>
             </DialogHeader>
-            <ScrollArea className="max-h-96">
-              <div className="space-y-3">
-                {channelMembers.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="w-10 h-10">
-                        <AvatarFallback>
-                          {member.user?.full_name?.charAt(0) || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{member.user?.full_name}</p>
-                        <p className="text-sm text-gray-600">{member.user?.email}</p>
+            <div className="space-y-4">
+              {/* Current Members */}
+              <div>
+                <h3 className="text-sm font-medium mb-2">Current Members ({channelMembers.length})</h3>
+                <div className="max-h-60 overflow-y-auto space-y-2">
+                  {channelMembers.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback>
+                            {member.user?.full_name?.charAt(0) || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium">{member.user?.full_name}</p>
+                          <p className="text-xs text-gray-600">{member.user?.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant="outline" className="text-xs">
+                          {member.role}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          {member.user?.role}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant="outline" className="flex items-center space-x-1">
-                        {getRoleIcon(member.role)}
-                        <span>{member.role}</span>
-                      </Badge>
-                      <Badge variant="secondary">{member.user?.role}</Badge>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </ScrollArea>
+
+              {/* Add User Section */}
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-medium mb-2">Add New Member</h3>
+                <div className="flex space-x-2">
+                  <Select value={selectedUserToAdd} onValueChange={setSelectedUserToAdd}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select user to add" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableUsers.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.full_name} ({user.role})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    onClick={addUserToChannel} 
+                    disabled={!selectedUserToAdd}
+                    size="sm"
+                  >
+                    Add
+                  </Button>
+                </div>
+              </div>
+
+              {/* Remove User Section */}
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-medium mb-2">Remove Member</h3>
+                <div className="flex space-x-2">
+                  <Select value={selectedUserToRemove} onValueChange={setSelectedUserToRemove}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select user to remove" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {channelMembers
+                        .filter(member => member.role !== 'owner')
+                        .map((member) => (
+                          <SelectItem key={member.id} value={member.user_id}>
+                            {member.user?.full_name} ({member.role})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    onClick={removeUserFromChannel} 
+                    disabled={!selectedUserToRemove}
+                    variant="destructive"
+                    size="sm"
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
 
