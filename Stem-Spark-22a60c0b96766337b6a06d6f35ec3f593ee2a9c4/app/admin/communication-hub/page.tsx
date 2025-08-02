@@ -762,12 +762,12 @@ export default function AdminCommunicationHub() {
             }
             
             accessibleChannels.push({
-              id: channel.id,
+                              id: channel?.id || '',
               name: channel?.name || 'Unknown Channel',
                               description: channel?.description || 'No description',
               type: channel.type || 'general',
-              created_by: channel.created_by,
-              created_at: channel.created_at,
+                              created_by: channel?.created_by || '',
+                              created_at: channel?.created_at || new Date().toISOString(),
               member_count: count || 0
             } as Channel)
           }
@@ -1231,7 +1231,7 @@ export default function AdminCommunicationHub() {
       return false
     }
     // Only channel creator can manage non-General channels
-    return user && channel.created_by === user.id
+    return user && channel?.created_by === user.id
   }
 
   const canDeleteChannel = (channel: Channel) => {
@@ -1240,7 +1240,7 @@ export default function AdminCommunicationHub() {
       return false
     }
     // Only channel creator can delete non-General channels
-    return user && channel.created_by === user.id
+    return user && channel?.created_by === user.id
   }
 
   const canSendMessage = (channel: Channel) => {
