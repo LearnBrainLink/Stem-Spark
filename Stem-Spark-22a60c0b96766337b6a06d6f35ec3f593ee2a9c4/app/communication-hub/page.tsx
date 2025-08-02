@@ -693,17 +693,17 @@ export default function CommunicationHub() {
           let shouldShow = false
           
           // Check if user should see this channel based on role
-          if (channel.name === 'General') {
+          if (channel?.name === 'General') {
             shouldShow = true // Everyone can see General
-          } else if (channel.name === 'Student Lounge' && currentUser.role === 'student') {
+          } else if (channel?.name === 'Student Lounge' && currentUser.role === 'student') {
             shouldShow = true
-          } else if (channel.name === 'Announcements') {
+          } else if (channel?.name === 'Announcements') {
             shouldShow = true // Everyone can see Announcements, but only admins can message
-          } else if (channel.name === 'Admin Hub' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
+          } else if (channel?.name === 'Admin Hub' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
             shouldShow = true
-          } else if (channel.name === 'Parent-Teacher' && (currentUser.role === 'parent' || currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
+          } else if (channel?.name === 'Parent-Teacher' && (currentUser.role === 'parent' || currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
             shouldShow = true
-          } else if (channel.name === 'Test Management Channel' || channel.name === 'general' || channel.name === 'announcements' || channel.name === 'admin-only' || channel.name === 'parent-teacher') {
+          } else if (channel?.name === 'Test Management Channel' || channel?.name === 'general' || channel?.name === 'announcements' || channel?.name === 'admin-only' || channel?.name === 'parent-teacher') {
             // Show legacy channels to admins
             if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
               shouldShow = true
@@ -1947,7 +1947,7 @@ export default function CommunicationHub() {
                   <SelectContent>
                     {channels.map((channel) => (
                       <SelectItem key={channel.id} value={channel.id}>
-                        {channel.name}
+                                                    {channel?.name || 'Unknown Channel'}
                       </SelectItem>
                     ))}
                   </SelectContent>

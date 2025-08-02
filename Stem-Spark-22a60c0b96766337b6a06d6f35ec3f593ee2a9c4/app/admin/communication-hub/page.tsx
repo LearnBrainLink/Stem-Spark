@@ -711,23 +711,23 @@ export default function AdminCommunicationHub() {
           // For admin communication hub, show specific channels to admins
           if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
             // Admins should see: General, Announcements, Admin Hub, Test Management Channel
-            if (channel.name === 'General' || 
-                channel.name === 'Announcements' || 
-                channel.name === 'Admin Hub' || 
-                channel.name === 'Test Management Channel') {
+            if (channel?.name === 'General' || 
+                channel?.name === 'Announcements' || 
+                channel?.name === 'Admin Hub' || 
+                channel?.name === 'Test Management Channel') {
               shouldShow = true
             }
           } else {
             // For non-admin users in admin hub, show based on role
-            if (channel.name === 'General') {
+            if (channel?.name === 'General') {
               shouldShow = true // Everyone can see General
-            } else if (channel.name === 'Student Lounge' && currentUser.role === 'student') {
+            } else if (channel?.name === 'Student Lounge' && currentUser.role === 'student') {
               shouldShow = true
-            } else if (channel.name === 'Announcements' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
+            } else if (channel?.name === 'Announcements' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
               shouldShow = true
-            } else if (channel.name === 'Admin Hub' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
+            } else if (channel?.name === 'Admin Hub' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
               shouldShow = true
-            } else if (channel.name === 'Test Management Channel' || channel.name === 'general' || channel.name === 'announcements' || channel.name === 'admin-only') {
+            } else if (channel?.name === 'Test Management Channel' || channel?.name === 'general' || channel?.name === 'announcements' || channel?.name === 'admin-only') {
               // Show legacy channels to admins
               if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
                 shouldShow = true
@@ -2258,7 +2258,7 @@ export default function AdminCommunicationHub() {
                 <SelectContent>
                   {channels.map((channel) => (
                     <SelectItem key={channel.id} value={channel.id}>
-                      {channel.name}
+                                                  {channel?.name || 'Unknown Channel'}
                     </SelectItem>
                   ))}
                 </SelectContent>
