@@ -1261,11 +1261,12 @@ export default function CommunicationHub() {
   }
 
   const canManageChannel = (channel: Channel) => {
-    // No one can manage General channels (add/remove members)
-    if (channel?.name === 'General') {
+    // No one can manage default/system channels (add/remove members)
+    const systemChannels = ['General', 'Student Lounge', 'Announcements', 'Admin Hub', 'Parent-Teacher', 'Test Management Channel']
+    if (systemChannels.includes(channel?.name || '')) {
       return false
     }
-    // Only channel creator can manage non-General channels
+    // Only channel creator can manage custom channels
     return user && channel?.created_by === user.id
   }
 

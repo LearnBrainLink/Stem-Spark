@@ -150,6 +150,8 @@ export default function AdminCommunicationHub() {
   
   // File upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [fileCaption, setFileCaption] = useState<string>('')
   const [imageCaption, setImageCaption] = useState<string>('')
@@ -934,6 +936,19 @@ export default function AdminCommunicationHub() {
         ...(replyToMessage && { reply_to_id: replyToMessage.id })
       }
 
+      // Handle image upload
+      if (selectedImage) {
+        const imageUrl = await uploadFile(selectedImage)
+        if (imageUrl) {
+          messageData.file_url = imageUrl
+          messageData.file_name = selectedImage.name
+          messageData.file_size = selectedImage.size
+          messageData.file_type = selectedImage.type
+          messageData.message_type = 'image'
+          messageData.image_caption = imageCaption
+        }
+      }
+
       // Handle file upload
       if (selectedFile) {
         const fileUrl = await uploadFile(selectedFile)
@@ -972,8 +987,10 @@ export default function AdminCommunicationHub() {
           : msg
       ))
 
-      // Clear selected file and captions after successful send
+      // Clear selected files and captions after successful send
       setSelectedFile(null)
+      setSelectedImage(null)
+      setImagePreview(null)
       setImageCaption('')
       setFileCaption('')
 
@@ -1242,20 +1259,22 @@ export default function AdminCommunicationHub() {
   }
 
   const canManageChannel = (channel: Channel) => {
-    // No one can manage General channels (add/remove members)
-    if (channel?.name === 'General') {
+    // No one can manage default/system channels (add/remove members)
+    const systemChannels = ['General', 'Student Lounge', 'Announcements', 'Admin Hub', 'Parent-Teacher', 'Test Management Channel']
+    if (systemChannels.includes(channel?.name || '')) {
       return false
     }
-    // Only channel creator can manage non-General channels
+    // Only channel creator can manage custom channels
     return user && channel?.created_by === user.id
   }
 
   const canDeleteChannel = (channel: Channel) => {
-    // No one can delete General channels
-    if (channel?.name === 'General') {
+    // No one can delete default/system channels
+    const systemChannels = ['General', 'Student Lounge', 'Announcements', 'Admin Hub', 'Parent-Teacher', 'Test Management Channel']
+    if (systemChannels.includes(channel?.name || '')) {
       return false
     }
-    // Only channel creator can delete non-General channels
+    // Only channel creator can delete custom channels
     return user && channel?.created_by === user.id
   }
 
@@ -1564,6 +1583,29 @@ export default function AdminCommunicationHub() {
         return
       }
       setSelectedFile(file)
+    }
+  }
+
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      // Validate file size (10MB limit) 
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image smaller than 10MB",
+          variant: "destructive"
+        })
+        return
+      }
+      setSelectedImage(file)
+      
+      // Create preview
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string)
+      }
+      reader.readAsDataURL(file)
     }
   }
 
@@ -2045,7 +2087,7 @@ export default function AdminCommunicationHub() {
                             type="file"
                             id="image-upload-admin"
                             accept="image/*"
-                            onChange={handleFileSelect}
+                            onChange={handleImageSelect}
                             className="hidden"
                           />
                           
@@ -2070,13 +2112,44 @@ export default function AdminCommunicationHub() {
                         
                       <Button
                         onClick={handleSendMessage}
-                          disabled={(!newMessage.trim() && !selectedFile) || !canSendMessage(selectedChannel) || uploading}
+                          disabled={(!newMessage.trim() && !selectedFile && !selectedImage) || !canSendMessage(selectedChannel) || uploading}
                       >
                         <Send className="w-4 h-4" />
                       </Button>
                     </div>
                     )}
                     
+                    {/* Selected Image Preview */}
+                    {imagePreview && (
+                      <div className="space-y-2 mt-2 p-2 bg-green-50 rounded border">
+                        <div className="relative inline-block">
+                          <img 
+                            src={imagePreview} 
+                            alt="Preview" 
+                            className="max-w-xs max-h-32 rounded border"
+                          />
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="absolute top-1 right-1 h-6 w-6 p-0"
+                            onClick={() => {
+                              setSelectedImage(null)
+                              setImagePreview(null)
+                              setImageCaption('')
+                            }}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                        <Input
+                          value={imageCaption}
+                          onChange={(e) => setImageCaption(e.target.value)}
+                          placeholder="Add a caption for the image..."
+                          className="max-w-xs"
+                        />
+                      </div>
+                    )}
+
                     {/* Selected File Display */}
                     {selectedFile && (
                       <div className="flex items-center space-x-2 mt-2 p-2 bg-blue-50 rounded border">
