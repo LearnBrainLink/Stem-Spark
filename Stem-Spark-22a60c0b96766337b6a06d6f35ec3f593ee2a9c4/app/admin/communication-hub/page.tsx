@@ -1223,8 +1223,22 @@ export default function AdminCommunicationHub() {
     return !!user
   }
 
+  const canManageChannel = (channel: Channel) => {
+    // No one can manage General channels (add/remove members)
+    if (channel.name === 'General') {
+      return false
+    }
+    // Only channel creator can manage non-General channels
+    return user && channel.created_by === user.id
+  }
+
   const canDeleteChannel = (channel: Channel) => {
-    return userRole === 'admin' || userRole === 'super_admin'
+    // No one can delete General channels
+    if (channel.name === 'General') {
+      return false
+    }
+    // Only channel creator can delete non-General channels
+    return user && channel.created_by === user.id
   }
 
   const canSendMessage = (channel: Channel) => {
@@ -2313,60 +2327,76 @@ export default function AdminCommunicationHub() {
               </div>
             </div>
 
-            {/* Add User Section */}
-            <div className="border-t pt-4">
-              <h3 className="text-sm font-medium mb-2">Add New Member</h3>
-              <div className="flex space-x-2">
-                <Select value={selectedUserToAdd} onValueChange={setSelectedUserToAdd}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select user to add" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableUsers.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.full_name} ({user.role})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button 
-                  onClick={addUserToChannel} 
-                  disabled={!selectedUserToAdd}
-                  size="sm"
-                >
-                  Add
-                </Button>
-              </div>
-            </div>
-
-            {/* Remove User Section */}
-            <div className="border-t pt-4">
-              <h3 className="text-sm font-medium mb-2">Remove Member</h3>
-              <div className="flex space-x-2">
-                <Select value={selectedUserToRemove} onValueChange={setSelectedUserToRemove}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select user to remove" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {channelMembers
-                      .filter(member => member.role !== 'owner')
-                      .map((member) => (
-                        <SelectItem key={member.id} value={member.user_id}>
-                          {member.user?.full_name} ({member.role})
+            {/* Add User Section - Only show if user can manage channel */}
+            {canManageChannel(selectedChannel) && (
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-medium mb-2">Add New Member</h3>
+                <div className="flex space-x-2">
+                  <Select value={selectedUserToAdd} onValueChange={setSelectedUserToAdd}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select user to add" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableUsers.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.full_name} ({user.role})
                         </SelectItem>
                       ))}
-                  </SelectContent>
-                </Select>
-                <Button 
-                  onClick={removeUserFromChannel} 
-                  disabled={!selectedUserToRemove}
-                  variant="destructive"
-                  size="sm"
-                >
-                  Remove
-                </Button>
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    onClick={addUserToChannel} 
+                    disabled={!selectedUserToAdd}
+                    size="sm"
+                  >
+                    Add
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Remove User Section - Only show if user can manage channel */}
+            {canManageChannel(selectedChannel) && (
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-medium mb-2">Remove Member</h3>
+                <div className="flex space-x-2">
+                  <Select value={selectedUserToRemove} onValueChange={setSelectedUserToRemove}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select user to remove" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {channelMembers
+                        .filter(member => member.role !== 'owner')
+                        .map((member) => (
+                          <SelectItem key={member.id} value={member.user_id}>
+                            {member.user?.full_name} ({member.role})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    onClick={removeUserFromChannel} 
+                    disabled={!selectedUserToRemove}
+                    variant="destructive"
+                    size="sm"
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Info message for General channels */}
+            {selectedChannel?.name === 'General' && (
+              <div className="border-t pt-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-blue-800">
+                    <strong>General Channel:</strong> Member management is disabled for this channel. 
+                    All users are automatically added to General channels based on their account type.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
