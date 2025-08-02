@@ -77,7 +77,7 @@ interface Channel {
   id: string
   name: string
   description: string
-  channel_type: 'public' | 'private' | 'group' | 'announcement'
+  type: 'general' | 'announcements' | 'parent_teacher' | 'admin_only'
   created_by: string
   created_at: string
   member_count: number
@@ -126,7 +126,7 @@ export default function AdminCommunicationHub() {
   const [newChannelData, setNewChannelData] = useState({
     name: '',
     description: '',
-    channel_type: 'public' as const,
+            type: 'general' as const,
     selectedUsers: [] as string[]
   })
   const [userRole, setUserRole] = useState<string>('')
@@ -763,7 +763,7 @@ export default function AdminCommunicationHub() {
               id: channel.id,
               name: channel.name,
               description: channel.description,
-              channel_type: channel.type || 'general',
+              type: channel.type || 'general',
               created_by: channel.created_by,
               created_at: channel.created_at,
               member_count: count || 0
@@ -1094,7 +1094,7 @@ export default function AdminCommunicationHub() {
         .insert({
           name: newChannelData.name,
           description: newChannelData.description,
-          channel_type: newChannelData.channel_type || 'public',
+          type: newChannelData.type || 'general',
           created_by: user.id
         })
         .select()
@@ -1142,7 +1142,7 @@ export default function AdminCommunicationHub() {
       setNewChannelData({
         name: '',
         description: '',
-        channel_type: 'public',
+        type: 'general',
         selectedUsers: []
       })
       setShowCreateDialog(false)
@@ -1250,7 +1250,7 @@ export default function AdminCommunicationHub() {
     }
     
     // Only admins can send messages in announcements
-    if (channel.channel_type === 'announcement') {
+    if (channel.type === 'announcements') {
       return userRole === 'admin' || userRole === 'super_admin'
     }
     
@@ -1605,7 +1605,7 @@ export default function AdminCommunicationHub() {
   const filteredChannels = channels.filter(channel => {
     const matchesSearch = channel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          channel.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesType = selectedChannelType === 'all' || channel.channel_type === selectedChannelType
+          const matchesType = selectedChannelType === 'all' || channel.type === selectedChannelType
     
     return matchesSearch && matchesType
   })
@@ -1716,8 +1716,8 @@ export default function AdminCommunicationHub() {
                         <div>
                           <Label htmlFor="channel-type">Channel Type</Label>
                           <Select
-                            value={newChannelData.channel_type}
-                            onValueChange={(value: any) => setNewChannelData(prev => ({ ...prev, channel_type: value }))}
+                                            value={newChannelData.type}
+                onValueChange={(value: any) => setNewChannelData(prev => ({ ...prev, type: value }))}
                           >
                             <SelectTrigger>
                               <SelectValue />
@@ -1833,7 +1833,7 @@ export default function AdminCommunicationHub() {
                         <p className="text-sm text-gray-600">{channel.description}</p>
                         <div className="flex items-center space-x-2 mt-1">
                           <Badge variant="outline" className="text-xs">
-                            {channel.channel_type}
+                            {channel.type}
                           </Badge>
                           <div className="flex items-center text-xs text-gray-500">
                             <Users className="w-3 h-3 mr-1" />
@@ -1879,7 +1879,7 @@ export default function AdminCommunicationHub() {
                 >
                   {selectedChannel ? `#${selectedChannel.name}` : 'Messages'}
                 </Button>
-                <Badge variant="outline">{selectedChannel?.channel_type || 'general'}</Badge>
+                                          <Badge variant="outline">{selectedChannel?.type || 'general'}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>

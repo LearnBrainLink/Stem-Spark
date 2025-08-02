@@ -74,7 +74,7 @@ interface Channel {
   id: string
   name: string
   description: string
-  channel_type: 'public' | 'private' | 'group' | 'announcement'
+  type: 'general' | 'announcements' | 'parent_teacher' | 'admin_only'
   created_by: string
   created_at: string
   member_count: number
@@ -137,7 +137,7 @@ export default function CommunicationHub() {
   const [newChannelData, setNewChannelData] = useState({
     name: '',
     description: '',
-    channel_type: 'public' as const,
+            type: 'general' as const,
     selectedUsers: [] as string[]
   })
   const [userRole, setUserRole] = useState<string>('')
@@ -738,7 +738,7 @@ export default function CommunicationHub() {
               id: channel.id,
               name: channel.name,
               description: channel.description,
-              channel_type: channel.type || 'general',
+              type: channel.type || 'general',
               created_by: channel.created_by,
               created_at: channel.created_at,
               member_count: count || 0
@@ -1285,7 +1285,7 @@ export default function CommunicationHub() {
     if (!channel) return false
     
     // Only admins can send messages in announcements
-    if (channel.channel_type === 'announcement') {
+    if (channel.type === 'announcements') {
       return userRole === 'admin' || userRole === 'super_admin'
     }
     
@@ -1513,7 +1513,7 @@ export default function CommunicationHub() {
                           <p className="text-sm text-gray-600 truncate">{channel.description}</p>
                           <div className="flex items-center space-x-2 mt-1">
                             <Badge variant="outline" className="text-xs">
-                              {channel.channel_type}
+                              {channel.type}
                             </Badge>
                             <div className="flex items-center text-xs text-gray-500">
                               <Users className="w-3 h-3 mr-1" />
@@ -1550,7 +1550,7 @@ export default function CommunicationHub() {
                   >
                             #{selectedChannel.name}
                           </Button>
-                          <Badge variant="outline">{selectedChannel.channel_type}</Badge>
+                          <Badge variant="outline">{selectedChannel.type}</Badge>
                 </CardTitle>
                         <div className="flex items-center space-x-2">
                           {/* Member management is now handled through the channel name button */}
