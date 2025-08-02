@@ -1488,7 +1488,16 @@ export default function CommunicationHub() {
               <CardHeader>
                       <div className="flex items-center justify-between">
                         <CardTitle className="flex items-center space-x-2">
-                          <span>#{selectedChannel.name}</span>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 text-lg font-semibold hover:bg-transparent"
+                            onClick={() => {
+                              fetchChannelMembers()
+                              setShowMembersDialog(true)
+                            }}
+                          >
+                            #{selectedChannel.name}
+                          </Button>
                           <Badge variant="outline">{selectedChannel.channel_type}</Badge>
                 </CardTitle>
                         <div className="flex items-center space-x-2">

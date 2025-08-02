@@ -152,6 +152,13 @@ export default function AdminCommunicationHub() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   
+  // Member management state
+  const [showMembersDialog, setShowMembersDialog] = useState(false)
+  const [channelMembers, setChannelMembers] = useState<any[]>([])
+  const [availableUsers, setAvailableUsers] = useState<User[]>([])
+  const [selectedUserToAdd, setSelectedUserToAdd] = useState<string>('')
+  const [selectedUserToRemove, setSelectedUserToRemove] = useState<string>('')
+  
   // Enhanced connection state management
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.CONNECTING)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
@@ -1332,6 +1339,149 @@ export default function AdminCommunicationHub() {
     }
   }
 
+  // Member management functions
+  const fetchChannelMembers = async () => {
+    if (!selectedChannel) return
+
+    try {
+      console.log('Fetching members for channel:', selectedChannel.id)
+      const { data, error } = await supabase
+        .from('channel_members')
+        .select(`
+          *,
+          user:profiles(id, full_name, role, email)
+        `)
+        .eq('channel_id', selectedChannel.id)
+
+      if (error) throw error
+      console.log('Channel members:', data)
+      setChannelMembers(data || [])
+    } catch (error) {
+      console.error('Error fetching channel members:', error)
+    }
+  }
+
+  const fetchAvailableUsers = async () => {
+    if (!selectedChannel) return
+
+    try {
+      // Get current members
+      const { data: currentMembers } = await supabase
+        .from('channel_members')
+        .select('user_id')
+        .eq('channel_id', selectedChannel.id)
+
+      const currentMemberIds = currentMembers?.map(m => m.user_id) || []
+
+      // Get all users not in channel
+      const { data: allUsers, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, role, email')
+        .not('id', 'in', `(${currentMemberIds.join(',')})`)
+
+      if (error) throw error
+      setAvailableUsers(allUsers || [])
+    } catch (error) {
+      console.error('Error fetching available users:', error)
+    }
+  }
+
+  const addUserToChannel = async () => {
+    if (!selectedChannel || !selectedUserToAdd) return
+
+    try {
+      const { error } = await supabase
+        .from('channel_members')
+        .insert([{
+          channel_id: selectedChannel.id,
+          user_id: selectedUserToAdd,
+          role: 'member'
+        }])
+
+      if (error) throw error
+
+      // Get user info for system message
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', selectedUserToAdd)
+        .single()
+
+      // Send system message
+      await supabase
+        .from('messages')
+        .insert([{
+          chat_id: selectedChannel.id,
+          sender_id: user.id,
+          content: `${userData?.full_name || 'User'} has been added to the channel.`,
+          message_type: 'system'
+        }])
+
+      setShowMembersDialog(false)
+      setSelectedUserToAdd('')
+      await fetchChannelMembers()
+
+      toast({
+        title: "Success",
+        description: "User added to channel successfully"
+      })
+    } catch (error) {
+      console.error('Error adding user to channel:', error)
+      toast({
+        title: "Error",
+        description: "Failed to add user to channel",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const removeUserFromChannel = async () => {
+    if (!selectedChannel || !selectedUserToRemove) return
+
+    try {
+      // Get user info before removal
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', selectedUserToRemove)
+        .single()
+
+      const { error } = await supabase
+        .from('channel_members')
+        .delete()
+        .eq('channel_id', selectedChannel.id)
+        .eq('user_id', selectedUserToRemove)
+
+      if (error) throw error
+
+      // Send system message
+      await supabase
+        .from('messages')
+        .insert([{
+          chat_id: selectedChannel.id,
+          sender_id: user.id,
+          content: `${userData?.full_name || 'User'} has been removed from the channel.`,
+          message_type: 'system'
+        }])
+
+      setShowMembersDialog(false)
+      setSelectedUserToRemove('')
+      await fetchChannelMembers()
+
+      toast({
+        title: "Success",
+        description: "User removed from channel successfully"
+      })
+    } catch (error) {
+      console.error('Error removing user from channel:', error)
+      toast({
+        title: "Error",
+        description: "Failed to remove user from channel",
+        variant: "destructive"
+      })
+    }
+  }
+
   // File upload functions
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -1667,7 +1817,19 @@ export default function AdminCommunicationHub() {
         <div className="lg:col-span-3">
           <Card>
             <CardHeader>
-              <CardTitle>Messages</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                <Button
+                  variant="ghost"
+                  className="h-auto p-0 text-lg font-semibold hover:bg-transparent"
+                  onClick={() => {
+                    fetchChannelMembers()
+                    setShowMembersDialog(true)
+                  }}
+                >
+                  {selectedChannel ? `#${selectedChannel.name}` : 'Messages'}
+                </Button>
+                <Badge variant="outline">{selectedChannel?.channel_type || 'general'}</Badge>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {selectedChannel ? (
@@ -2108,6 +2270,101 @@ export default function AdminCommunicationHub() {
               <Button variant="outline" onClick={() => setShowTodoDialog(false)}>
                 Cancel
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Member Management Dialog */}
+      <Dialog open={showMembersDialog} onOpenChange={setShowMembersDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Channel Members</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Current Members */}
+            <div>
+              <h3 className="text-sm font-medium mb-2">Current Members ({channelMembers.length})</h3>
+              <div className="max-h-60 overflow-y-auto space-y-2">
+                {channelMembers.map((member) => (
+                  <div key={member.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                    <div className="flex items-center space-x-2">
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback>
+                          {member.user?.full_name?.charAt(0) || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-medium">{member.user?.full_name}</p>
+                        <p className="text-xs text-gray-500">{member.user?.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="outline" className="text-xs">
+                        {member.role}
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {member.user?.role}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Add User Section */}
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-medium mb-2">Add New Member</h3>
+              <div className="flex space-x-2">
+                <Select value={selectedUserToAdd} onValueChange={setSelectedUserToAdd}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select user to add" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableUsers.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.full_name} ({user.role})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button 
+                  onClick={addUserToChannel} 
+                  disabled={!selectedUserToAdd}
+                  size="sm"
+                >
+                  Add
+                </Button>
+              </div>
+            </div>
+
+            {/* Remove User Section */}
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-medium mb-2">Remove Member</h3>
+              <div className="flex space-x-2">
+                <Select value={selectedUserToRemove} onValueChange={setSelectedUserToRemove}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select user to remove" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {channelMembers
+                      .filter(member => member.role !== 'owner')
+                      .map((member) => (
+                        <SelectItem key={member.id} value={member.user_id}>
+                          {member.user?.full_name} ({member.role})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Button 
+                  onClick={removeUserFromChannel} 
+                  disabled={!selectedUserToRemove}
+                  variant="destructive"
+                  size="sm"
+                >
+                  Remove
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
