@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { toast } from '@/hooks/use-toast'
 import { 
   Hash, 
   Users, 
@@ -1078,25 +1079,61 @@ export default function CommunicationHub() {
     try {
       console.log('Fetching members for channel:', selectedChannel.id)
       
-      const { data, error } = await supabase
+      // First, get channel members
+      const { data: membersData, error: membersError } = await supabase
         .from('channel_members')
-        .select(`
-          id,
-          channel_id,
-          user_id,
-          role,
-          joined_at,
-          user:profiles!inner(id, full_name, role, email)
-        `)
+        .select('id, channel_id, user_id, role, joined_at')
         .eq('channel_id', selectedChannel.id)
 
-      if (error) {
-        console.error('Supabase error:', error)
-        throw error
+      if (membersError) {
+        console.error('Supabase error:', membersError)
+        throw membersError
       }
-      
-      console.log('Fetched members:', data)
-      setChannelMembers(data || [])
+
+      if (!membersData || membersData.length === 0) {
+        setChannelMembers([])
+        return
+      }
+
+      // Get user IDs
+      const userIds = membersData.map(member => member.user_id)
+
+      // Fetch user profiles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, role, email')
+        .in('id', userIds)
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError)
+        throw profilesError
+      }
+
+      // Combine the data
+      const combinedMembers: ChannelMember[] = membersData.map(member => {
+        const userProfile = profilesData?.find(profile => profile.id === member.user_id)
+        return {
+          id: member.id as string,
+          channel_id: member.channel_id as string,
+          user_id: member.user_id as string,
+          role: member.role as 'owner' | 'admin' | 'member',
+          joined_at: member.joined_at as string,
+          user: userProfile ? {
+            id: userProfile.id as string,
+            full_name: userProfile.full_name as string,
+            role: userProfile.role as string,
+            email: userProfile.email as string
+          } : {
+            id: member.user_id as string,
+            full_name: 'Unknown User',
+            role: 'unknown',
+            email: ''
+          }
+        }
+      })
+
+      console.log('Fetched members:', combinedMembers)
+      setChannelMembers(combinedMembers)
     } catch (error) {
       console.error('Error fetching channel members:', error)
       toast({
