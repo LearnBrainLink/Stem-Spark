@@ -200,15 +200,17 @@ export default function AdminCommunicationHub() {
     cleanup()
     
     // Load messages and setup new connection
-    loadMessages(selectedChannel.id)
-    setupRealtimeSubscription(selectedChannel.id)
-    loadTodoItems()
-    
-    // Update URL for persistence
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href)
-      url.searchParams.set('channel', selectedChannel.id)
-      window.history.replaceState({ path: url.href }, '', url.href)
+    if (selectedChannel) {
+      loadMessages(selectedChannel.id)
+      setupRealtimeSubscription(selectedChannel.id)
+      loadTodoItems()
+      
+      // Update URL for persistence
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href)
+        url.searchParams.set('channel', selectedChannel.id)
+        window.history.replaceState({ path: url.href }, '', url.href)
+      }
     }
   }, [selectedChannel?.id, user?.id])
 

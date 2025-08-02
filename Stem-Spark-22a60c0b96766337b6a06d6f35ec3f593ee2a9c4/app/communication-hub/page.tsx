@@ -206,15 +206,17 @@ export default function CommunicationHub() {
     cleanup()
     
     // Load messages and setup new connection
-    loadMessages(selectedChannel.id)
-    setupRealtimeSubscription(selectedChannel.id)
-    loadTodoItems()
-    
-    // Update URL for persistence
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href)
-      url.searchParams.set('channel', selectedChannel.id)
-      window.history.replaceState({ path: url.href }, '', url.href)
+    if (selectedChannel) {
+      loadMessages(selectedChannel.id)
+      setupRealtimeSubscription(selectedChannel.id)
+      loadTodoItems()
+      
+      // Update URL for persistence
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href)
+        url.searchParams.set('channel', selectedChannel.id)
+        window.history.replaceState({ path: url.href }, '', url.href)
+      }
     }
   }, [selectedChannel?.id, user?.id])
 
@@ -1548,7 +1550,7 @@ export default function CommunicationHub() {
                       setShowMembersDialog(true)
                     }}
                   >
-                            #{selectedChannel.name}
+                            {selectedChannel ? `#${selectedChannel.name}` : 'Messages'}
                           </Button>
                           <Badge variant="outline">{selectedChannel.type}</Badge>
                 </CardTitle>
