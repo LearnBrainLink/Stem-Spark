@@ -1899,15 +1899,15 @@ export default function AdminCommunicationHub() {
                               isOwn ? 'bg-green-500' : isAdmin ? 'bg-purple-500' : 'bg-blue-500'
                             }`}>
                               {isAdmin && <Crown className="w-4 h-4" />}
-                              {!isAdmin && message.sender_name.charAt(0).toUpperCase()}
+                                                              {!isAdmin && (message.sender_name?.charAt(0) || 'U').toUpperCase()}
                             </div>
                           </div>
                           <div className={`flex-1 ${isOwn ? 'text-right' : ''}`}>
                             <div className={`flex items-center space-x-2 ${isOwn ? 'justify-end' : ''}`}>
-                              <span className="text-sm font-medium text-gray-900">
-                                {message.sender_name}
-                                {isAdmin && <Crown className="w-3 h-3 ml-1 text-purple-500" />}
-                              </span>
+                                                              <span className="text-sm font-medium text-gray-900">
+                                  {message.sender_name || 'Unknown User'}
+                                  {isAdmin && <Crown className="w-3 h-3 ml-1 text-purple-500" />}
+                                </span>
                               <span className="text-xs text-gray-500">
                                 {new Date(message.created_at).toLocaleString()}
                               </span>

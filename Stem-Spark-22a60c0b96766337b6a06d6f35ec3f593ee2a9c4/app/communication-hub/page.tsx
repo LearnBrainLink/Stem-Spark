@@ -1552,7 +1552,7 @@ export default function CommunicationHub() {
                   >
                             {selectedChannel ? `#${selectedChannel.name}` : 'Messages'}
                           </Button>
-                          <Badge variant="outline">{selectedChannel.type}</Badge>
+                          <Badge variant="outline">{selectedChannel?.type || 'general'}</Badge>
                 </CardTitle>
                         <div className="flex items-center space-x-2">
                           {/* Member management is now handled through the channel name button */}
@@ -1572,13 +1572,13 @@ export default function CommunicationHub() {
                           <div key={message.id} className={`flex space-x-3 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
                                   <Avatar className="w-8 h-8">
                                     <AvatarFallback className={isOwn ? 'bg-green-500 text-white' : isAdmin ? 'bg-purple-500 text-white' : 'bg-blue-500 text-white'}>
-                                {isAdmin ? <Crown className="w-4 h-4" /> : message.sender_name.charAt(0).toUpperCase()}
+                                {isAdmin ? <Crown className="w-4 h-4" /> : (message.sender_name?.charAt(0) || 'U').toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
                             <div className={`flex-1 ${isOwn ? 'text-right' : ''}`}>
                               <div className={`flex items-center space-x-2 ${isOwn ? 'justify-end' : ''}`}>
                                 <span className="text-sm font-medium text-gray-900">
-                                  {message.sender_name}
+                                  {message.sender_name || 'Unknown User'}
                                   {isAdmin && <Crown className="w-3 h-3 ml-1 text-purple-500" />}
                                 </span>
                                 <span className="text-xs text-gray-500">
