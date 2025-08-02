@@ -1831,11 +1831,11 @@ export default function AdminCommunicationHub() {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <h4 className="font-medium text-gray-900">#{channel.name}</h4>
-                        <p className="text-sm text-gray-600">{channel.description}</p>
+                                                  <h4 className="font-medium text-gray-900">#{channel?.name || 'Unknown Channel'}</h4>
+                                                  <p className="text-sm text-gray-600">{channel?.description || 'No description'}</p>
                         <div className="flex items-center space-x-2 mt-1">
                           <Badge variant="outline" className="text-xs">
-                            {channel.type}
+                            {channel?.type || 'general'}
                           </Badge>
                           <div className="flex items-center text-xs text-gray-500">
                             <Users className="w-3 h-3 mr-1" />

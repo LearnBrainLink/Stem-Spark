@@ -1511,15 +1511,15 @@ export default function CommunicationHub() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">#{channel.name}</h4>
-                          <p className="text-sm text-gray-600 truncate">{channel.description}</p>
+                          <h4 className="font-medium text-gray-900">#{channel?.name || 'Unknown Channel'}</h4>
+                          <p className="text-sm text-gray-600 truncate">{channel?.description || 'No description'}</p>
                           <div className="flex items-center space-x-2 mt-1">
                             <Badge variant="outline" className="text-xs">
-                              {channel.type}
+                              {channel?.type || 'general'}
                             </Badge>
                             <div className="flex items-center text-xs text-gray-500">
                               <Users className="w-3 h-3 mr-1" />
-                              {channel.member_count}
+                              {channel?.member_count || 0}
                             </div>
                           </div>
                         </div>
