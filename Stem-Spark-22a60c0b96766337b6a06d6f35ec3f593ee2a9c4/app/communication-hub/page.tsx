@@ -207,15 +207,15 @@ export default function CommunicationHub() {
     
     // Load messages and setup new connection
     if (selectedChannel) {
-      loadMessages(selectedChannel.id)
-      setupRealtimeSubscription(selectedChannel.id)
+    loadMessages(selectedChannel.id)
+    setupRealtimeSubscription(selectedChannel.id)
       loadTodoItems()
-      
-      // Update URL for persistence
-      if (typeof window !== 'undefined') {
-        const url = new URL(window.location.href)
-        url.searchParams.set('channel', selectedChannel.id)
-        window.history.replaceState({ path: url.href }, '', url.href)
+    
+    // Update URL for persistence
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.set('channel', selectedChannel.id)
+      window.history.replaceState({ path: url.href }, '', url.href)
       }
     }
   }, [selectedChannel?.id, user?.id])
@@ -455,7 +455,7 @@ export default function CommunicationHub() {
     messageQueueRef.current = []
   }, [stopHeartbeat])
 
-    const initializeComponent = async () => {
+  const initializeComponent = async () => {
     try {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
       
@@ -1303,7 +1303,7 @@ export default function CommunicationHub() {
     
     // Admins can send messages everywhere
     if (userRole === 'admin' || userRole === 'super_admin') {
-      return true
+    return true
     }
     
     // Interns can send messages in General channels
@@ -1550,7 +1550,7 @@ export default function CommunicationHub() {
                       setShowMembersDialog(true)
                     }}
                   >
-                            {selectedChannel ? `#${selectedChannel.name}` : 'Messages'}
+                  {selectedChannel ? `#${selectedChannel.name}` : 'Messages'}
                           </Button>
                           <Badge variant="outline">{selectedChannel?.type || 'general'}</Badge>
                 </CardTitle>

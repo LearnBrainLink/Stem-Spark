@@ -201,15 +201,15 @@ export default function AdminCommunicationHub() {
     
     // Load messages and setup new connection
     if (selectedChannel) {
-      loadMessages(selectedChannel.id)
-      setupRealtimeSubscription(selectedChannel.id)
+    loadMessages(selectedChannel.id)
+    setupRealtimeSubscription(selectedChannel.id)
       loadTodoItems()
-      
-      // Update URL for persistence
-      if (typeof window !== 'undefined') {
-        const url = new URL(window.location.href)
-        url.searchParams.set('channel', selectedChannel.id)
-        window.history.replaceState({ path: url.href }, '', url.href)
+    
+    // Update URL for persistence
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.set('channel', selectedChannel.id)
+      window.history.replaceState({ path: url.href }, '', url.href)
       }
     }
   }, [selectedChannel?.id, user?.id])
@@ -699,7 +699,7 @@ export default function AdminCommunicationHub() {
         console.error('Error loading channels:', channelError)
         throw channelError
       }
-
+      
       console.log('All channels for admin:', allChannels)
 
       if (allChannels) {
@@ -1258,17 +1258,17 @@ export default function AdminCommunicationHub() {
     
     // Students can only send messages in General and Student Lounge
     if (userRole === 'student') {
-      return channel.name === 'General' || channel.name === 'Student Lounge'
+      return channel?.name === 'General' || channel?.name === 'Student Lounge'
     }
     
     // Parents can send messages in General and Parent-Teacher
     if (userRole === 'parent') {
-      return channel.name === 'General' || channel.name === 'Parent-Teacher'
+      return channel?.name === 'General' || channel?.name === 'Parent-Teacher'
     }
     
     // Interns can send messages in General channels
     if (userRole === 'intern') {
-      return channel.name === 'General'
+      return channel?.name === 'General'
     }
     
     return false
@@ -1605,8 +1605,8 @@ export default function AdminCommunicationHub() {
   }
 
   const filteredChannels = channels.filter(channel => {
-    const matchesSearch = channel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         channel.description.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = (channel?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (channel?.description || '').toLowerCase().includes(searchTerm.toLowerCase())
           const matchesType = selectedChannelType === 'all' || channel.type === selectedChannelType
     
     return matchesSearch && matchesType
@@ -1904,10 +1904,10 @@ export default function AdminCommunicationHub() {
                           </div>
                           <div className={`flex-1 ${isOwn ? 'text-right' : ''}`}>
                             <div className={`flex items-center space-x-2 ${isOwn ? 'justify-end' : ''}`}>
-                                                              <span className="text-sm font-medium text-gray-900">
+                              <span className="text-sm font-medium text-gray-900">
                                   {message.sender_name || 'Unknown User'}
-                                  {isAdmin && <Crown className="w-3 h-3 ml-1 text-purple-500" />}
-                                </span>
+                                {isAdmin && <Crown className="w-3 h-3 ml-1 text-purple-500" />}
+                              </span>
                               <span className="text-xs text-gray-500">
                                 {new Date(message.created_at).toLocaleString()}
                               </span>
@@ -2003,17 +2003,17 @@ export default function AdminCommunicationHub() {
                     {canSendMessage(selectedChannel) && (
                       <div className="flex space-x-2">
                         <div className="flex-1 flex space-x-2">
-                          <Input
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            placeholder="Type a message..."
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault()
-                                handleSendMessage()
-                              }
-                            }}
-                            disabled={!canSendMessage(selectedChannel)}
+                      <Input
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Type a message..."
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            handleSendMessage()
+                          }
+                        }}
+                        disabled={!canSendMessage(selectedChannel)}
                             className="flex-1"
                           />
                           
@@ -2052,13 +2052,13 @@ export default function AdminCommunicationHub() {
                           </Button>
                         </div>
                         
-                        <Button
-                          onClick={handleSendMessage}
+                      <Button
+                        onClick={handleSendMessage}
                           disabled={(!newMessage.trim() && !selectedFile) || !canSendMessage(selectedChannel) || uploading}
-                        >
-                          <Send className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      >
+                        <Send className="w-4 h-4" />
+                      </Button>
+                    </div>
                     )}
                     
                     {/* Selected File Display */}
