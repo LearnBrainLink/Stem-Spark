@@ -763,8 +763,8 @@ export default function AdminCommunicationHub() {
             
             accessibleChannels.push({
               id: channel.id,
-              name: channel.name,
-              description: channel.description,
+              name: channel?.name || 'Unknown Channel',
+                              description: channel?.description || 'No description',
               type: channel.type || 'general',
               created_by: channel.created_by,
               created_at: channel.created_at,
@@ -1227,7 +1227,7 @@ export default function AdminCommunicationHub() {
 
   const canManageChannel = (channel: Channel) => {
     // No one can manage General channels (add/remove members)
-    if (channel.name === 'General') {
+    if (channel?.name === 'General') {
       return false
     }
     // Only channel creator can manage non-General channels
@@ -1236,7 +1236,7 @@ export default function AdminCommunicationHub() {
 
   const canDeleteChannel = (channel: Channel) => {
     // No one can delete General channels
-    if (channel.name === 'General') {
+    if (channel?.name === 'General') {
       return false
     }
     // Only channel creator can delete non-General channels

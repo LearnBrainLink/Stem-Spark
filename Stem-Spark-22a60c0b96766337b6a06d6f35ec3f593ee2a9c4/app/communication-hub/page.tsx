@@ -738,8 +738,8 @@ export default function CommunicationHub() {
             
             accessibleChannels.push({
               id: channel.id,
-              name: channel.name,
-              description: channel.description,
+              name: channel?.name || 'Unknown Channel',
+                              description: channel?.description || 'No description',
               type: channel.type || 'general',
               created_by: channel.created_by,
               created_at: channel.created_at,
@@ -1251,7 +1251,7 @@ export default function CommunicationHub() {
 
   const canManageChannel = (channel: Channel) => {
     // No one can manage General channels (add/remove members)
-    if (channel.name === 'General') {
+    if (channel?.name === 'General') {
       return false
     }
     // Only channel creator can manage non-General channels
@@ -1276,7 +1276,7 @@ export default function CommunicationHub() {
 
   const canDeleteChannel = (channel: Channel) => {
     // No one can delete General channels
-    if (channel.name === 'General') {
+    if (channel?.name === 'General') {
       return false
     }
     // Only channel creator can delete non-General channels
@@ -1293,12 +1293,12 @@ export default function CommunicationHub() {
     
     // Students can only send messages in General and Student Lounge
     if (userRole === 'student') {
-      return channel.name === 'General' || channel.name === 'Student Lounge'
+      return channel?.name === 'General' || channel?.name === 'Student Lounge'
     }
     
     // Parents can send messages in General and Parent-Teacher
     if (userRole === 'parent') {
-      return channel.name === 'General' || channel.name === 'Parent-Teacher'
+      return channel?.name === 'General' || channel?.name === 'Parent-Teacher'
     }
     
     // Admins can send messages everywhere
@@ -1308,7 +1308,7 @@ export default function CommunicationHub() {
     
     // Interns can send messages in General channels
     if (userRole === 'intern') {
-      return channel.name === 'General'
+      return channel?.name === 'General'
     }
     
     return false
