@@ -136,7 +136,7 @@ export default function StudentDashboard() {
 
       // Load chat messages
       const { data: chatMessages, error: messagesError } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(5)
@@ -187,7 +187,7 @@ export default function StudentDashboard() {
     try {
       // Get all messages not sent by current user
       const { data: allMessages, error: messagesError } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .select('id')
         .neq('sender_id', userId)
 

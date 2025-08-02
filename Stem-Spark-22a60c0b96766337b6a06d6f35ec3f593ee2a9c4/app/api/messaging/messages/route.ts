@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
       file_url,
       image_url,
       image_caption,
+      file_caption,
       file_name,
       file_size,
       file_type,
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
     // Get user profile to check permissions
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, is_super_admin')
+      .select('role, is_super_admin, full_name')
       .eq('id', user.id)
       .single()
 
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
     const messageData: any = {
       content,
       sender_id: user.id,
+      sender_name: profile.full_name || 'Unknown User',
       chat_id: channel_id,
       message_type
     }
@@ -84,6 +86,7 @@ export async function POST(request: NextRequest) {
     if (file_url) messageData.file_url = file_url
     if (image_url) messageData.image_url = image_url
     if (image_caption) messageData.image_caption = image_caption
+    if (file_caption) messageData.file_caption = file_caption
     if (file_name) messageData.file_name = file_name
     if (file_size) messageData.file_size = file_size
     if (file_type) messageData.file_type = file_type

@@ -151,6 +151,8 @@ export default function AdminCommunicationHub() {
   // File upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [fileCaption, setFileCaption] = useState<string>('')
+  const [imageCaption, setImageCaption] = useState<string>('')
   
   // Member management state
   const [showMembersDialog, setShowMembersDialog] = useState(false)
@@ -934,6 +936,11 @@ export default function AdminCommunicationHub() {
           messageData.file_size = selectedFile.size
           messageData.file_type = selectedFile.type
           messageData.message_type = selectedFile.type.startsWith('image/') ? 'image' : 'file'
+          if (selectedFile.type.startsWith('image/')) {
+            messageData.image_caption = imageCaption
+          } else {
+            messageData.file_caption = fileCaption
+          }
         } else {
           // Remove optimistic update on upload failure
           setMessages(prev => prev.filter(msg => msg.id !== tempId))
@@ -958,8 +965,10 @@ export default function AdminCommunicationHub() {
           : msg
       ))
 
-      // Clear selected file after successful send
+      // Clear selected file and captions after successful send
       setSelectedFile(null)
+      setImageCaption('')
+      setFileCaption('')
 
     } catch (error) {
       console.error('Error sending message:', error)

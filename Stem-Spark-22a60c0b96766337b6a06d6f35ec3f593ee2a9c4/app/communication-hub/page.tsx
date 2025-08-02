@@ -866,7 +866,11 @@ export default function CommunicationHub() {
           messageData.file_size = selectedFile.size
           messageData.file_type = selectedFile.type
           messageData.message_type = selectedFile.type.startsWith('image/') ? 'image' : 'file'
-          messageData.image_caption = fileCaption
+          if (selectedFile.type.startsWith('image/')) {
+            messageData.image_caption = fileCaption
+          } else {
+            messageData.file_caption = fileCaption
+          }
         }
       }
 
