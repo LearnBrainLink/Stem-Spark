@@ -1359,19 +1359,55 @@ export default function AdminCommunicationHub() {
 
     try {
       console.log('Fetching members for channel:', selectedChannel.id)
-      const { data, error } = await supabase
+      
+      // First, get channel members
+      const { data: membersData, error: membersError } = await supabase
         .from('channel_members')
-        .select(`
-          *,
-          user:profiles(id, full_name, role, email)
-        `)
+        .select('id, channel_id, user_id, role, joined_at')
         .eq('channel_id', selectedChannel.id)
 
-      if (error) throw error
-      console.log('Channel members:', data)
-      setChannelMembers(data || [])
+      if (membersError) {
+        console.error('Supabase error:', membersError)
+        throw membersError
+      }
+
+      if (!membersData || membersData.length === 0) {
+        setChannelMembers([])
+        return
+      }
+
+      // Get user IDs
+      const userIds = membersData.map(member => member.user_id)
+
+      // Fetch user profiles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, role, email')
+        .in('id', userIds)
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError)
+        throw profilesError
+      }
+
+      // Combine the data
+      const combinedMembers = membersData.map(member => {
+        const userProfile = profilesData?.find(profile => profile.id === member.user_id)
+        return {
+          ...member,
+          user: userProfile || { id: member.user_id, full_name: 'Unknown User', role: 'unknown', email: '' }
+        }
+      })
+
+      console.log('Fetched members:', combinedMembers)
+      setChannelMembers(combinedMembers)
     } catch (error) {
       console.error('Error fetching channel members:', error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch channel members",
+        variant: "destructive"
+      })
     }
   }
 
