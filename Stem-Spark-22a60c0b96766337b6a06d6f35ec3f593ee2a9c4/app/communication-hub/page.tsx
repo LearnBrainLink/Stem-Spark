@@ -521,14 +521,14 @@ export default function CommunicationHub() {
           description: 'General discussion for all members',
           type: 'general',
           roles: ['student', 'admin', 'super_admin', 'parent', 'teacher', 'intern'],
-          accountTypes: ['student', 'admin', 'parent', 'intern']
+          accountTypes: ['student', 'admin', 'parent', 'intern'] // Everyone should be in General
         },
         {
           name: 'Announcements',
           description: 'Important announcements from administrators',
           type: 'announcements',
           roles: ['admin', 'super_admin'],
-          accountTypes: ['admin']
+          accountTypes: ['student', 'admin', 'parent', 'intern'] // Everyone should see announcements
         },
         {
           name: 'Student Lounge',
@@ -548,6 +548,13 @@ export default function CommunicationHub() {
           name: 'Admin Hub',
           description: 'Administrative discussions',
           type: 'admin_only',
+          roles: ['admin', 'super_admin'],
+          accountTypes: ['admin']
+        },
+        {
+          name: 'Test Management Channel',
+          description: 'Testing and management channel for administrators',
+          type: 'general',
           roles: ['admin', 'super_admin'],
           accountTypes: ['admin']
         }
