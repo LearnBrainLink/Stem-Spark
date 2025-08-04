@@ -74,7 +74,7 @@ interface Channel {
   id: string
   name: string
   description: string
-  type: 'general' | 'announcements' | 'parent_teacher' | 'admin_only'
+  type: 'general' | 'announcements' | 'parent_teacher' | 'admin_only' | 'group' | 'individual'
   created_by: string
   created_at: string
   member_count: number
@@ -699,17 +699,27 @@ export default function AdminCommunicationHub() {
         for (const channel of allChannels) {
           let shouldShow = false
           
-          // Check if user should see this channel based on role
-          if (channel?.name === 'General') {
+          // Check if user should see this channel based on role and type
+          if (channel?.type === 'general' || channel?.name === 'General') {
             shouldShow = true // Everyone can see General
-          } else if (channel?.name === 'Student Lounge' && currentUser.role === 'student') {
-            shouldShow = true
-          } else if (channel?.name === 'Announcements') {
-            shouldShow = true // Everyone can see Announcements, but only admins can message
-          } else if (channel?.name === 'Admin Hub' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
-            shouldShow = true
-          } else if (channel?.name === 'Parent-Teacher' && currentUser.role === 'parent') {
-            shouldShow = true
+          } else if (channel?.type === 'announcements' || channel?.name === 'Announcements') {
+            shouldShow = true // Everyone can see Announcements
+          } else if (channel?.type === 'student_lounge' || channel?.name === 'Student Lounge') {
+            if (currentUser.role === 'student') {
+              shouldShow = true
+            }
+          } else if (channel?.type === 'admin_only' || channel?.name === 'Admin Hub') {
+            if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
+              shouldShow = true
+            }
+          } else if (channel?.type === 'parent_teacher' || channel?.name === 'Parent-Teacher') {
+            if (currentUser.role === 'parent' || currentUser.role === 'teacher') {
+              shouldShow = true
+            }
+          } else if (channel?.type === 'group') {
+            shouldShow = true // Group channels accessible to all
+          } else if (channel?.type === 'individual') {
+            shouldShow = true // Individual channels accessible to all
           } else if (channel?.name === 'Test Management Channel' || channel?.name === 'general' || channel?.name === 'announcements' || channel?.name === 'admin-only' || channel?.name === 'parent-teacher') {
             // Show legacy channels to admins
             if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
@@ -1548,14 +1558,22 @@ export default function AdminCommunicationHub() {
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Admin Communication Hub</h1>
-              <div className="flex items-center space-x-4 mt-1">
-                <p className="text-gray-600">Manage messaging channels and communications</p>
-                {ConnectionStatusIndicator}
+                      <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Admin Communication Hub</h1>
+                <div className="flex items-center space-x-4 mt-1">
+                  <p className="text-gray-600">Manage messaging channels and communications</p>
+                  {ConnectionStatusIndicator}
+                </div>
               </div>
-            </div>
+              <div className="flex items-center space-x-2">
+                <Link href="/individual-conversations">
+                  <Button variant="outline">
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Individual Conversations
+                  </Button>
+                </Link>
+              </div>
             <Link href={getDashboardUrl()}>
               <Button variant="outline">
                 <ChevronRight className="w-4 h-4 mr-2" />
@@ -2271,7 +2289,7 @@ export default function AdminCommunicationHub() {
               </div>
               <div>
                 <Label>Channel Type</Label>
-                <Select value={newChannelData.type} onValueChange={(value: 'general' | 'announcements' | 'parent_teacher' | 'admin_only') => setNewChannelData({...newChannelData, type: value})}>
+                <Select value={newChannelData.type} onValueChange={(value: 'general' | 'announcements' | 'parent_teacher' | 'admin_only' | 'group' | 'individual') => setNewChannelData({...newChannelData, type: value})}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -2280,6 +2298,8 @@ export default function AdminCommunicationHub() {
                     <SelectItem value="announcements">Announcements</SelectItem>
                     <SelectItem value="parent_teacher">Parent-Teacher</SelectItem>
                     <SelectItem value="admin_only">Admin Only</SelectItem>
+                    <SelectItem value="group">Group</SelectItem>
+                    <SelectItem value="individual">Individual</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
