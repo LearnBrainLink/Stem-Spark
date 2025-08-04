@@ -2,52 +2,49 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase/client'
-import { toast } from '@/hooks/use-toast'
-import Link from 'next/link'
-import Image from 'next/image'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { toast } from '@/hooks/use-toast'
 import { 
-  MessageSquare, 
-  Send,
-  Users,
-  Hash,
-  Bell,
-  Search,
-  Plus,
-  ArrowRight,
-  X,
-  CheckCircle,
-  Trash2,
-  Shield,
-  UserX,
-  UserCheck,
-  AlertTriangle,
-  ArrowLeft,
-  Image as ImageIcon,
-  Paperclip,
-  Edit,
-  Forward,
-  MoreVertical,
-  Smile,
-  Reply,
-  Eye,
-  EyeOff,
-  Wifi,
+  Hash, 
+  Users, 
+  Plus, 
+  ArrowRight, 
+  Crown, 
+  Reply, 
+  X, 
+  Send, 
+  Upload, 
+  Image as ImageIcon, 
+  Forward, 
+  Wifi, 
   WifiOff,
-  Crown
+  UserPlus,
+  UserMinus,
+  Shield,
+  User as UserIcon,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  MessageSquare,
+  FileText,
+  Paperclip
 } from 'lucide-react'
+import Link from 'next/link'
 
 interface Message {
   id: string
   content: string
   sender_id: string
+  sender_name?: string
   chat_id: string
   created_at: string
   message_type: 'text' | 'file' | 'image' | 'system'
@@ -84,6 +81,20 @@ interface Channel {
   group_role?: string
 }
 
+interface ChannelMember {
+  id: string
+  channel_id: string
+  user_id: string
+  role: 'owner' | 'admin' | 'member'
+  joined_at: string
+  user?: {
+    id: string
+    full_name: string
+    role: string
+    email: string
+  }
+}
+
 interface User {
   id: string
   full_name: string
@@ -118,11 +129,11 @@ export default function AdminCommunicationHub() {
   const [messages, setMessages] = useState<Message[]>([])
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null)
   const [newMessage, setNewMessage] = useState('')
-  const [users, setUsers] = useState<User[]>([])
-  const [unreadCounts, setUnreadCounts] = useState<{[key: string]: number}>({})
+  const [replyTo, setReplyTo] = useState<Message | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [channelToDelete, setChannelToDelete] = useState<Channel | null>(null)
+  const [showForwardDialog, setShowForwardDialog] = useState(false)
+  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null)
+  const [targetChannelId, setTargetChannelId] = useState('')
   const [newChannelData, setNewChannelData] = useState({
     name: '',
     description: '',
@@ -130,16 +141,15 @@ export default function AdminCommunicationHub() {
     selectedUsers: [] as string[]
   })
   const [userRole, setUserRole] = useState<string>('')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedChannelType, setSelectedChannelType] = useState('all')
   
-  // Enhanced realtime features
-  const [showForwardDialog, setShowForwardDialog] = useState(false)
-  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null)
-  const [targetChannelId, setTargetChannelId] = useState('')
-  const [editingMessage, setEditingMessage] = useState<Message | null>(null)
-  const [replyToMessage, setReplyToMessage] = useState<Message | null>(null)
-  const [showReactions, setShowReactions] = useState<string | null>(null)
+  // Member management state
+  const [showAddUserDialog, setShowAddUserDialog] = useState(false)
+  const [showRemoveUserDialog, setShowRemoveUserDialog] = useState(false)
+  const [showMembersDialog, setShowMembersDialog] = useState(false)
+  const [channelMembers, setChannelMembers] = useState<ChannelMember[]>([])
+  const [availableUsers, setAvailableUsers] = useState<User[]>([])
+  const [selectedUserToAdd, setSelectedUserToAdd] = useState<string>('')
+  const [selectedUserToRemove, setSelectedUserToRemove] = useState<string>('')
   
   // Todo list state
   const [showTodoDialog, setShowTodoDialog] = useState(false)
@@ -152,16 +162,8 @@ export default function AdminCommunicationHub() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
   const [fileCaption, setFileCaption] = useState<string>('')
   const [imageCaption, setImageCaption] = useState<string>('')
-  
-  // Member management state
-  const [showMembersDialog, setShowMembersDialog] = useState(false)
-  const [channelMembers, setChannelMembers] = useState<any[]>([])
-  const [availableUsers, setAvailableUsers] = useState<User[]>([])
-  const [selectedUserToAdd, setSelectedUserToAdd] = useState<string>('')
-  const [selectedUserToRemove, setSelectedUserToRemove] = useState<string>('')
   
   // Enhanced connection state management
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.CONNECTING)
@@ -175,9 +177,9 @@ export default function AdminCommunicationHub() {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const messageQueueRef = useRef<Message[]>([])
   const throttleTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Constants for optimization
   const MAX_RECONNECT_ATTEMPTS = 5
@@ -188,9 +190,9 @@ export default function AdminCommunicationHub() {
 
   // Initialize component
   useEffect(() => {
-    checkAuthAndLoadData()
+    initializeComponent()
     setupNetworkListeners()
-
+    
     return () => {
       cleanup()
     }
@@ -245,27 +247,27 @@ export default function AdminCommunicationHub() {
   const setupRealtimeSubscription = useCallback((channelId: string) => {
     if (!channelId || !user?.id) return
 
-    console.log(`Admin setting up subscription for channel: ${channelId}`)
+    console.log(`Setting up subscription for channel: ${channelId}`)
     setConnectionStatus(ConnectionStatus.CONNECTING)
 
     const channel = supabase
-      .channel(`admin-messages:${channelId}:${user.id}`, {
+      .channel(`messages:${channelId}:${user.id}`, {
         config: {
           broadcast: { ack: true },
           presence: { key: user.id }
         }
       })
-              .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'messages',
-          filter: `chat_id=eq.${channelId}`
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'messages',
+        filter: `chat_id=eq.${channelId}`
       }, handleRealtimeMessage)
       .on('presence', { event: 'sync' }, () => {
-        console.log('Admin presence synced')
+        console.log('Presence synced')
       })
       .subscribe((status, err) => {
-        console.log(`Admin subscription status: ${status}`)
+        console.log(`Subscription status: ${status}`)
         
         switch (status) {
           case 'SUBSCRIBED':
@@ -274,17 +276,17 @@ export default function AdminCommunicationHub() {
             startHeartbeat()
             break
           case 'CHANNEL_ERROR':
-            console.error('Admin channel error:', err)
+            console.error('Channel error:', err)
             setConnectionStatus(ConnectionStatus.ERROR)
             scheduleReconnect()
             break
           case 'TIMED_OUT':
-            console.warn('Admin subscription timed out')
+            console.warn('Subscription timed out')
             setConnectionStatus(ConnectionStatus.RECONNECTING)
             scheduleReconnect()
             break
           case 'CLOSED':
-            console.log('Admin channel closed')
+            console.log('Channel closed')
             setConnectionStatus(ConnectionStatus.DISCONNECTED)
             if (isOnline) {
               scheduleReconnect()
@@ -298,7 +300,7 @@ export default function AdminCommunicationHub() {
 
   // Enhanced message handler with optimistic updates
   const handleRealtimeMessage = useCallback(async (payload: any) => {
-    console.log('Admin realtime message received:', payload)
+    console.log('Realtime message received:', payload)
     
     try {
       if (payload.eventType === 'INSERT') {
@@ -334,7 +336,7 @@ export default function AdminCommunicationHub() {
         setMessages(prev => prev.filter(msg => msg.id !== payload.old.id))
       }
     } catch (error) {
-      console.error('Error handling admin realtime message:', error)
+      console.error('Error handling realtime message:', error)
     }
   }, [])
 
@@ -394,7 +396,7 @@ export default function AdminCommunicationHub() {
           })
           setLastHeartbeat(new Date())
         } catch (error) {
-          console.error('Admin heartbeat failed:', error)
+          console.error('Heartbeat failed:', error)
           setConnectionStatus(ConnectionStatus.ERROR)
           scheduleReconnect()
         }
@@ -412,13 +414,13 @@ export default function AdminCommunicationHub() {
   // Intelligent reconnection with exponential backoff
   const scheduleReconnect = useCallback(() => {
     if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS || !isOnline) {
-      console.log('Admin: Max reconnect attempts reached or offline')
+      console.log('Max reconnect attempts reached or offline')
       setConnectionStatus(ConnectionStatus.DISCONNECTED)
       return
     }
 
     const delay = Math.min(RECONNECT_DELAY * Math.pow(2, reconnectAttempts), 30000)
-    console.log(`Admin: Scheduling reconnect in ${delay}ms (attempt ${reconnectAttempts + 1})`)
+    console.log(`Scheduling reconnect in ${delay}ms (attempt ${reconnectAttempts + 1})`)
     
     setConnectionStatus(ConnectionStatus.RECONNECTING)
     setReconnectAttempts(prev => prev + 1)
@@ -433,7 +435,7 @@ export default function AdminCommunicationHub() {
   // Enhanced cleanup
   const cleanup = useCallback(() => {
     if (subscriptionRef.current) {
-      console.log('Admin: Cleaning up subscription')
+      console.log('Cleaning up subscription')
       subscriptionRef.current.unsubscribe()
       subscriptionRef.current = null
     }
@@ -453,7 +455,7 @@ export default function AdminCommunicationHub() {
     messageQueueRef.current = []
   }, [stopHeartbeat])
 
-  const checkAuthAndLoadData = async () => {
+  const initializeComponent = async () => {
     try {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
       
@@ -463,62 +465,40 @@ export default function AdminCommunicationHub() {
       }
       
       await loadUserProfile(authUser.id)
-      await loadCommunicationData(authUser.id)
-    } catch (error) {
-      console.error('Error in checkAuthAndLoadData:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadUserProfile = async (userId: string) => {
-    try {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-
-      if (error) {
-        console.error('Error loading profile:', error)
-        throw error
-      }
-
-      setUser(profile)
-      setUserRole(profile.role || '')
-    } catch (error) {
-      console.error('Error in loadUserProfile:', error)
-    }
-  }
-
-  const loadCommunicationData = async (userId: string) => {
-    try {
-      // Setup default channels first
-      await setupDefaultChannels(userId)
+      await setupDefaultChannels(authUser.id)
       
       // Get user profile to get role
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
-        .eq('id', userId)
+        .eq('id', authUser.id)
         .single()
       
       // Load channels immediately with user info
-      await loadChannels(userId, profile?.role)
+      await loadChannels(authUser.id, profile?.role)
       
-      // Load other data immediately
-      await Promise.all([
-        loadUsers(),
-        loadUnreadCounts(userId)
-      ])
+      // Load channel from URL if available
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search)
+        const channelIdFromUrl = urlParams.get('channel')
+        
+        if (channelIdFromUrl && channels.length > 0) {
+          const channelToSelect = channels.find(c => c.id === channelIdFromUrl)
+          if (channelToSelect) {
+            setSelectedChannel(channelToSelect)
+          }
+        }
+      }
     } catch (error) {
-      console.error('Error loading communication data:', error)
+      console.error('Error initializing component:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
   const setupDefaultChannels = async (userId: string) => {
     try {
-      console.log('Setting up default channels for admin user:', userId)
+      console.log('Setting up default channels for user:', userId)
       
       // Get user profile to determine role
       const { data: profile } = await supabase
@@ -532,16 +512,16 @@ export default function AdminCommunicationHub() {
         return
       }
 
-      console.log('Admin user role:', profile.role)
+      console.log('User role:', profile.role)
 
-      // Default channels configuration with proper account type linking for admin
+      // Default channels configuration with proper account type linking
       const defaultChannels = [
         {
           name: 'General',
           description: 'General discussion for all members',
           type: 'general',
           roles: ['student', 'admin', 'super_admin', 'parent', 'teacher', 'intern'],
-          accountTypes: ['student', 'admin', 'parent', 'intern']
+          accountTypes: ['student', 'admin', 'parent', 'intern'] // Everyone should be in General
         },
         {
           name: 'Announcements',
@@ -657,43 +637,43 @@ export default function AdminCommunicationHub() {
               .single()
 
             if (!existingMember) {
-              console.log(`Adding admin user ${userId} to existing channel ${channelConfig.name}`)
-              
-              const { error: addMemberError } = await supabase
+              await supabase
                 .from('channel_members')
                 .insert([{
                   channel_id: existingChannel.id,
                   user_id: userId,
                   role: 'member'
                 }])
-
-              if (addMemberError) {
-                console.error(`Error adding admin to existing channel ${channelConfig.name}:`, addMemberError)
-              } else {
-                console.log(`Successfully added admin to existing channel ${channelConfig.name}`)
-              }
-            } else {
-              console.log(`Admin already member of channel ${channelConfig.name}`)
             }
-          } else {
-            console.log(`Admin role ${profile.role} not eligible for channel ${channelConfig.name}`)
           }
         }
       }
-
-      console.log('Default channels setup completed for admin')
-      
-      // Reload channels after setup
-      await loadChannels()
     } catch (error) {
-      console.error('Error setting up default channels for admin:', error)
+      console.error('Error setting up default channels:', error)
+    }
+  }
+
+  const loadUserProfile = async (userId: string) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (error) throw error
+      
+      setUser(profile)
+      setUserRole(profile.role || '')
+    } catch (error) {
+      console.error('Error loading profile:', error)
     }
   }
 
   const loadChannels = async (userId?: string, userRole?: string) => {
     try {
       const currentUser = user || { id: userId, role: userRole }
-      console.log('Loading channels for admin user:', currentUser?.id, 'with role:', currentUser?.role)
+      console.log('Loading channels for user:', currentUser?.id, 'with role:', currentUser?.role)
       
       if (!currentUser?.id) {
         console.log('No user found, skipping channel load')
@@ -710,8 +690,8 @@ export default function AdminCommunicationHub() {
         console.error('Error loading channels:', channelError)
         throw channelError
       }
-      
-      console.log('All channels for admin:', allChannels)
+
+      console.log('All channels:', allChannels)
 
       if (allChannels) {
         const accessibleChannels = []
@@ -719,30 +699,21 @@ export default function AdminCommunicationHub() {
         for (const channel of allChannels) {
           let shouldShow = false
           
-          // For admin communication hub, show specific channels to admins
-          if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
-            // Admins should see: General, Announcements, Admin Hub, Test Management Channel
-            if (channel?.name === 'General' || 
-                channel?.name === 'Announcements' || 
-                channel?.name === 'Admin Hub' || 
-                channel?.name === 'Test Management Channel') {
+          // Check if user should see this channel based on role
+          if (channel?.name === 'General') {
+            shouldShow = true // Everyone can see General
+          } else if (channel?.name === 'Student Lounge' && currentUser.role === 'student') {
+            shouldShow = true
+          } else if (channel?.name === 'Announcements') {
+            shouldShow = true // Everyone can see Announcements, but only admins can message
+          } else if (channel?.name === 'Admin Hub' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
+            shouldShow = true
+          } else if (channel?.name === 'Parent-Teacher' && (currentUser.role === 'parent' || currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
+            shouldShow = true
+          } else if (channel?.name === 'Test Management Channel' || channel?.name === 'general' || channel?.name === 'announcements' || channel?.name === 'admin-only' || channel?.name === 'parent-teacher') {
+            // Show legacy channels to admins
+            if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
               shouldShow = true
-            }
-          } else {
-            // For non-admin users in admin hub, show based on role
-            if (channel?.name === 'General') {
-              shouldShow = true // Everyone can see General
-            } else if (channel?.name === 'Student Lounge' && currentUser.role === 'student') {
-              shouldShow = true
-            } else if (channel?.name === 'Announcements' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
-              shouldShow = true
-            } else if (channel?.name === 'Admin Hub' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
-              shouldShow = true
-            } else if (channel?.name === 'Test Management Channel' || channel?.name === 'general' || channel?.name === 'announcements' || channel?.name === 'admin-only') {
-              // Show legacy channels to admins
-              if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
-                shouldShow = true
-              }
             }
           }
           
@@ -784,52 +755,27 @@ export default function AdminCommunicationHub() {
           }
         }
         
-        console.log('Accessible channels for admin user:', accessibleChannels)
+        console.log('Accessible channels for user:', accessibleChannels)
         setChannels(accessibleChannels)
       } else {
         setChannels([])
       }
     } catch (error) {
-      console.error('Error loading channels for admin:', error)
+      console.error('Error loading channels:', error)
       setChannels([])
-    }
-  }
-
-  const loadUsers = async () => {
-    try {
-      const { data: userData, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, role, avatar_url')
-        .order('full_name')
-
-      if (error) throw error
-      
-      if (userData) {
-        setUsers(userData)
-      }
-    } catch (error) {
-      console.error('Error loading users:', error)
-    }
-  }
-
-  const loadUnreadCounts = async (userId: string) => {
-    try {
-      setUnreadCounts({})
-    } catch (error) {
-      console.error('Error loading unread counts:', error)
     }
   }
 
   const loadMessages = async (channelId: string) => {
     try {
-      const { data: messagesData, error: messagesError } = await supabase
+      const { data: messagesData, error } = await supabase
         .from('messages')
         .select('*')
         .eq('chat_id', channelId)
         .order('created_at', { ascending: true })
 
-      if (messagesError) {
-        console.error('Error loading messages:', messagesError)
+      if (error) {
+        console.error('Error loading messages:', error)
         setMessages([])
         return
       }
@@ -850,36 +796,6 @@ export default function AdminCommunicationHub() {
         
         profiles?.forEach(profile => profilesMap.set(profile.id, profile))
       }
-      
-      const replyIds = messagesData.map(msg => msg.reply_to_id).filter(Boolean)
-      const replyMap = new Map()
-
-      if (replyIds.length > 0) {
-        const { data: replyMessages } = await supabase
-          .from('messages')
-          .select('id, content, sender_id')
-          .in('id', replyIds)
-
-        const replySenderIds = [...new Set(replyMessages?.map(msg => msg.sender_id).filter(Boolean))]
-        if (replySenderIds.length > 0) {
-           const { data: replyProfiles } = await supabase
-            .from('profiles')
-            .select('id, full_name')
-            .in('id', replySenderIds)
-          
-          const replyProfilesMap = new Map(replyProfiles?.map(p => [p.id, p]))
-
-          replyMessages?.forEach(reply => {
-            const replySender = replyProfilesMap.get(reply.sender_id)
-            replyMap.set(reply.id, {
-              content: reply.content,
-              profiles: {
-                full_name: replySender?.full_name || 'Unknown User'
-              }
-            })
-          })
-        }
-      }
 
       const formattedMessages = messagesData.map((msg: any) => {
         const sender = profilesMap.get(msg.sender_id)
@@ -890,8 +806,7 @@ export default function AdminCommunicationHub() {
             full_name: sender.full_name,
             avatar_url: sender.avatar_url,
             role: sender.role
-          } : { full_name: 'Unknown User', role: 'student' },
-          reply_to: msg.reply_to_id ? replyMap.get(msg.reply_to_id) : undefined
+          } : { full_name: 'Unknown User', role: 'student' }
         }
       })
 
@@ -902,9 +817,9 @@ export default function AdminCommunicationHub() {
     }
   }
 
-  // Enhanced message sending with optimistic updates and file upload support
+  // Enhanced message sending with optimistic updates
   const handleSendMessage = async () => {
-    if ((!newMessage.trim() && !selectedFile) || !user || !selectedChannel) return
+    if ((!newMessage.trim() && !selectedImage && !selectedFile) || !user || !selectedChannel) return
 
     const tempId = `temp-${Date.now()}`
     const tempMessage: Message = {
@@ -925,7 +840,7 @@ export default function AdminCommunicationHub() {
     setMessages(prev => [...prev, tempMessage])
     const originalMessage = newMessage.trim()
     setNewMessage('')
-    setReplyToMessage(null)
+    setReplyTo(null)
 
     try {
       let messageData: any = {
@@ -933,7 +848,7 @@ export default function AdminCommunicationHub() {
         chat_id: selectedChannel.id,
         sender_id: user.id,
         message_type: 'text' as const,
-        ...(replyToMessage && { reply_to_id: replyToMessage.id })
+        ...(replyTo && { reply_to_id: replyTo.id })
       }
 
       // Handle image upload
@@ -959,38 +874,26 @@ export default function AdminCommunicationHub() {
           messageData.file_type = selectedFile.type
           messageData.message_type = selectedFile.type.startsWith('image/') ? 'image' : 'file'
           if (selectedFile.type.startsWith('image/')) {
-            messageData.image_caption = imageCaption
+            messageData.image_caption = fileCaption
           } else {
             messageData.file_caption = fileCaption
           }
-        } else {
-          // Remove optimistic update on upload failure
-          setMessages(prev => prev.filter(msg => msg.id !== tempId))
-          setNewMessage(originalMessage)
-          setSelectedFile(null)
-          return
         }
       }
 
-      const { data: insertedMessage, error } = await supabase
+      const { error } = await supabase
         .from('messages')
-        .insert(messageData)
-        .select()
-        .single()
+        .insert([messageData])
 
       if (error) throw error
 
-      // Replace temporary message with the real one from the database
-      setMessages(prev => prev.map(msg => 
-        msg.id === tempId 
-          ? { ...insertedMessage, sender: tempMessage.sender } 
-          : msg
-      ))
+      // Remove temporary message (real message will come via subscription)
+      setMessages(prev => prev.filter(msg => msg.id !== tempId))
 
-      // Clear selected files and captions after successful send
-      setSelectedFile(null)
+      // Clear selected files after successful send
       setSelectedImage(null)
       setImagePreview(null)
+      setSelectedFile(null)
       setImageCaption('')
       setFileCaption('')
 
@@ -1002,15 +905,10 @@ export default function AdminCommunicationHub() {
       
       // Restore message for retry
       setNewMessage(originalMessage)
-      toast({
-        title: "Error",
-        description: "Failed to send message. Please try again.",
-        variant: "destructive"
-      })
+      alert('Failed to send message. Please try again.')
     }
   }
 
-  // Message deletion
   const handleDeleteMessage = async (messageId: string) => {
     if (!confirm('Are you sure you want to delete this message?')) return
 
@@ -1059,203 +957,307 @@ export default function AdminCommunicationHub() {
     }
   }
 
-  // Message reactions
-  const handleReaction = async (messageId: string, reaction: string) => {
+  const handleReply = (message: Message) => {
+    setReplyTo(message)
+  }
+
+  const cancelReply = () => {
+    setReplyTo(null)
+  }
+
+  const handleFileUpload = async (file: File) => {
     try {
-      // This should also be a server-side operation
-      const { error } = await supabase.rpc('toggle_reaction', {
-        message_id_param: messageId,
-        reaction_param: reaction,
-        user_id_param: user.id
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('type', 'file')
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
       })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed')
+      }
+
+      // Add file message to chat
+      const messageData = {
+        content: `📎 ${file.name}`,
+        sender_id: user.id,
+        chat_id: selectedChannel.id,
+        message_type: 'file' as const,
+        file_url: result.url,
+        file_name: file.name,
+        file_size: file.size,
+        file_type: file.type
+      }
+
+      const { error } = await supabase
+        .from('messages')
+        .insert([messageData])
 
       if (error) throw error
 
-      // The subscription should handle the update, but we can do an optimistic update
-      setMessages(prev => prev.map(msg => {
-        if (msg.id === messageId) {
-          const newReactions = { ...(msg.reactions || {}) };
-          // This is a simplified optimistic update. A real implementation
-          // would need more logic to handle adding/removing users from a reaction.
-          if (newReactions[reaction]) {
-            delete newReactions[reaction];
-          } else {
-            newReactions[reaction] = [user.id];
-          }
-          return { ...msg, reactions: newReactions };
-        }
-        return msg;
-      }));
-
     } catch (error) {
-      console.error('Error adding reaction:', error)
+      console.error('File upload error:', error)
+      alert('Failed to upload file')
     }
   }
 
-  // Scroll to bottom
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
-
-  const handleCreateChannel = async () => {
+  const uploadFile = async (file: File): Promise<string | null> => {
     try {
-      if (!user) return
+      const formData = new FormData()
+      formData.append('file', file)
 
-      console.log('Creating channel with user:', user.email)
-
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (profileError) {
-        console.error('Profile error:', profileError)
-        throw new Error('Failed to verify user status')
-      }
-
-      if (!profile) {
-        throw new Error('User profile not found')
-      }
-
-      console.log('User role confirmed:', profile.role)
-
-      const { data: channel, error: channelError } = await supabase
-        .from('channels')
-        .insert({
-          name: newChannelData.name,
-          description: newChannelData.description,
-          type: newChannelData.type || 'general',
-          created_by: user.id
-        })
-        .select()
-        .single()
-
-      if (channelError) {
-        console.error('Channel creation error:', channelError)
-        throw channelError
-      }
-
-      console.log('Channel created:', channel)
-
-      const { error: memberError } = await supabase
-        .from('chat_participants')
-        .insert({
-          chat_id: channel.id,
-          user_id: user.id,
-          role: 'admin'
-        })
-
-      if (memberError) {
-        console.error('Member creation error:', memberError)
-      }
-
-      if (newChannelData.selectedUsers.length > 0) {
-        const memberIdsToAdd = newChannelData.selectedUsers.filter(userId => userId !== user.id)
-        
-        if (memberIdsToAdd.length > 0) {
-          const memberInserts = memberIdsToAdd.map(userId => ({
-            user_id: userId,
-            chat_id: channel.id,
-            role: 'member'
-          }))
-
-          const { error: membersError } = await supabase
-            .from('chat_participants')
-            .insert(memberInserts)
-
-          if (membersError) {
-            console.error('Additional members error:', membersError)
-          }
-        }
-      }
-
-      setNewChannelData({
-        name: '',
-        description: '',
-        type: 'general',
-        selectedUsers: []
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
       })
-      setShowCreateDialog(false)
-      loadChannels()
-      
-      console.log('Channel creation completed successfully')
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed')
+      }
+
+      return result.url
     } catch (error) {
-      console.error('Error creating channel:', error)
-      alert(`Failed to create channel: ${error.message}`)
+      console.error('Upload error:', error)
+      alert('Failed to upload file')
+      return null
     }
   }
 
-  const handleDeleteChannel = async () => {
-    if (!channelToDelete) return
+  const handleImageSelect = (file: File) => {
+    setSelectedImage(file)
+    // Create preview URL
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setImagePreview(e.target?.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleImageUpload = async (file: File) => {
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('type', 'image')
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed')
+      }
+
+      // Add image message to chat
+      const messageData = {
+        content: `🖼️ ${file.name}`,
+        sender_id: user.id,
+        chat_id: selectedChannel.id,
+        message_type: 'image' as const,
+        file_url: result.url,
+        file_name: file.name,
+        file_size: file.size,
+        file_type: file.type
+      }
+
+      const { error } = await supabase
+        .from('messages')
+        .insert([messageData])
+
+      if (error) throw error
+
+      // Clear selected image after successful upload
+      setSelectedImage(null)
+      setImagePreview(null)
+
+    } catch (error) {
+      console.error('Image upload error:', error)
+      alert('Failed to upload image')
+    }
+  }
+
+  // Member management functions
+  const fetchChannelMembers = async () => {
+    if (!selectedChannel) return
 
     try {
+      console.log('Fetching members for channel:', selectedChannel.id)
+      
+      // First, get channel members
+      const { data: membersData, error: membersError } = await supabase
+        .from('channel_members')
+        .select('id, channel_id, user_id, role, joined_at')
+        .eq('channel_id', selectedChannel.id)
+
+      if (membersError) {
+        console.error('Supabase error:', membersError)
+        throw membersError
+      }
+
+      if (!membersData || membersData.length === 0) {
+        setChannelMembers([])
+        return
+      }
+
+      // Get user IDs
+      const userIds = membersData.map(member => member.user_id)
+
+      // Fetch user profiles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, role, email')
+        .in('id', userIds)
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError)
+        throw profilesError
+      }
+
+      // Combine the data
+      const combinedMembers: ChannelMember[] = membersData.map(member => {
+        const userProfile = profilesData?.find(profile => profile.id === member.user_id)
+        return {
+          id: member.id as string,
+          channel_id: member.channel_id as string,
+          user_id: member.user_id as string,
+          role: member.role as 'owner' | 'admin' | 'member',
+          joined_at: member.joined_at as string,
+          user: userProfile ? {
+            id: userProfile.id as string,
+            full_name: userProfile.full_name as string,
+            role: userProfile.role as string,
+            email: userProfile.email as string
+          } : {
+            id: member.user_id as string,
+            full_name: 'Unknown User',
+            role: 'unknown',
+            email: ''
+          }
+        }
+      })
+
+      console.log('Fetched members:', combinedMembers)
+      setChannelMembers(combinedMembers)
+    } catch (error) {
+      console.error('Error fetching channel members:', error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch channel members",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const fetchAvailableUsers = async () => {
+    if (!selectedChannel) return
+
+    try {
+      // Get current members
+      const { data: currentMembers } = await supabase
+        .from('channel_members')
+        .select('user_id')
+        .eq('channel_id', selectedChannel.id)
+
+      const currentMemberIds = currentMembers?.map(m => m.user_id) || []
+
+      // Get all users not in channel
+      const { data: allUsers, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, role, email')
+        .not('id', 'in', `(${currentMemberIds.join(',')})`)
+
+      if (error) throw error
+      setAvailableUsers(allUsers || [])
+    } catch (error) {
+      console.error('Error fetching available users:', error)
+    }
+  }
+
+  const addUserToChannel = async () => {
+    if (!selectedChannel || !selectedUserToAdd) return
+
+    try {
+      const { error } = await supabase
+        .from('channel_members')
+        .insert([{
+          channel_id: selectedChannel.id,
+          user_id: selectedUserToAdd,
+          role: 'member'
+        }])
+
+      if (error) throw error
+
+      // Get user info for system message
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', selectedUserToAdd)
+        .single()
+
+      // Send system message
       await supabase
         .from('messages')
-        .delete()
-        .eq('chat_id', channelToDelete.id)
+        .insert([{
+          content: `${userData?.full_name || 'User'} has been added to the channel.`,
+          chat_id: selectedChannel.id,
+          sender_id: user.id,
+          message_type: 'system'
+        }])
 
-      await supabase
-        .from('chat_participants')
-        .delete()
-        .eq('chat_id', channelToDelete.id)
+      setShowAddUserDialog(false)
+      setSelectedUserToAdd('')
+      await fetchChannelMembers()
 
-      const { error } = await supabase
-        .from('channels')
-        .delete()
-        .eq('id', channelToDelete.id)
-
-      if (error) throw error
-
-      setShowDeleteDialog(false)
-      setChannelToDelete(null)
-      loadChannels()
     } catch (error) {
-      console.error('Error deleting channel:', error)
-      alert('Failed to delete channel. Please try again.')
+      console.error('Error adding user to channel:', error)
     }
   }
 
-  const handleAddMembers = async (channelId: string) => {
-    if (newChannelData.selectedUsers.length === 0) return
+  const removeUserFromChannel = async () => {
+    if (!selectedChannel || !selectedUserToRemove) return
 
     try {
-      const memberInserts = newChannelData.selectedUsers.map(userId => ({
-        chat_id: channelId,
-        user_id: userId,
-        role: 'member'
-      }))
+      // Get user info before removal
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', selectedUserToRemove)
+        .single()
 
       const { error } = await supabase
-        .from('chat_participants')
-        .insert(memberInserts)
+        .from('channel_members')
+        .delete()
+        .eq('channel_id', selectedChannel.id)
+        .eq('user_id', selectedUserToRemove)
 
       if (error) throw error
 
-      setNewChannelData(prev => ({ ...prev, selectedUsers: [] }))
-      await loadChannels()
-      alert('Members added successfully!')
+      // Send system message
+      await supabase
+        .from('messages')
+        .insert([{
+          content: `${userData?.full_name || 'User'} has been removed from the channel.`,
+          chat_id: selectedChannel.id,
+          sender_id: user.id,
+          message_type: 'system'
+        }])
+
+      setShowRemoveUserDialog(false)
+      setSelectedUserToRemove('')
+      await fetchChannelMembers()
+
     } catch (error) {
-      console.error('Error adding members:', error)
-      alert('Failed to add members.')
+      console.error('Error removing user from channel:', error)
     }
-  }
-
-  const toggleUserSelection = (userId: string) => {
-    setNewChannelData(prev => ({
-      ...prev,
-      selectedUsers: prev.selectedUsers.includes(userId)
-        ? prev.selectedUsers.filter(id => id !== userId)
-        : [...prev.selectedUsers, userId]
-    }))
-  }
-
-  const canCreateChannel = () => {
-    return !!user
   }
 
   const canManageChannel = (channel: Channel) => {
@@ -1268,23 +1270,33 @@ export default function AdminCommunicationHub() {
     return user && channel?.created_by === user.id
   }
 
+  const canViewMembers = () => {
+    return true // Everyone can view members
+  }
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'owner': return <Crown className="w-3 h-3 text-yellow-500" />
+      case 'admin': return <Shield className="w-3 h-3 text-blue-500" />
+      default: return <UserIcon className="w-3 h-3 text-gray-500" />
+    }
+  }
+
+  const canJoinChannel = (channel: Channel) => {
+    return userRole === 'student' || userRole === 'intern' || userRole === 'admin' || userRole === 'super_admin'
+  }
+
   const canDeleteChannel = (channel: Channel) => {
-    // No one can delete default/system channels
-    const systemChannels = ['General', 'Student Lounge', 'Announcements', 'Admin Hub', 'Parent-Teacher', 'Test Management Channel']
-    if (systemChannels.includes(channel?.name || '')) {
+    // No one can delete General channels
+    if (channel?.name === 'General') {
       return false
     }
-    // Only channel creator can delete custom channels
+    // Only channel creator can delete non-General channels
     return user && channel?.created_by === user.id
   }
 
   const canSendMessage = (channel: Channel) => {
     if (!channel) return false
-    
-    // For admin communication hub, admins should be able to send messages everywhere
-    if (userRole === 'admin' || userRole === 'super_admin') {
-      return true
-    }
     
     // Only admins can send messages in announcements
     if (channel.type === 'announcements') {
@@ -1299,6 +1311,11 @@ export default function AdminCommunicationHub() {
     // Parents can send messages in General and Parent-Teacher
     if (userRole === 'parent') {
       return channel?.name === 'General' || channel?.name === 'Parent-Teacher'
+    }
+    
+    // Admins can send messages everywhere
+    if (userRole === 'admin' || userRole === 'super_admin') {
+    return true
     }
     
     // Interns can send messages in General channels
@@ -1390,260 +1407,6 @@ export default function AdminCommunicationHub() {
     }
   }
 
-  // Member management functions
-  const fetchChannelMembers = async () => {
-    if (!selectedChannel) return
-
-    try {
-      console.log('Fetching members for channel:', selectedChannel.id)
-      
-      // First, get channel members
-      const { data: membersData, error: membersError } = await supabase
-        .from('channel_members')
-        .select('id, channel_id, user_id, role, joined_at')
-        .eq('channel_id', selectedChannel.id)
-
-      if (membersError) {
-        console.error('Supabase error:', membersError)
-        throw membersError
-      }
-
-      if (!membersData || membersData.length === 0) {
-        setChannelMembers([])
-        return
-      }
-
-      // Get user IDs
-      const userIds = membersData.map(member => member.user_id)
-
-      // Fetch user profiles
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, full_name, role, email')
-        .in('id', userIds)
-
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError)
-        throw profilesError
-      }
-
-      // Combine the data
-      const combinedMembers = membersData.map(member => {
-        const userProfile = profilesData?.find(profile => profile.id === member.user_id)
-        return {
-          ...member,
-          user: userProfile || { id: member.user_id, full_name: 'Unknown User', role: 'unknown', email: '' }
-        }
-      })
-
-      console.log('Fetched members:', combinedMembers)
-      setChannelMembers(combinedMembers)
-    } catch (error) {
-      console.error('Error fetching channel members:', error)
-      toast({
-        title: "Error",
-        description: "Failed to fetch channel members",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const fetchAvailableUsers = async () => {
-    if (!selectedChannel) return
-
-    try {
-      // Get current members
-      const { data: currentMembers } = await supabase
-        .from('channel_members')
-        .select('user_id')
-        .eq('channel_id', selectedChannel.id)
-
-      const currentMemberIds = currentMembers?.map(m => m.user_id) || []
-
-      // Get all users not in channel
-      const { data: allUsers, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, role, email')
-        .not('id', 'in', `(${currentMemberIds.join(',')})`)
-
-      if (error) throw error
-      setAvailableUsers(allUsers || [])
-    } catch (error) {
-      console.error('Error fetching available users:', error)
-    }
-  }
-
-  const addUserToChannel = async () => {
-    if (!selectedChannel || !selectedUserToAdd) return
-
-    try {
-      const { error } = await supabase
-        .from('channel_members')
-        .insert([{
-          channel_id: selectedChannel.id,
-          user_id: selectedUserToAdd,
-          role: 'member'
-        }])
-
-      if (error) throw error
-
-      // Get user info for system message
-      const { data: userData } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', selectedUserToAdd)
-        .single()
-
-      // Send system message
-      await supabase
-        .from('messages')
-        .insert([{
-          chat_id: selectedChannel.id,
-          sender_id: user.id,
-          content: `${userData?.full_name || 'User'} has been added to the channel.`,
-          message_type: 'system'
-        }])
-
-      setShowMembersDialog(false)
-      setSelectedUserToAdd('')
-      await fetchChannelMembers()
-
-      toast({
-        title: "Success",
-        description: "User added to channel successfully"
-      })
-    } catch (error) {
-      console.error('Error adding user to channel:', error)
-      toast({
-        title: "Error",
-        description: "Failed to add user to channel",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const removeUserFromChannel = async () => {
-    if (!selectedChannel || !selectedUserToRemove) return
-
-    try {
-      // Get user info before removal
-      const { data: userData } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', selectedUserToRemove)
-        .single()
-
-      const { error } = await supabase
-        .from('channel_members')
-        .delete()
-        .eq('channel_id', selectedChannel.id)
-        .eq('user_id', selectedUserToRemove)
-
-      if (error) throw error
-
-      // Send system message
-      await supabase
-        .from('messages')
-        .insert([{
-          chat_id: selectedChannel.id,
-          sender_id: user.id,
-          content: `${userData?.full_name || 'User'} has been removed from the channel.`,
-          message_type: 'system'
-        }])
-
-      setShowMembersDialog(false)
-      setSelectedUserToRemove('')
-      await fetchChannelMembers()
-
-      toast({
-        title: "Success",
-        description: "User removed from channel successfully"
-      })
-    } catch (error) {
-      console.error('Error removing user from channel:', error)
-      toast({
-        title: "Error",
-        description: "Failed to remove user from channel",
-        variant: "destructive"
-      })
-    }
-  }
-
-  // File upload functions
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      // Validate file size (10MB limit)
-      if (file.size > 10 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Please select a file smaller than 10MB",
-          variant: "destructive"
-        })
-        return
-      }
-      setSelectedFile(file)
-    }
-  }
-
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      // Validate file size (10MB limit) 
-      if (file.size > 10 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Please select an image smaller than 10MB",
-          variant: "destructive"
-        })
-        return
-      }
-      setSelectedImage(file)
-      
-      // Create preview
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string)
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
-  const uploadFile = async (file: File): Promise<string | null> => {
-    try {
-      setUploading(true)
-      
-      // Create FormData
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('type', file.type.startsWith('image/') ? 'image' : 'file')
-
-      // Upload using the API route
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Upload failed')
-      }
-
-      return result.url
-    } catch (error) {
-      console.error('Upload error:', error)
-      toast({
-        title: "Upload failed",
-        description: "Failed to upload file. Please try again.",
-        variant: "destructive"
-      })
-      return null
-    } finally {
-      setUploading(false)
-    }
-  }
-
   const getDashboardUrl = () => {
     switch (userRole) {
       case 'admin':
@@ -1661,14 +1424,6 @@ export default function AdminCommunicationHub() {
         return '/dashboard'
     }
   }
-
-  const filteredChannels = channels.filter(channel => {
-    const matchesSearch = (channel?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (channel?.description || '').toLowerCase().includes(searchTerm.toLowerCase())
-          const matchesType = selectedChannelType === 'all' || channel.type === selectedChannelType
-    
-    return matchesSearch && matchesType
-  })
 
   // Connection status indicator
   const ConnectionStatusIndicator = useMemo(() => {
@@ -1709,824 +1464,758 @@ export default function AdminCommunicationHub() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Admin Communication Hub</h1>
-          <div className="flex items-center space-x-4 mt-1">
-            <p className="text-gray-600">Manage messaging channels and communications</p>
-            {ConnectionStatusIndicator}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Admin Communication Hub</h1>
+              <div className="flex items-center space-x-4 mt-1">
+                <p className="text-gray-600">Manage messaging channels and communications</p>
+                {ConnectionStatusIndicator}
+              </div>
+            </div>
+            <Link href={getDashboardUrl()}>
+              <Button variant="outline">
+                <ArrowRight className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+            </Link>
           </div>
         </div>
-        <Button 
-          variant="outline" 
-          onClick={() => window.location.href = getDashboardUrl()}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Dashboard
-        </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        {/* Channels Sidebar */}
-        <div className="lg:col-span-1">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center">
-                  <Hash className="w-5 h-5 mr-2" />
-                  Channels ({channels.length})
-                </span>
-                {canCreateChannel() && (
-                  <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                    <DialogTrigger asChild>
-                      <Button size="sm">
-                        <Plus className="w-4 h-4 mr-1" />
-                        Create
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Create New Channel</DialogTitle>
-                        <DialogDescription>
-                          Create a new communication channel for the community.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <Label htmlFor="channel-name">Channel Name</Label>
-                          <Input
-                            id="channel-name"
-                            value={newChannelData.name}
-                            onChange={(e) => setNewChannelData(prev => ({ ...prev, name: e.target.value }))}
-                            placeholder="Enter channel name"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="channel-description">Description</Label>
-                          <Textarea
-                            id="channel-description"
-                            value={newChannelData.description}
-                            onChange={(e) => setNewChannelData(prev => ({ ...prev, description: e.target.value }))}
-                            placeholder="Enter channel description"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="channel-type">Channel Type</Label>
-                          <Select
-                                            value={newChannelData.type}
-                onValueChange={(value: any) => setNewChannelData(prev => ({ ...prev, type: value }))}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="public">Public</SelectItem>
-                              <SelectItem value="private">Private</SelectItem>
-                              <SelectItem value="group">Group</SelectItem>
-                              {(userRole === 'admin' || userRole === 'super_admin') && (
-                                <SelectItem value="announcement">Announcement (Admins only)</SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>Add Members</Label>
-                          <div className="flex space-x-2 mb-2">
-                            <Button size="sm" variant="outline" onClick={() => setNewChannelData(prev => ({ ...prev, selectedUsers: users.map(u => u.id) }))}>Select All</Button>
-                            <Button size="sm" variant="outline" onClick={() => setNewChannelData(prev => ({ ...prev, selectedUsers: users.filter(u => u.role === 'student').map(u => u.id) }))}>Students</Button>
-                            <Button size="sm" variant="outline" onClick={() => setNewChannelData(prev => ({ ...prev, selectedUsers: users.filter(u => u.role === 'parent').map(u => u.id) }))}>Parents</Button>
-                            <Button size="sm" variant="outline" onClick={() => setNewChannelData(prev => ({ ...prev, selectedUsers: users.filter(u => u.role === 'intern').map(u => u.id) }))}>Interns</Button>
-                          </div>
-                          <Select
-                            onValueChange={(value) => {
-                              if (!newChannelData.selectedUsers.includes(value)) {
-                                setNewChannelData(prev => ({
-                                  ...prev,
-                                  selectedUsers: [...prev.selectedUsers, value]
-                                }))
-                              }
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select users to add" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {users.map(user => (
-                                <SelectItem key={user.id} value={user.id}>
-                                  {user.full_name} ({user.role})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {newChannelData.selectedUsers.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {newChannelData.selectedUsers.map(userId => {
-                                const user = users.find(u => u.id === userId)
-                                return (
-                                  <Badge key={userId} variant="secondary">
-                                    {user?.full_name}
-                                    <button
-                                      onClick={() => setNewChannelData(prev => ({
-                                        ...prev,
-                                        selectedUsers: prev.selectedUsers.filter(id => id !== userId)
-                                      }))}
-                                      className="ml-1"
-                                    >
-                                      ×
-                                    </button>
-                                  </Badge>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
-                        <Button onClick={handleCreateChannel} className="w-full">
-                          Create Channel
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                )}
-              </CardTitle>
-              <div className="flex space-x-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Search channels..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Select value={selectedChannelType} onValueChange={setSelectedChannelType}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="public">Public</SelectItem>
-                    <SelectItem value="private">Private</SelectItem>
-                    <SelectItem value="group">Group</SelectItem>
-                    <SelectItem value="announcement">Announcement</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {filteredChannels.map((channel) => (
-                  <div
-                    key={channel.id}
-                    className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                      selectedChannel?.id === channel.id
-                        ? 'bg-blue-50 border border-blue-200'
-                        : 'hover:bg-gray-50'
-                    }`}
-                    onClick={() => setSelectedChannel(channel)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                                                  <h4 className="font-medium text-gray-900">#{channel?.name || 'Unknown Channel'}</h4>
-                                                  <p className="text-sm text-gray-600">{channel?.description || 'No description'}</p>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <Badge variant="outline" className="text-xs">
-                            {channel?.type || 'general'}
-                          </Badge>
-                          <div className="flex items-center text-xs text-gray-500">
-                            <Users className="w-3 h-3 mr-1" />
-                            {channel.member_count}
-                          </div>
-                        </div>
-                      </div>
-                      {canDeleteChannel(channel) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setChannelToDelete(channel)
-                            setShowDeleteDialog(true)
-                          }}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Channels Sidebar */}
+          <div className="lg:col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center">
+                    <Hash className="w-5 h-5 mr-2" />
+                    Channels
+                  </span>
+                  <div className="flex items-center space-x-2">
+                  <Badge variant="secondary">{channels.length}</Badge>
+                    <Button
+                      size="sm"
+                      onClick={() => setShowCreateChannel(true)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Messages Area */}
-        <div className="lg:col-span-3">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <Button
-                  variant="ghost"
-                  className="h-auto p-0 text-lg font-semibold hover:bg-transparent"
-                  onClick={async () => {
-                    await fetchChannelMembers()
-                    await fetchAvailableUsers()
-                    setShowMembersDialog(true)
-                  }}
-                >
-                  {selectedChannel ? `#${selectedChannel.name}` : 'Messages'}
-                </Button>
-                                          <Badge variant="outline">{selectedChannel?.type || 'general'}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {selectedChannel ? (
-                <div className="flex flex-col h-[calc(100vh-20rem)]">
-                  {/* Messages */}
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    {messages.map((message) => {
-                      const isOwn = message.sender_id === user?.id
-                      const isAdmin = message.sender?.role === 'admin' || message.sender?.role === 'super_admin'
-                      return (
-                        <div key={message.id} id={`message-${message.id}`} className={`flex space-x-3 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                          <div className="flex-shrink-0">
-                            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
-                              isOwn ? 'bg-green-500' : isAdmin ? 'bg-purple-500' : 'bg-blue-500'
-                            }`}>
-                              {isAdmin && <Crown className="w-4 h-4" />}
-                                                              {!isAdmin && (message.sender_name?.charAt(0) || 'U').toUpperCase()}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {channels.map((channel) => (
+                    <div
+                      key={channel.id}
+                      className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                        selectedChannel?.id === channel.id
+                          ? 'bg-blue-50 border border-blue-200'
+                          : 'hover:bg-gray-50'
+                      }`}
+                      onClick={() => setSelectedChannel(channel)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">#{channel?.name || 'Unknown Channel'}</h4>
+                          <p className="text-sm text-gray-600 truncate">{channel?.description || 'No description'}</p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <Badge variant="outline" className="text-xs">
+                              {channel?.type || 'general'}
+                            </Badge>
+                            <div className="flex items-center text-xs text-gray-500">
+                              <Users className="w-3 h-3 mr-1" />
+                              {channel?.member_count || 0}
                             </div>
                           </div>
-                          <div className={`flex-1 ${isOwn ? 'text-right' : ''}`}>
-                            <div className={`flex items-center space-x-2 ${isOwn ? 'justify-end' : ''}`}>
-                              <span className="text-sm font-medium text-gray-900">
-                                  {message.sender_name || 'Unknown User'}
-                                {isAdmin && <Crown className="w-3 h-3 ml-1 text-purple-500" />}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {new Date(message.created_at).toLocaleString()}
-                              </span>
-                            </div>
-                            
-                            {/* Message content */}
-                            <div className={`inline-block p-3 rounded-lg ${
-                              isOwn 
-                                ? 'bg-green-500 text-white' 
-                                : isAdmin 
-                                  ? 'bg-purple-100 text-purple-900' 
-                                  : 'bg-gray-100 text-gray-900'
-                            }`}>
-                              {/* Text content */}
-                              {message.content && (
-                                <p className="text-sm mb-2">{message.content}</p>
-                              )}
-                              
-                              {/* Image content */}
-                              {message.message_type === 'image' && message.file_url && (
-                                <div className="mb-2">
-                                  <img 
-                                    src={message.file_url} 
-                                    alt={message.file_name || 'Image'}
-                                    className="max-w-full h-auto rounded cursor-pointer hover:opacity-90 transition-opacity"
-                                    onClick={() => window.open(message.file_url, '_blank')}
-                                  />
-                                </div>
-                              )}
-                              
-                              {/* File content */}
-                              {message.message_type === 'file' && message.file_url && (
-                                <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded border">
-                                  <Paperclip className="w-4 h-4" />
-                                  <div className="flex-1">
-                                    <p className="text-sm font-medium">{message.file_name}</p>
-                                    <p className="text-xs text-gray-500">
-                                      {message.file_size ? `${(message.file_size / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'}
-                                    </p>
-                                  </div>
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline"
-                                    onClick={() => window.open(message.file_url, '_blank')}
-                                  >
-                                    Download
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-                            {/* Message actions */}
-                            <div className="flex items-center space-x-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              {!isOwn && (
+          {/* Main Content Area */}
+          <div className="lg:col-span-3">
+            {selectedChannel ? (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Messages Area */}
+                <div className="lg:col-span-2">
+            <Card>
+              <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center space-x-2">
+                                            <Button
+                    variant="ghost"
+                    className="h-auto p-0 text-lg font-semibold hover:bg-transparent"
+                    onClick={async () => {
+                      await fetchChannelMembers()
+                      await fetchAvailableUsers()
+                      setShowMembersDialog(true)
+                    }}
+                  >
+                  {selectedChannel ? `#${selectedChannel.name}` : 'Messages'}
+                          </Button>
+                          <Badge variant="outline">{selectedChannel?.type || 'general'}</Badge>
+                </CardTitle>
+                        <div className="flex items-center space-x-2">
+                          {/* Member management is now handled through the channel name button */}
+                        </div>
+                      </div>
+              </CardHeader>
+              <CardContent>
+                  <div className="flex flex-col h-[calc(100vh-20rem)]">
+                    {/* Messages */}
+                        <ScrollArea className="flex-1 p-4">
+                          <div className="space-y-4">
+                      {messages.map((message) => {
+                        const isOwn = message.sender_id === user?.id
+                        const isAdmin = message.sender?.role === 'admin' || message.sender?.role === 'super_admin'
+                        
+                        return (
+                          <div key={message.id} className={`flex space-x-3 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                                  <Avatar className="w-8 h-8">
+                                    <AvatarFallback className={isOwn ? 'bg-green-500 text-white' : isAdmin ? 'bg-purple-500 text-white' : 'bg-blue-500 text-white'}>
+                                {isAdmin ? <Crown className="w-4 h-4" /> : (message.sender_name?.charAt(0) || 'U').toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                            <div className={`flex-1 ${isOwn ? 'text-right' : ''}`}>
+                              <div className={`flex items-center space-x-2 ${isOwn ? 'justify-end' : ''}`}>
+                                <span className="text-sm font-medium text-gray-900">
+                                  {message.sender_name || 'Unknown User'}
+                                  {isAdmin && <Crown className="w-3 h-3 ml-1 text-purple-500" />}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {new Date(message.created_at).toLocaleString()}
+                                </span>
+                              </div>
+                              
+                              {/* Reply context */}
+                              {message.reply_to && (
+                                <div className="mt-1 p-2 bg-gray-100 rounded border-l-2 border-gray-300">
+                                  <p className="text-xs text-gray-600">
+                                    Replying to {message.reply_to.profiles.full_name}
+                                  </p>
+                                  <p className="text-sm text-gray-800 truncate">
+                                    {message.reply_to.content}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Message content */}
+                              <div className={`inline-block p-3 rounded-lg ${
+                                isOwn 
+                                  ? 'bg-green-500 text-white' 
+                                  : isAdmin 
+                                    ? 'bg-purple-100 text-purple-900' 
+                                    : 'bg-gray-100 text-gray-900'
+                              }`}>
+                                      {/* Text content */}
+                                      {message.content && (
+                                        <p className="text-sm mb-2">{message.content}</p>
+                                      )}
+                                      
+                                      {/* Image content */}
+                                      {message.message_type === 'image' && message.file_url && (
+                                        <div className="mb-2">
+                                          <img 
+                                            src={message.file_url} 
+                                            alt={message.file_name || 'Image'}
+                                            className="max-w-full h-auto rounded cursor-pointer hover:opacity-90 transition-opacity"
+                                            onClick={() => window.open(message.file_url, '_blank')}
+                                          />
+                                          {message.image_caption && (
+                                            <p className="text-xs text-gray-600 mt-1 italic">
+                                              {message.image_caption}
+                                            </p>
+                                          )}
+                                        </div>
+                                      )}
+                                      
+                                      {/* File content */}
+                                      {message.message_type === 'file' && message.file_url && (
+                                        <div className="space-y-2">
+                                          <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded border">
+                                            <Paperclip className="w-4 h-4" />
+                                            <div className="flex-1">
+                                              <p className="text-sm font-medium">{message.file_name}</p>
+                                              <p className="text-xs text-gray-500">
+                                                {message.file_size ? `${(message.file_size / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'}
+                                              </p>
+                                            </div>
+                                            <Button 
+                                              size="sm" 
+                                              variant="outline"
+                                              onClick={() => window.open(message.file_url, '_blank')}
+                                            >
+                                              Download
+                                            </Button>
+                                          </div>
+                                          {message.image_caption && (
+                                            <p className="text-xs text-gray-600 italic">
+                                              {message.image_caption}
+                                            </p>
+                                          )}
+                                        </div>
+                                      )}
+                              </div>
+
+                              {/* Message actions */}
+                              <div className="flex items-center space-x-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {!isOwn && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleReply(message)}
+                                    className="h-6 w-6 p-0"
+                                  >
+                                    <Reply className="w-3 h-3" />
+                                  </Button>
+                                )}
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => setReplyToMessage(message)}
+                                  onClick={() => {
+                                    setForwardingMessage(message)
+                                    setShowForwardDialog(true)
+                                  }}
                                   className="h-6 w-6 p-0"
                                 >
-                                  <Reply className="w-3 h-3" />
+                                  <Forward className="w-3 h-3" />
                                 </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setForwardingMessage(message)
-                                  setShowForwardDialog(true)
-                                }}
-                                className="h-6 w-6 p-0"
-                              >
-                                <Forward className="w-3 h-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteMessage(message.id)}
-                                className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
-                              >
-                                <X className="w-3 h-3" />
-                              </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteMessage(message.id)}
+                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )
-                    })}
-                    <div ref={messagesEndRef} />
-                  </div>
+                        )
+                      })}
+                      <div ref={messagesEndRef} />
+                    </div>
+                        </ScrollArea>
 
-                  {/* Message Input */}
-                  <div className="border-t p-4">
+                    {/* Reply banner */}
+                    {replyTo && (
+                      <div className="p-2 bg-blue-50 border-t border-blue-200 flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="text-sm text-blue-800">
+                            Replying to {replyTo.sender_name}: {replyTo.content.substring(0, 50)}...
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={cancelReply}
+                          className="text-blue-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Message input */}
                     {canSendMessage(selectedChannel) && (
-                      <div className="flex space-x-2">
+                          <div className="flex flex-col space-y-2 p-4 border-t">
+                            {/* Image preview */}
+                            {imagePreview && (
+                              <div className="space-y-2">
+                                <div className="relative inline-block">
+                                  <img 
+                                    src={imagePreview} 
+                                    alt="Preview" 
+                                    className="max-w-xs max-h-32 rounded border"
+                                  />
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    className="absolute top-1 right-1 h-6 w-6 p-0"
+                                    onClick={() => {
+                                      setSelectedImage(null)
+                                      setImagePreview(null)
+                                      setImageCaption('')
+                                    }}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                                <Input
+                                  value={imageCaption}
+                                  onChange={(e) => setImageCaption(e.target.value)}
+                                  placeholder="Add a caption for the image..."
+                                  className="max-w-xs"
+                                />
+                              </div>
+                            )}
+
+                            {/* File preview */}
+                            {selectedFile && (
+                              <div className="space-y-2">
+                                <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded border">
+                                  <FileText className="w-4 h-4" />
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium">{selectedFile.name}</p>
+                                    <p className="text-xs text-gray-500">
+                                      {selectedFile.size ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => {
+                                      setSelectedFile(null)
+                                      setFileCaption('')
+                                    }}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                                <Input
+                                  value={fileCaption}
+                                  onChange={(e) => setFileCaption(e.target.value)}
+                                  placeholder="Add a caption for the file..."
+                                  className="max-w-xs"
+                                />
+                              </div>
+                            )}
+                            
                         <div className="flex-1 flex space-x-2">
-                      <Input
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type a message..."
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault()
-                            handleSendMessage()
-                          }
-                        }}
-                        disabled={!canSendMessage(selectedChannel)}
+                          <Input
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                            placeholder="Type your message..."
                             className="flex-1"
                           />
-                          
-                          {/* Hidden file inputs */}
                           <input
                             type="file"
-                            id="file-upload-admin"
-                            onChange={handleFileSelect}
-                            accept=".pdf,.doc,.docx,.txt,.zip,.rar"
+                            ref={fileInputRef}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) handleFileUpload(file)
+                            }}
                             className="hidden"
                           />
                           <input
                             type="file"
-                            id="image-upload-admin"
+                            ref={imageInputRef}
                             accept="image/*"
-                            onChange={handleImageSelect}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                                    if (file) handleImageSelect(file)
+                            }}
                             className="hidden"
                           />
-                          
-                          {/* Upload buttons */}
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => document.getElementById('file-upload-admin')?.click()}
-                            disabled={uploading}
+                            onClick={() => fileInputRef.current?.click()}
                           >
-                            <Paperclip className="w-4 h-4" />
+                            <Upload className="w-4 h-4" />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => document.getElementById('image-upload-admin')?.click()}
-                            disabled={uploading}
+                            onClick={() => imageInputRef.current?.click()}
                           >
                             <ImageIcon className="w-4 h-4" />
                           </Button>
                         </div>
-                        
-                      <Button
-                        onClick={handleSendMessage}
-                          disabled={(!newMessage.trim() && !selectedFile && !selectedImage) || !canSendMessage(selectedChannel) || uploading}
-                      >
-                        <Send className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    )}
-                    
-                    {/* Selected Image Preview */}
-                    {imagePreview && (
-                      <div className="space-y-2 mt-2 p-2 bg-green-50 rounded border">
-                        <div className="relative inline-block">
-                          <img 
-                            src={imagePreview} 
-                            alt="Preview" 
-                            className="max-w-xs max-h-32 rounded border"
-                          />
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="absolute top-1 right-1 h-6 w-6 p-0"
-                            onClick={() => {
-                              setSelectedImage(null)
-                              setImagePreview(null)
-                              setImageCaption('')
-                            }}
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                        </div>
-                        <Input
-                          value={imageCaption}
-                          onChange={(e) => setImageCaption(e.target.value)}
-                          placeholder="Add a caption for the image..."
-                          className="max-w-xs"
-                        />
-                      </div>
-                    )}
-
-                    {/* Selected File Display */}
-                    {selectedFile && (
-                      <div className="flex items-center space-x-2 mt-2 p-2 bg-blue-50 rounded border">
-                        <Paperclip className="w-4 h-4 text-blue-600" />
-                        <span className="text-sm text-gray-700 truncate flex-1">
-                          {selectedFile.name}
-                        </span>
-                        <button
-                          onClick={() => setSelectedFile(null)}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                    
-                    {/* Upload Progress */}
-                    {uploading && (
-                      <div className="flex items-center space-x-2 mt-2 text-sm text-blue-600">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                        <span>Uploading...</span>
+                        <Button onClick={handleSendMessage}>
+                          <Send className="w-4 h-4" />
+                        </Button>
                       </div>
                     )}
                   </div>
+                    </CardContent>
+                  </Card>
                 </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  Select a channel to start messaging
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Todo List Sidebar */}
-        <div className="lg:col-span-1">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center">
-                  <CheckCircle className="w-5 h-5 mr-2" />
-                  Todo List
-                </span>
-                <Button
-                  size="sm"
-                  onClick={() => setShowTodoDialog(true)}
-                  className="h-8 w-8 p-0"
-                >
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                {todoItems.map((todo) => (
-                  <div
-                    key={todo.id}
-                    className={`p-3 rounded-lg border ${
-                      todo.completed
-                        ? 'bg-gray-50 border-gray-200'
-                        : 'bg-white border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-start space-x-2">
-                      <button
-                        onClick={() => toggleTodoItem(todo.id, !todo.completed)}
-                        className={`mt-1 flex-shrink-0 ${
-                          todo.completed ? 'text-green-600' : 'text-gray-400'
-                        }`}
-                      >
-                        {todo.completed ? (
-                          <CheckCircle className="w-4 h-4" />
-                        ) : (
-                          <div className="w-4 h-4 border-2 border-gray-300 rounded-full" />
-                        )}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={`text-sm ${
-                            todo.completed ? 'line-through text-gray-500' : 'text-gray-900'
-                          }`}
+                {/* Todo List Sidebar */}
+                <div className="lg:col-span-1">
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center">
+                          <CheckCircle className="w-5 h-5 mr-2" />
+                          Todo List
+                        </CardTitle>
+                        <Button
+                          size="sm"
+                          onClick={() => setShowTodoDialog(true)}
                         >
-                          {todo.content}
-                        </p>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <Badge
-                            className={`text-xs ${getPriorityColor(todo.priority)}`}
-                          >
-                            {todo.priority}
-                          </Badge>
-                          {todo.due_date && (
-                            <span className="text-xs text-gray-500">
-                              Due: {new Date(todo.due_date).toLocaleDateString()}
-                            </span>
-                          )}
-                        </div>
+                          <Plus className="w-4 h-4" />
+                        </Button>
                       </div>
-                      <button
-                        onClick={() => deleteTodoItem(todo.id)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {todoItems.length === 0 && (
-                  <div className="text-center py-4 text-gray-500">
-                    <CheckCircle className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                    <p className="text-sm">No todo items yet</p>
+                    </CardHeader>
+                    <CardContent>
+                      <ScrollArea className="h-[calc(100vh-20rem)]">
+                        <div className="space-y-2">
+                          {todoItems.map((todo) => (
+                            <div
+                              key={todo.id}
+                              className={`p-3 rounded-lg border ${
+                                todo.completed 
+                                  ? 'bg-gray-50 border-gray-200' 
+                                  : 'bg-white border-gray-300'
+                              }`}
+                            >
+                              <div className="flex items-start space-x-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => toggleTodoItem(todo.id, !todo.completed)}
+                                  className="p-0 h-5 w-5"
+                                >
+                                  {todo.completed ? (
+                                    <CheckCircle className="w-4 h-4 text-green-500" />
+                                  ) : (
+                                    <div className="w-4 h-4 border-2 border-gray-300 rounded" />
+                                  )}
+                                </Button>
+                                <div className="flex-1">
+                                  <p className={`text-sm ${
+                                    todo.completed ? 'line-through text-gray-500' : 'text-gray-900'
+                                  }`}>
+                                    {todo.content}
+                                  </p>
+                                  <div className="flex items-center space-x-2 mt-1">
+                                    <Badge 
+                                      variant="outline" 
+                                      className={`text-xs ${getPriorityColor(todo.priority)}`}
+                                    >
+                                      {todo.priority}
+                                    </Badge>
+                                    {todo.due_date && (
+                                      <span className="text-xs text-gray-500">
+                                        Due: {new Date(todo.due_date).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteTodoItem(todo.id)}
+                                  className="p-0 h-5 w-5 text-red-500 hover:text-red-600"
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                          {todoItems.length === 0 && (
+                  <div className="text-center text-gray-500 py-8">
+                              <CheckCircle className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                              <p className="text-sm">No todo items yet</p>
+                              <p className="text-xs">Click the + button to add one</p>
                   </div>
                 )}
+                        </div>
+                      </ScrollArea>
+              </CardContent>
+            </Card>
+                </div>
               </div>
-            </CardContent>
-          </Card>
+            ) : (
+              <Card className="h-[calc(100vh-20rem)] flex items-center justify-center">
+                <div className="text-center text-gray-500">
+                  <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <h3 className="text-lg font-medium mb-2">Select a channel to start chatting</h3>
+                  <p className="text-sm">Choose a channel from the sidebar to view messages and start conversations.</p>
+                </div>
+              </Card>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Delete Channel Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center">
-              <AlertTriangle className="w-5 h-5 mr-2 text-red-600" />
-              Delete Channel
-            </DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete the channel "{channelToDelete?.name}"? This action cannot be undone and will remove all messages in this channel.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex space-x-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowDeleteDialog(false)
-                setChannelToDelete(null)
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteChannel}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete Channel
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Message Dialog */}
-      <Dialog open={!!editingMessage} onOpenChange={() => setEditingMessage(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Message</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Textarea
-              value={editingMessage?.content || ''}
-              onChange={(e) => setEditingMessage(prev => prev ? { ...prev, content: e.target.value } : null)}
-              placeholder="Edit your message..."
-              rows={3}
-            />
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setEditingMessage(null)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={() => editingMessage && handleEditMessage(editingMessage.id, editingMessage.content)}
-              >
-                Save Changes
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Forward Message Dialog */}
-      <Dialog open={showForwardDialog} onOpenChange={setShowForwardDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Forward Message</DialogTitle>
-            <DialogDescription>
-              Select a channel to forward this message to.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Select Channel</Label>
-              <Select value={targetChannelId} onValueChange={setTargetChannelId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a channel" />
-                </SelectTrigger>
-                <SelectContent>
-                  {channels.map((channel) => (
-                    <SelectItem key={channel.id} value={channel.id}>
-                                                  {channel?.name || 'Unknown Channel'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowForwardDialog(false)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleForwardMessage}
-                disabled={!targetChannelId}
-              >
-                Forward
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Todo Dialog */}
-      <Dialog open={showTodoDialog} onOpenChange={setShowTodoDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add Todo Item</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Content</Label>
-              <Textarea
-                value={newTodoContent}
-                onChange={(e) => setNewTodoContent(e.target.value)}
-                placeholder="Enter todo item content..."
-                rows={3}
-              />
-            </div>
-            <div>
-              <Label>Priority</Label>
-              <Select value={newTodoPriority} onValueChange={(value: 'low' | 'medium' | 'high') => setNewTodoPriority(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Due Date (Optional)</Label>
-              <Input
-                type="date"
-                value={newTodoDueDate}
-                onChange={(e) => setNewTodoDueDate(e.target.value)}
-              />
-            </div>
-            <div className="flex space-x-2">
-              <Button onClick={addTodoItem} disabled={!newTodoContent.trim()}>
-                Add Todo
-              </Button>
-              <Button variant="outline" onClick={() => setShowTodoDialog(false)}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Member Management Dialog */}
-      <Dialog open={showMembersDialog} onOpenChange={setShowMembersDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Channel Members</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {/* Current Members */}
-            <div>
-              <h3 className="text-sm font-medium mb-2">Current Members ({channelMembers.length})</h3>
-              <div className="max-h-60 overflow-y-auto space-y-2">
-                {channelMembers.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <div className="flex items-center space-x-2">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback>
-                          {member.user?.full_name?.charAt(0) || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="text-sm font-medium">{member.user?.full_name}</p>
-                        <p className="text-xs text-gray-500">{member.user?.email}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant="outline" className="text-xs">
-                        {member.role}
-                      </Badge>
-                      <Badge variant="secondary" className="text-xs">
-                        {member.user?.role}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
+        {/* Dialogs */}
+        {/* Forward Message Dialog */}
+        <Dialog open={showForwardDialog} onOpenChange={setShowForwardDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Forward Message</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Select Channel</Label>
+                <Select value={targetChannelId} onValueChange={setTargetChannelId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a channel" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {channels.map((channel) => (
+                      <SelectItem key={channel.id} value={channel.id}>
+                                                    {channel?.name || 'Unknown Channel'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowForwardDialog(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleForwardMessage}
+                  disabled={!targetChannelId}
+                >
+                  Forward
+                </Button>
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
 
-            {/* Add User Section - Only show if user can manage channel */}
-            {canManageChannel(selectedChannel) && (
-              <div className="border-t pt-4">
-                <h3 className="text-sm font-medium mb-2">Add New Member</h3>
-                <div className="flex space-x-2">
-                  <Select value={selectedUserToAdd} onValueChange={setSelectedUserToAdd}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Select user to add" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableUsers.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          {user.full_name} ({user.role})
+        {/* Add User Dialog */}
+        <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add User to Channel</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Select User</Label>
+                <Select value={selectedUserToAdd} onValueChange={setSelectedUserToAdd}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a user to add" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableUsers.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.full_name} ({user.role})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button onClick={addUserToChannel} disabled={!selectedUserToAdd}>
+                  Add User
+                </Button>
+                <Button variant="outline" onClick={() => setShowAddUserDialog(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Remove User Dialog */}
+        <Dialog open={showRemoveUserDialog} onOpenChange={setShowRemoveUserDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Remove User from Channel</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Select User</Label>
+                <Select value={selectedUserToRemove} onValueChange={setSelectedUserToRemove}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a user to remove" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {channelMembers
+                      .filter(member => member.role !== 'owner') // Can't remove owners
+                      .map((member) => (
+                        <SelectItem key={member.id} value={member.user_id}>
+                          {member.user?.full_name} ({member.role})
                         </SelectItem>
                       ))}
-                    </SelectContent>
-                  </Select>
-                  <Button 
-                    onClick={addUserToChannel} 
-                    disabled={!selectedUserToAdd}
-                    size="sm"
-                  >
-                    Add
-                  </Button>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  onClick={removeUserFromChannel} 
+                  disabled={!selectedUserToRemove} 
+                  variant="destructive"
+                >
+                  Remove User
+                </Button>
+                <Button variant="outline" onClick={() => setShowRemoveUserDialog(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Member Management Dialog */}
+        <Dialog open={showMembersDialog} onOpenChange={setShowMembersDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Channel Members</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {/* Current Members */}
+              <div>
+                <h3 className="text-sm font-medium mb-2">Current Members ({channelMembers.length})</h3>
+                <div className="max-h-60 overflow-y-auto space-y-2">
+                  {channelMembers.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback>
+                            {member.user?.full_name?.charAt(0) || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium">{member.user?.full_name}</p>
+                          <p className="text-xs text-gray-600">{member.user?.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant="outline" className="text-xs">
+                          {member.role}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          {member.user?.role}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            )}
 
-            {/* Remove User Section - Only show if user can manage channel */}
-            {canManageChannel(selectedChannel) && (
-              <div className="border-t pt-4">
-                <h3 className="text-sm font-medium mb-2">Remove Member</h3>
-                <div className="flex space-x-2">
-                  <Select value={selectedUserToRemove} onValueChange={setSelectedUserToRemove}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Select user to remove" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {channelMembers
-                        .filter(member => member.role !== 'owner')
-                        .map((member) => (
-                          <SelectItem key={member.id} value={member.user_id}>
-                            {member.user?.full_name} ({member.role})
+              {/* Add User Section - Only show if user can manage channel */}
+              {canManageChannel(selectedChannel) && (
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-medium mb-2">Add New Member</h3>
+                  <div className="flex space-x-2">
+                    <Select value={selectedUserToAdd} onValueChange={setSelectedUserToAdd}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select user to add" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableUsers.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.full_name} ({user.role})
                           </SelectItem>
                         ))}
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      onClick={addUserToChannel} 
+                      disabled={!selectedUserToAdd}
+                      size="sm"
+                    >
+                      Add
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Remove User Section - Only show if user can manage channel */}
+              {canManageChannel(selectedChannel) && (
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-medium mb-2">Remove Member</h3>
+                  <div className="flex space-x-2">
+                    <Select value={selectedUserToRemove} onValueChange={setSelectedUserToRemove}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select user to remove" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {channelMembers
+                          .filter(member => member.role !== 'owner')
+                          .map((member) => (
+                            <SelectItem key={member.id} value={member.user_id}>
+                              {member.user?.full_name} ({member.role})
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      onClick={removeUserFromChannel} 
+                      disabled={!selectedUserToRemove}
+                      variant="destructive"
+                      size="sm"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Info message for General channels */}
+              {selectedChannel?.name === 'General' && (
+                <div className="border-t pt-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-800">
+                      <strong>General Channel:</strong> Member management is disabled for this channel. 
+                      All users are automatically added to General channels based on their account type.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Todo Dialog */}
+        <Dialog open={showTodoDialog} onOpenChange={setShowTodoDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Todo Item</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Content</Label>
+                <Textarea
+                  value={newTodoContent}
+                  onChange={(e) => setNewTodoContent(e.target.value)}
+                  placeholder="Enter todo item content..."
+                  className="min-h-[100px]"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Priority</Label>
+                  <Select value={newTodoPriority} onValueChange={(value: 'low' | 'medium' | 'high') => setNewTodoPriority(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button 
-                    onClick={removeUserFromChannel} 
-                    disabled={!selectedUserToRemove}
-                    variant="destructive"
-                    size="sm"
-                  >
-                    Remove
-                  </Button>
+                </div>
+                <div>
+                  <Label>Due Date (Optional)</Label>
+                  <Input
+                    type="date"
+                    value={newTodoDueDate}
+                    onChange={(e) => setNewTodoDueDate(e.target.value)}
+                  />
                 </div>
               </div>
-            )}
-
-            {/* Info message for General channels */}
-            {selectedChannel?.name === 'General' && (
-              <div className="border-t pt-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <p className="text-sm text-blue-800">
-                    <strong>General Channel:</strong> Member management is disabled for this channel. 
-                    All users are automatically added to General channels based on their account type.
-                  </p>
-                </div>
+              <div className="flex justify-end space-x-2">
+                <Button onClick={addTodoItem} disabled={!newTodoContent.trim()}>
+                  Add Todo
+                </Button>
+                <Button variant="outline" onClick={() => setShowTodoDialog(false)}>
+                  Cancel
+                </Button>
               </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   )
-} 
+}
