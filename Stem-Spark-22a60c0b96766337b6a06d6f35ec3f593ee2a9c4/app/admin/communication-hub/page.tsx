@@ -1398,6 +1398,86 @@ export default function AdminCommunicationHub() {
     }
   }
 
+  const handleCreateChannel = async () => {
+    try {
+      if (!user?.id || !newChannelData.name.trim()) {
+        toast({
+          title: "Error",
+          description: "Please fill in all required fields.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Create the channel
+      const { data: newChannel, error: channelError } = await supabase
+        .from('channels')
+        .insert([{
+          name: newChannelData.name.trim(),
+          description: newChannelData.description.trim(),
+          type: newChannelData.type,
+          created_by: user.id
+        }])
+        .select()
+        .single()
+
+      if (channelError) {
+        console.error('Error creating channel:', channelError)
+        toast({
+          title: "Error",
+          description: "Failed to create channel. Please try again.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Add the creator as a member with owner role
+      const { error: memberError } = await supabase
+        .from('channel_members')
+        .insert([{
+          channel_id: newChannel.id,
+          user_id: user.id,
+          role: 'owner'
+        }])
+
+      if (memberError) {
+        console.error('Error adding creator to channel:', memberError)
+        toast({
+          title: "Warning",
+          description: "Channel created but failed to add you as a member.",
+          variant: "destructive",
+        })
+      }
+
+      // Reset form and close dialog
+      setNewChannelData({
+        name: '',
+        description: '',
+        type: 'general',
+        selectedUsers: []
+      })
+      setShowCreateDialog(false)
+
+      // Reload channels
+      await loadChannels(user.id, user.role)
+
+      toast({
+        title: "Success",
+        description: `Channel "${newChannelData.name}" created successfully!`,
+      })
+
+      // Select the new channel
+      setSelectedChannel(newChannel)
+    } catch (error) {
+      console.error('Error creating channel:', error)
+      toast({
+        title: "Error",
+        description: "Failed to create channel. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high': return 'text-red-600 bg-red-100'
@@ -1501,7 +1581,7 @@ export default function AdminCommunicationHub() {
                   <Badge variant="secondary">{channels.length}</Badge>
                     <Button
                       size="sm"
-                      onClick={() => setShowCreateChannel(true)}
+                      onClick={() => setShowCreateDialog(true)}
                       className="h-8 w-8 p-0"
                     >
                       <Plus className="w-4 h-4" />
@@ -2161,6 +2241,56 @@ export default function AdminCommunicationHub() {
                   </div>
                 </div>
               )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Create Channel Dialog */}
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Channel</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Channel Name</Label>
+                <Input
+                  value={newChannelData.name}
+                  onChange={(e) => setNewChannelData({...newChannelData, name: e.target.value})}
+                  placeholder="Enter channel name..."
+                />
+              </div>
+              <div>
+                <Label>Description</Label>
+                <Textarea
+                  value={newChannelData.description}
+                  onChange={(e) => setNewChannelData({...newChannelData, description: e.target.value})}
+                  placeholder="Enter channel description..."
+                  className="min-h-[100px]"
+                />
+              </div>
+              <div>
+                <Label>Channel Type</Label>
+                <Select value={newChannelData.type} onValueChange={(value: 'general' | 'announcements' | 'parent_teacher' | 'admin_only') => setNewChannelData({...newChannelData, type: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="general">General</SelectItem>
+                    <SelectItem value="announcements">Announcements</SelectItem>
+                    <SelectItem value="parent_teacher">Parent-Teacher</SelectItem>
+                    <SelectItem value="admin_only">Admin Only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button onClick={handleCreateChannel} disabled={!newChannelData.name.trim()}>
+                  Create Channel
+                </Button>
+                <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                  Cancel
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
