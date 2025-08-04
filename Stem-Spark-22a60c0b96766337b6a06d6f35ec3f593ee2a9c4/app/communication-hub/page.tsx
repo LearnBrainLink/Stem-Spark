@@ -10,14 +10,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { toast } from '@/hooks/use-toast'
 import { 
   Hash, 
   Users, 
   Plus, 
-  ArrowRight, 
+  ChevronRight, 
   Crown, 
   Reply, 
   X, 
@@ -1478,7 +1478,7 @@ export default function CommunicationHub() {
             </div>
             <Link href={getDashboardUrl()}>
               <Button variant="outline">
-                <ArrowRight className="w-4 h-4 mr-2" />
+                <ChevronRight className="w-4 h-4 mr-2" />
                 Back to Dashboard
               </Button>
             </Link>
