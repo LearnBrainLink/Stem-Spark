@@ -541,8 +541,8 @@ export default function CommunicationHub() {
           name: 'Parent-Teacher',
           description: 'Communication between parents and teachers',
           type: 'parent_teacher',
-          roles: ['parent', 'teacher', 'admin', 'super_admin'],
-          accountTypes: ['parent', 'admin']
+          roles: ['parent', 'teacher'],
+          accountTypes: ['parent']
         },
         {
           name: 'Admin Hub',
@@ -708,7 +708,7 @@ export default function CommunicationHub() {
             shouldShow = true // Everyone can see Announcements, but only admins can message
           } else if (channel?.name === 'Admin Hub' && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
             shouldShow = true
-          } else if (channel?.name === 'Parent-Teacher' && (currentUser.role === 'parent' || currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
+          } else if (channel?.name === 'Parent-Teacher' && currentUser.role === 'parent') {
             shouldShow = true
           } else if (channel?.name === 'Test Management Channel' || channel?.name === 'general' || channel?.name === 'announcements' || channel?.name === 'admin-only' || channel?.name === 'parent-teacher') {
             // Show legacy channels to admins
