@@ -134,40 +134,45 @@ export default function IndividualConversations() {
 
   const loadConversations = async (userId: string) => {
     try {
+      // Get conversations where user is either user1 or user2
       const { data: conversations, error } = await supabase
         .from('individual_conversations')
-        .select(`
-          *,
-          other_user:profiles!individual_conversations_user1_id_fkey(
-            id,
-            full_name,
-            email,
-            role,
-            avatar_url
-          ),
-          last_message:conversation_messages(
-            content,
-            created_at,
-            sender_name
-          )
-        `)
+        .select('*')
         .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
         .order('created_at', { ascending: false })
 
       if (error) throw error
 
       // Process conversations to get the other user and last message
-      const processedConversations = conversations?.map(conv => {
+      const processedConversations = await Promise.all((conversations || []).map(async (conv) => {
         const otherUserId = conv.user1_id === userId ? conv.user2_id : conv.user1_id
-        const otherUser = conv.other_user
-        const lastMessage = conv.last_message?.[0] || null
+        
+        // Get the other user's profile
+        const { data: otherUser } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, role, avatar_url')
+          .eq('id', otherUserId)
+          .single()
+        
+        // Get last message for this conversation
+        const { data: lastMessage } = await supabase
+          .from('conversation_messages')
+          .select('content, created_at, sender_name')
+          .eq('conversation_id', conv.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
 
         return {
-          ...conv,
-          other_user: otherUser,
-          last_message: lastMessage
-        }
-      }) || []
+          id: conv.id as string,
+          user1_id: conv.user1_id as string,
+          user2_id: conv.user2_id as string,
+          created_at: conv.created_at as string,
+          other_user: otherUser || { id: otherUserId as string, full_name: 'Unknown User', email: '', role: '' },
+          last_message: lastMessage || null,
+          unread_count: 0 // TODO: Implement unread count
+        } as Conversation
+      }))
 
       setConversations(processedConversations)
     } catch (error) {
@@ -184,7 +189,7 @@ export default function IndividualConversations() {
         .order('full_name')
 
       if (error) throw error
-      setAvailableUsers(users || [])
+      setAvailableUsers((users as User[]) || [])
     } catch (error) {
       console.error('Error loading available users:', error)
     }
@@ -194,19 +199,33 @@ export default function IndividualConversations() {
     try {
       const { data: messages, error } = await supabase
         .from('conversation_messages')
-        .select(`
-          *,
-          sender:profiles(
-            full_name,
-            avatar_url,
-            role
-          )
-        `)
+        .select('*')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
 
       if (error) throw error
-      setMessages(messages || [])
+
+      // Process messages to get sender information
+      const processedMessages = await Promise.all((messages || []).map(async (msg) => {
+        const { data: sender } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url, role')
+          .eq('id', msg.sender_id)
+          .single()
+
+        return {
+          id: msg.id,
+          conversation_id: msg.conversation_id,
+          sender_id: msg.sender_id,
+          content: msg.content,
+          message_type: msg.message_type,
+          created_at: msg.created_at,
+          sender_name: msg.sender_name,
+          sender: sender || { full_name: 'Unknown User', avatar_url: null, role: '' }
+        } as ConversationMessage
+      }))
+
+      setMessages(processedMessages)
     } catch (error) {
       console.error('Error loading messages:', error)
     }
@@ -245,7 +264,7 @@ export default function IndividualConversations() {
 
     try {
       // Get or create conversation
-      const { data: conversation, error } = await supabase
+      const { data: conversationId, error } = await supabase
         .rpc('get_or_create_conversation', {
           user1_id: user.id,
           user2_id: selectedUserToStartConversation
@@ -253,29 +272,30 @@ export default function IndividualConversations() {
 
       if (error) throw error
 
-      // Find the conversation details
+      // Get the conversation details
       const { data: conversationDetails } = await supabase
         .from('individual_conversations')
-        .select(`
-          *,
-          other_user:profiles!individual_conversations_user1_id_fkey(
-            id,
-            full_name,
-            email,
-            role,
-            avatar_url
-          )
-        `)
-        .eq('id', conversation)
+        .select('*')
+        .eq('id', conversationId)
         .single()
 
       if (conversationDetails) {
         const otherUserId = conversationDetails.user1_id === user.id ? conversationDetails.user2_id : conversationDetails.user1_id
-        const otherUser = conversationDetails.other_user
+        
+        // Get the other user's profile
+        const { data: otherUser } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, role, avatar_url')
+          .eq('id', otherUserId)
+          .single()
 
         const newConversation: Conversation = {
-          ...conversationDetails,
-          other_user: otherUser,
+          id: conversationDetails.id as string,
+          user1_id: conversationDetails.user1_id as string,
+          user2_id: conversationDetails.user2_id as string,
+          created_at: conversationDetails.created_at as string,
+          other_user: otherUser || { id: otherUserId as string, full_name: 'Unknown User', email: '', role: '' },
+          last_message: null,
           unread_count: 0
         }
 
