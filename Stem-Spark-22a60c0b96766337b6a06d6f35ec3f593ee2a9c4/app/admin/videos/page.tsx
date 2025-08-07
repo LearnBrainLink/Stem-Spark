@@ -48,14 +48,22 @@ export default function VideosPage() {
     setMessage(null)
     setError(null)
 
-    const result = await getEnhancedVideosData()
-    if (result.error) {
-      setError(result.error)
+    try {
+      const result = await getEnhancedVideosData()
+      if (result.error) {
+        setError(result.error)
+        setVideos([])
+      } else if (result.videos) {
+        setVideos(result.videos)
+        console.log('Videos loaded:', result.videos.length)
+      }
+    } catch (err) {
+      console.error('Error fetching videos:', err)
+      setError('Failed to load videos')
       setVideos([])
-    } else if (result.videos) {
-      setVideos(result.videos)
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }
 
   const handleCreateVideo = async (formData: FormData) => {

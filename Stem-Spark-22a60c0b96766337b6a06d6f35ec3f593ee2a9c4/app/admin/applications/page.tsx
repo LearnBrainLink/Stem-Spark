@@ -98,15 +98,18 @@ export default function ApplicationsPage() {
       setError(null)
 
       const { data, error } = await supabase
-        .from('intern_applications')
+        .from('internship_applications')
         .select('*')
-        .order('submitted_at', { ascending: false })
+        .order('applied_at', { ascending: false })
 
       if (error) throw error
+      
+      console.log('Applications loaded:', data?.length || 0)
       setApplications(data || [])
     } catch (error) {
       console.error('Error fetching applications:', error)
       setError('Failed to load applications')
+      setApplications([])
     } finally {
       setLoading(false)
     }

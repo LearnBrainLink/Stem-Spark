@@ -56,31 +56,43 @@ export default function ContentModerationPage() {
       setIsLoading(true)
       setMessage(null)
       setError(null)
-      // Fetch videos
-      const videosResult = await getEnhancedVideosData()
-      // Fetch applications
-      const applicationsResult = await getEnhancedApplicationsData()
-      // Transform data
+      
+      // Fetch videos and applications in parallel
+      const [videosResult, applicationsResult] = await Promise.all([
+        getEnhancedVideosData(),
+        getEnhancedApplicationsData()
+      ])
+      
+      // Transform video data
       const videoItems: ContentItem[] = (videosResult.videos || []).map((video: any) => ({
         id: video.id,
         type: "video" as const,
         title: video.title,
         content: video.description || "",
         author: video.uploader_name || video.uploader_email || "Unknown",
-        status: video.status === "active" ? "approved" : "pending",
+        status: video.status === "active" ? "approved" : video.status === "inactive" ? "rejected" : "pending",
         created_at: video.created_at,
       }))
+      
+      // Transform application data
       const applicationItems: ContentItem[] = (applicationsResult.applications || []).map((app: any) => ({
         id: app.id,
         type: "application" as const,
         title: `Application for ${app.internshipTitle || "Unknown Position"}`,
-        content: app.application_text,
-        author: app.studentName || "Unknown",
+        content: app.application_text || app.motivation_statement || "",
+        author: app.studentName || app.applicant_email || "Unknown",
         status: app.status === "approved" ? "approved" : app.status === "rejected" ? "rejected" : "pending",
-        created_at: app.applied_at,
+        created_at: app.applied_at || app.created_at,
       }))
+      
       const allItems = [...videoItems, ...applicationItems]
       setContentItems(allItems)
+      
+      console.log('Content moderation data loaded:', {
+        videos: videoItems.length,
+        applications: applicationItems.length,
+        total: allItems.length
+      })
     } catch (error) {
       console.error("Error fetching content:", error)
       setError("Failed to fetch content items")
@@ -110,25 +122,32 @@ export default function ContentModerationPage() {
 
   const handleModerateContent = async (itemId: string, action: "approve" | "reject" | "flag", type: string) => {
     try {
+      setMessage(null)
+      setError(null)
+      
       const updateData: any = {}
 
       if (action === "approve") {
         updateData.status = type === "video" ? "active" : "approved"
       } else if (action === "reject") {
-        updateData.status = "rejected"
+        updateData.status = type === "video" ? "inactive" : "rejected"
       } else if (action === "flag") {
         updateData.status = "flagged"
       }
 
       const table = type === "video" ? "videos" : "internship_applications"
 
-      const { error } = await supabase.from(table).update(updateData).eq("id", itemId)
+      const { error } = await supabase
+        .from(table)
+        .update(updateData)
+        .eq("id", itemId)
 
       if (error) throw error
 
       setMessage({ type: "success", text: `Content ${action}d successfully!` })
       fetchContentItems()
     } catch (error: any) {
+      console.error('Moderation error:', error)
       setMessage({ type: "error", text: error.message || `Failed to ${action} content` })
     }
   }
@@ -299,6 +318,65 @@ export default function ContentModerationPage() {
             Export
           </Button>
         </div>
+      </div>
+
+      {/* Stats Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <FileText className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Total Content</p>
+                <p className="text-2xl font-bold text-gray-900">{contentItems.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <Clock className="w-6 h-6 text-yellow-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Pending Review</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Check className="w-6 h-6 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Approved</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.approved}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <X className="w-6 h-6 text-red-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Rejected</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.rejected}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters and Search */}

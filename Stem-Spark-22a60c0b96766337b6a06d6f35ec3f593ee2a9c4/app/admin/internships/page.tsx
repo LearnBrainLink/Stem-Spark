@@ -68,16 +68,21 @@ export default function InternshipsPage() {
     try {
       setIsLoading(true)
       setError(null)
+      setMessage(null)
       
       const result = await getEnhancedInternshipsData()
       
       if (result.error) {
         setError(result.error)
+        setInternships([])
       } else if (result.internships) {
         setInternships(result.internships)
+        console.log('Internships loaded:', result.internships.length)
       }
     } catch (err) {
+      console.error('Error fetching internships:', err)
       setError('Failed to load internships')
+      setInternships([])
     } finally {
       setIsLoading(false)
     }
