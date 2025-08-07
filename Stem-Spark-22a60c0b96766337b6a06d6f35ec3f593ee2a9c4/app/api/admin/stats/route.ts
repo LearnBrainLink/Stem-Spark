@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerSupabaseClient } from '@/lib/supabase/server'
 
 export async function GET() {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json({ error: 'Supabase configuration missing' }, { status: 500 })
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey)
+    const supabase = createServerSupabaseClient()
 
     // Get total users count
     const { count: totalUsers } = await supabase

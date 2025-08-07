@@ -140,6 +140,8 @@ export default function AdminDashboard() {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
+  const [envOk, setEnvOk] = useState<boolean | null>(null);
+  const [missingEnvVars, setMissingEnvVars] = useState<string[]>([]);
 
   useEffect(() => {
     async function fetchStats() {
@@ -194,7 +196,27 @@ export default function AdminDashboard() {
       }
     }
 
+    async function checkEnv() {
+      try {
+        const res = await fetch('/api/check-env');
+        if (!res.ok) {
+          setEnvOk(false);
+          return;
+        }
+        const data = await res.json();
+        const ok = data?.status === 'success';
+        setEnvOk(ok);
+        if (!ok && data?.variables) {
+          const missing = Object.keys(data.variables).filter((key) => !data.variables[key]);
+          setMissingEnvVars(missing);
+        }
+      } catch {
+        setEnvOk(false);
+      }
+    }
+
     fetchStats();
+    checkEnv();
   }, []);
 
   const handleGenerateReport = async () => {
@@ -320,6 +342,16 @@ export default function AdminDashboard() {
           <AlertCircle className="h-4 w-4 text-red-600" />
           <AlertDescription className="text-red-800">
             Unable to connect to database. Showing sample data.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Environment Diagnostics */}
+      {envOk === false && (
+        <Alert className="border-amber-200 bg-amber-50">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800">
+            Missing required environment variables: {missingEnvVars.join(', ')}
           </AlertDescription>
         </Alert>
       )}
@@ -459,7 +491,7 @@ export default function AdminDashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={stats?.userGrowthChart || []}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="name" stroke="#6b7280" />
+                  <XAxis dataKey="month" stroke="#6b7280" />
                   <YAxis stroke="#6b7280" />
                   <Tooltip 
                     contentStyle={{ 
@@ -475,13 +507,6 @@ export default function AdminDashboard() {
                     stroke="#3b82f6" 
                     strokeWidth={3}
                     dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="interns" 
-                    stroke="#10b981" 
-                    strokeWidth={3}
-                    dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -539,7 +564,7 @@ export default function AdminDashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={stats?.volunteerHoursChart || []}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="name" stroke="#6b7280" />
+                  <XAxis dataKey="month" stroke="#6b7280" />
                   <YAxis stroke="#6b7280" />
                   <Tooltip 
                     contentStyle={{ 
@@ -549,8 +574,7 @@ export default function AdminDashboard() {
                     }} 
                   />
                   <Legend />
-                  <Bar dataKey="approved" fill="#10b981" name="Approved Hours" />
-                  <Bar dataKey="pending" fill="#f59e0b" name="Pending Hours" />
+                  <Bar dataKey="hours" fill="#10b981" name="Hours" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -568,7 +592,7 @@ export default function AdminDashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={stats?.activityTrendsChart || []}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="date" stroke="#6b7280" />
+                  <XAxis dataKey="month" stroke="#6b7280" />
                   <YAxis stroke="#6b7280" />
                   <Tooltip 
                     contentStyle={{ 
@@ -579,11 +603,12 @@ export default function AdminDashboard() {
                   />
                   <Area 
                     type="monotone" 
-                    dataKey="activities" 
+                    dataKey="messages" 
                     stroke="#8b5cf6" 
                     fill="#8b5cf6" 
                     fillOpacity={0.3}
                     strokeWidth={2}
+                    name="Messages"
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -607,10 +632,10 @@ export default function AdminDashboard() {
                     <Activity className="w-4 h-4 text-blue-600" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                    <p className="text-xs text-gray-600">{activity.description}</p>
+                    <p className="text-sm font-medium text-gray-900">{activity.full_name || 'Unknown'}</p>
+                    <p className="text-xs text-gray-600">{activity.role || 'activity'}</p>
                   </div>
-                  <span className="text-xs text-gray-500">{activity.time}</span>
+                  <span className="text-xs text-gray-500">{activity.created_at ? new Date(activity.created_at).toLocaleString() : ''}</span>
                 </div>
               ))
             ) : (
