@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from 'recharts'
@@ -48,7 +47,6 @@ export default function AdminDashboard() {
     userDistribution: []
   })
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
 
   useEffect(() => {
     fetchDashboardStats()
@@ -56,6 +54,26 @@ export default function AdminDashboard() {
 
   const fetchDashboardStats = async () => {
     try {
+      setLoading(true)
+      
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        console.error('Missing Supabase configuration')
+        return
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
       // Fetch user stats
       const { count: userCount } = await supabase
         .from('profiles')
@@ -63,11 +81,11 @@ export default function AdminDashboard() {
 
       // Fetch application stats
       const { count: appCount } = await supabase
-        .from('intern_applications')
+        .from('internship_applications')
         .select('*', { count: 'exact', head: true })
 
       const { count: pendingCount } = await supabase
-        .from('intern_applications')
+        .from('internship_applications')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending')
 
@@ -88,9 +106,9 @@ export default function AdminDashboard() {
 
       // Fetch recent applications
       const { data: recentApplications } = await supabase
-        .from('intern_applications')
+        .from('internship_applications')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('applied_at', { ascending: false })
         .limit(5)
 
       // Fetch user growth data (last 6 months)
@@ -105,10 +123,10 @@ export default function AdminDashboard() {
 
       // Fetch application stats by month
       const { data: applicationStats } = await supabase
-        .from('intern_applications')
-        .select('created_at, status')
-        .gte('created_at', sixMonthsAgo.toISOString())
-        .order('created_at', { ascending: true })
+        .from('internship_applications')
+        .select('applied_at, status')
+        .gte('applied_at', sixMonthsAgo.toISOString())
+        .order('applied_at', { ascending: true })
 
       // Fetch message stats by month
       const { data: messageStats } = await supabase
@@ -128,7 +146,7 @@ export default function AdminDashboard() {
       const userGrowthData = processTimeSeriesData(userGrowth, 'created_at', 'users')
       
       // Process application stats
-      const applicationStatsData = processTimeSeriesData(applicationStats, 'created_at', 'applications')
+      const applicationStatsData = processTimeSeriesData(applicationStats, 'applied_at', 'applications')
       
       // Process message stats
       const messageStatsData = processTimeSeriesData(messageStats, 'created_at', 'messages')

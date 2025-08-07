@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -77,8 +76,6 @@ export default function AdminMessagingPage() {
     message_type: 'text' as const
   })
 
-  const supabase = createClient()
-
   useEffect(() => {
     fetchData()
   }, [])
@@ -105,100 +102,228 @@ export default function AdminMessagingPage() {
   }
 
   const fetchChannels = async () => {
-    const { data, error } = await supabase
-      .from('channels')
-      .select('*')
-      .order('created_at', { ascending: false })
+    try {
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        console.error('Missing Supabase configuration')
+        return
+      }
 
-    if (!error && data) {
-      // Get member count for each channel
-      const channelsWithMemberCount = await Promise.all(
-        data.map(async (channel) => {
-                      const { count } = await supabase
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
+      const { data, error } = await supabase
+        .from('channels')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (!error && data) {
+        // Get member count for each channel
+        const channelsWithMemberCount = await Promise.all(
+          data.map(async (channel) => {
+            const { count } = await supabase
               .from('chat_participants')
               .select('*', { count: 'exact', head: true })
               .eq('chat_id', channel.id)
-          
-          return {
-            ...channel,
-            member_count: count || 0
-          }
-        })
-      )
-      setChannels(channelsWithMemberCount)
+            
+            return {
+              ...channel,
+              member_count: count || 0
+            }
+          })
+        )
+        setChannels(channelsWithMemberCount)
+      }
+    } catch (error) {
+      console.error('Error fetching channels:', error)
     }
   }
 
   const fetchUsers = async () => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, email, role')
-      .order('full_name')
+    try {
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        console.error('Missing Supabase configuration')
+        return
+      }
 
-    if (!error && data) {
-      setUsers(data)
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .order('full_name')
+
+      if (!error && data) {
+        setUsers(data)
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error)
     }
   }
 
   const fetchAllMessages = async () => {
-    const { data, error } = await supabase
-      .from('messages')
-      .select(`
-        *,
-        profiles:profiles(full_name),
-        channels:channels(name)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(100)
+    try {
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        console.error('Missing Supabase configuration')
+        return
+      }
 
-    if (!error && data) {
-      setMessages(data.map(msg => ({
-        ...msg,
-        sender_name: msg.profiles?.full_name || 'Unknown',
-        channel_name: msg.channels?.name || 'Unknown'
-      })))
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          profiles:profiles(full_name),
+          channels:channels(name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(100)
+
+      if (!error && data) {
+        setMessages(data.map((msg: any) => ({
+          ...msg,
+          sender_name: msg.profiles?.full_name || 'Unknown',
+          channel_name: msg.channels?.name || 'Unknown'
+        })))
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error)
     }
   }
 
   const fetchMessages = async (channelId: string) => {
-    const { data, error } = await supabase
-      .from('messages')
-      .select(`
-        *,
-        profiles:profiles(full_name),
-        channels:channels(name)
-      `)
-      .eq('channel_id', channelId)
-      .order('created_at', { ascending: true })
+    try {
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        console.error('Missing Supabase configuration')
+        return
+      }
 
-    if (!error && data) {
-      setMessages(data.map(msg => ({
-        ...msg,
-        sender_name: msg.profiles?.full_name || 'Unknown',
-        channel_name: msg.channels?.name || 'Unknown'
-      })))
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          profiles:profiles(full_name),
+          channels:channels(name)
+        `)
+        .eq('channel_id', channelId)
+        .order('created_at', { ascending: true })
+
+      if (!error && data) {
+        setMessages(data.map((msg: any) => ({
+          ...msg,
+          sender_name: msg.profiles?.full_name || 'Unknown',
+          channel_name: msg.channels?.name || 'Unknown'
+        })))
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error)
     }
   }
 
-  const subscribeToMessages = (channelId: string) => {
-    const subscription = supabase
-      .channel(`messages:${channelId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-                  filter: `chat_id=eq.${channelId}`
-      }, (payload) => {
-        const newMessage = payload.new as Message
-        setMessages(prev => [...prev, newMessage])
-      })
-      .subscribe()
+  const subscribeToMessages = async (channelId: string) => {
+    try {
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        console.error('Missing Supabase configuration')
+        return
+      }
 
-    return () => subscription.unsubscribe()
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
+      const subscription = supabase
+        .channel(`messages:${channelId}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `chat_id=eq.${channelId}`
+        }, (payload: any) => {
+          const newMessage = payload.new as Message
+          setMessages(prev => [...prev, newMessage])
+        })
+        .subscribe()
+
+      return () => subscription.unsubscribe()
+    } catch (error) {
+      console.error('Error subscribing to messages:', error)
+    }
   }
 
   const createChannel = async () => {
     try {
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        console.error('Missing Supabase configuration')
+        return
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
@@ -252,6 +377,24 @@ export default function AdminMessagingPage() {
 
   const sendAdminMessage = async () => {
     try {
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        console.error('Missing Supabase configuration')
+        return
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user || !adminMessageData.content.trim()) return
 
@@ -280,6 +423,24 @@ export default function AdminMessagingPage() {
 
   const deleteMessage = async (messageId: string) => {
     try {
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        console.error('Missing Supabase configuration')
+        return
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
       const { error } = await supabase
         .from('messages')
         .delete()
@@ -295,6 +456,24 @@ export default function AdminMessagingPage() {
 
   const deleteChannel = async (channelId: string) => {
     try {
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        console.error('Missing Supabase configuration')
+        return
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
       // Delete all messages in the channel
       await supabase
         .from('messages')

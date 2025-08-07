@@ -16,13 +16,11 @@ import {
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { createInternship, updateInternship, deleteInternship } from '../enhanced-actions'
 import { supabase } from "@/lib/supabase/client"
 import { Plus, Edit, Trash2, Users, Calendar, RefreshCw, MapPin, Clock, Briefcase, Download, Search } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getEnhancedInternshipsData } from '../enhanced-actions'
 import {
   Select,
   SelectContent,
@@ -125,75 +123,151 @@ export default function InternshipsPage() {
   }
 
   const handleCreateInternship = async (formData: FormData) => {
-    setIsLoading(true)
-    setMessage(null)
+    try {
+      setMessage(null)
+      
+      const internshipData = {
+        title: formData.get('title') as string,
+        description: formData.get('description') as string,
+        company: formData.get('company') as string,
+        location: formData.get('location') as string,
+        duration: formData.get('duration') as string,
+        requirements: formData.get('requirements') as string,
+        application_deadline: formData.get('application_deadline') as string,
+        start_date: formData.get('start_date') as string,
+        end_date: formData.get('end_date') as string,
+        max_participants: parseInt(formData.get('max_participants') as string),
+        current_participants: 0,
+        status: 'active'
+      }
 
-    const internshipData = {
-      title: formData.get("title") as string,
-      description: formData.get("description") as string,
-      company: formData.get("company") as string,
-      location: formData.get("location") as string,
-      duration: formData.get("duration") as string,
-      requirements: formData.get("requirements") as string,
-      application_deadline: formData.get("applicationDeadline") as string,
-      start_date: formData.get("startDate") as string,
-      end_date: formData.get("endDate") as string,
-      max_participants: Number(formData.get("maxParticipants")),
-      current_participants: 0,
-      status: "active",
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        setMessage({ type: "error", text: "Missing Supabase configuration" })
+        return
+      }
+
+      const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
+      const { data, error } = await supabaseClient
+        .from('internships')
+        .insert([internshipData])
+        .select()
+        .single()
+
+      if (error) {
+        setMessage({ type: "error", text: error.message })
+      } else if (data) {
+        setMessage({ type: "success", text: "Internship created successfully!" })
+        setIsCreateDialogOpen(false)
+        fetchInternships()
+      }
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "Failed to create internship" })
     }
-
-    const result = await createInternship(internshipData)
-
-    if (result?.error) {
-      setMessage({ type: "error", text: result.error })
-    } else if (result?.success) {
-      setMessage({ type: "success", text: "Internship created successfully!" })
-      setIsCreateDialogOpen(false)
-      fetchInternships()
-    }
-
-    setIsLoading(false)
   }
 
   const handleUpdateInternship = async (formData: FormData) => {
-    if (!editingInternship) return
-
     try {
+      if (!editingInternship) return
+      
+      setMessage(null)
+      
       const internshipData = {
-        title: formData.get("title") as string,
-        description: formData.get("description") as string,
-        company: formData.get("company") as string,
-        location: formData.get("location") as string,
-        duration: Number(formData.get("duration")),
-        requirements: formData.get("requirements") as string,
+        title: formData.get('title') as string,
+        description: formData.get('description') as string,
+        company: formData.get('company') as string,
+        location: formData.get('location') as string,
+        duration: formData.get('duration') as string,
+        requirements: formData.get('requirements') as string,
+        application_deadline: formData.get('application_deadline') as string,
+        start_date: formData.get('start_date') as string,
+        end_date: formData.get('end_date') as string,
+        max_participants: parseInt(formData.get('max_participants') as string),
+        status: formData.get('status') as string
       }
 
-      await updateInternship(editingInternship.id, internshipData)
-      setMessage({ type: "success", text: "Internship updated successfully!" })
-      setEditingInternship(null)
-      fetchInternships()
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        setMessage({ type: "error", text: "Missing Supabase configuration" })
+        return
+      }
+
+      const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
+      const { error } = await supabaseClient
+        .from('internships')
+        .update(internshipData)
+        .eq('id', editingInternship.id)
+
+      if (error) {
+        setMessage({ type: "error", text: error.message || "Failed to update internship" })
+      } else {
+        setMessage({ type: "success", text: "Internship updated successfully!" })
+        setEditingInternship(null)
+        fetchInternships()
+      }
     } catch (error: any) {
       setMessage({ type: "error", text: error.message || "Failed to update internship" })
     }
   }
 
   const handleDeleteInternship = async (internshipId: string) => {
-    if (!confirm("Are you sure you want to delete this internship?")) return
+    try {
+      setMessage(null)
 
-    setIsLoading(true)
-    setMessage(null)
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        setMessage({ type: "error", text: "Missing Supabase configuration" })
+        return
+      }
 
-    const result = await deleteInternship(internshipId)
+      const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
 
-    if (result?.error) {
-      setMessage({ type: "error", text: result.error })
-    } else if (result?.success) {
-      setMessage({ type: "success", text: "Internship deleted successfully!" })
-      fetchInternships()
+      const { error } = await supabaseClient
+        .from('internships')
+        .delete()
+        .eq('id', internshipId)
+
+      if (error) {
+        setMessage({ type: "error", text: error.message })
+      } else {
+        setMessage({ type: "success", text: "Internship deleted successfully!" })
+        fetchInternships()
+      }
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "Failed to delete internship" })
     }
-
-    setIsLoading(false)
   }
 
   const formatDate = (dateString: string) => {
