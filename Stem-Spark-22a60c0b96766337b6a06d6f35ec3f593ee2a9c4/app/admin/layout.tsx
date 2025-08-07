@@ -19,6 +19,7 @@ import {
   LogOut,
   UserCheck,
   MessageSquare,
+  CheckCircle,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -62,6 +63,12 @@ const navigationItems = [
     href: "/admin/applications",
     icon: UserCheck,
     description: "Review internship applications",
+  },
+  {
+    title: "Intern Approvals",
+    href: "/admin/intern-approvals",
+    icon: CheckCircle,
+    description: "Approve intern applications",
   },
   {
     title: "Analytics & Reports",

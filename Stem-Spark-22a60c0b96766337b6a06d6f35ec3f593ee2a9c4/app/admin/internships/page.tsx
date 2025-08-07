@@ -1,617 +1,295 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { useState, useEffect } from 'react'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
-import { supabase } from "@/lib/supabase/client"
-import { Plus, Edit, Trash2, Users, Calendar, RefreshCw, MapPin, Clock, Briefcase, Download, Search } from "lucide-react"
-import Link from "next/link"
-import { motion } from "framer-motion"
-import { Skeleton } from "@/components/ui/skeleton"
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { AlertTriangle } from "lucide-react"
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from '@/components/ui/alert'
+import {
+  Plus,
+  Edit,
+  Trash2,
+  MoreHorizontal,
+  AlertCircle,
+} from 'lucide-react'
 
-interface Internship {
-  id: string
-  title: string
-  description: string
-  company: string
-  location: string
-  duration: string
-  requirements: string
-  application_deadline: string
-  start_date: string
-  end_date: string
-  max_participants: number
-  current_participants: number
-  status: string
-  created_at: string
-}
-
+// Internship Management Page Component
 export default function InternshipsPage() {
-  const [internships, setInternships] = useState<Internship[]>([])
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [internships, setInternships] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [categoryFilter, setCategoryFilter] = useState("all")
-  const [editingInternship, setEditingInternship] = useState<Internship | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [currentInternship, setCurrentInternship] = useState<any | null>(null)
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
 
   useEffect(() => {
     fetchInternships()
   }, [])
 
+  const getSupabaseClient = async () => {
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+    return createClient(supabaseUrl, supabaseServiceKey)
+  }
+
   const fetchInternships = async () => {
+    setLoading(true)
+    setError(null)
     try {
-      setIsLoading(true)
-      setError(null)
-      setMessage(null)
-      
-      // Use direct Supabase client approach
-      const { createClient } = await import('@supabase/supabase-js')
-      
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-      
-      if (!supabaseUrl || !supabaseServiceKey) {
-        setError('Missing Supabase configuration')
-        setInternships([])
-        return
-      }
-
-      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      })
-
-      const { data: internships, error } = await supabase
+      const supabase = await getSupabaseClient()
+      const { data, error } = await supabase
         .from('internships')
-        .select(`
-          *,
-          internship_applications(count)
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Error fetching internships:', error)
-        setError(error.message)
-        setInternships([])
-      } else {
-        // Transform the data
-        const transformedInternships = internships?.map(internship => ({
-          ...internship,
-          applicationCount: internship.internship_applications?.[0]?.count || 0,
-          isActive: internship.status === 'active',
-          categoryColor: internship.category === 'Technology' ? 'blue' : 
-                         internship.category === 'Science' ? 'green' : 
-                         internship.category === 'Engineering' ? 'purple' : 'gray',
-        })) || []
-        
-        setInternships(transformedInternships)
-        console.log('Internships loaded:', transformedInternships.length)
-      }
-    } catch (err) {
-      console.error('Error fetching internships:', err)
-      setError('Failed to load internships')
-      setInternships([])
+      if (error) throw error
+      setInternships(data || [])
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch internships.')
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  const handleCreateInternship = async (formData: FormData) => {
+  const handleUpsertInternship = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!currentInternship) return
+
     try {
-      setMessage(null)
+      const supabase = await getSupabaseClient()
+      const { id, ...upsertData } = currentInternship
       
-      const internshipData = {
-        title: formData.get('title') as string,
-        description: formData.get('description') as string,
-        company: formData.get('company') as string,
-        location: formData.get('location') as string,
-        duration: formData.get('duration') as string,
-        requirements: formData.get('requirements') as string,
-        application_deadline: formData.get('application_deadline') as string,
-        start_date: formData.get('start_date') as string,
-        end_date: formData.get('end_date') as string,
-        max_participants: parseInt(formData.get('max_participants') as string),
-        current_participants: 0,
-        status: 'active'
-      }
+      // Ensure numeric fields are correctly formatted
+      upsertData.max_participants = parseInt(upsertData.max_participants, 10) || 0;
 
-      // Use direct Supabase client approach
-      const { createClient } = await import('@supabase/supabase-js')
-      
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-      
-      if (!supabaseUrl || !supabaseServiceKey) {
-        setMessage({ type: "error", text: "Missing Supabase configuration" })
-        return
-      }
 
-      const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      })
-
-      const { data, error } = await supabaseClient
-        .from('internships')
-        .insert([internshipData])
-        .select()
-        .single()
-
-      if (error) {
-        setMessage({ type: "error", text: error.message })
-      } else if (data) {
-        setMessage({ type: "success", text: "Internship created successfully!" })
-        setIsCreateDialogOpen(false)
-        fetchInternships()
-      }
-    } catch (error: any) {
-      setMessage({ type: "error", text: error.message || "Failed to create internship" })
-    }
-  }
-
-  const handleUpdateInternship = async (formData: FormData) => {
-    try {
-      if (!editingInternship) return
-      
-      setMessage(null)
-      
-      const internshipData = {
-        title: formData.get('title') as string,
-        description: formData.get('description') as string,
-        company: formData.get('company') as string,
-        location: formData.get('location') as string,
-        duration: formData.get('duration') as string,
-        requirements: formData.get('requirements') as string,
-        application_deadline: formData.get('application_deadline') as string,
-        start_date: formData.get('start_date') as string,
-        end_date: formData.get('end_date') as string,
-        max_participants: parseInt(formData.get('max_participants') as string),
-        status: formData.get('status') as string
-      }
-
-      // Use direct Supabase client approach
-      const { createClient } = await import('@supabase/supabase-js')
-      
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-      
-      if (!supabaseUrl || !supabaseServiceKey) {
-        setMessage({ type: "error", text: "Missing Supabase configuration" })
-        return
-      }
-
-      const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      })
-
-      const { error } = await supabaseClient
-        .from('internships')
-        .update(internshipData)
-        .eq('id', editingInternship.id)
-
-      if (error) {
-        setMessage({ type: "error", text: error.message || "Failed to update internship" })
+      if (id) {
+        // Update
+        const { error } = await supabase.from('internships').update(upsertData).eq('id', id)
+        if (error) throw error
       } else {
-        setMessage({ type: "success", text: "Internship updated successfully!" })
-        setEditingInternship(null)
-        fetchInternships()
+        // Create
+        const { error } = await supabase.from('internships').insert(upsertData)
+        if (error) throw error
       }
-    } catch (error: any) {
-      setMessage({ type: "error", text: error.message || "Failed to update internship" })
+      
+      await fetchInternships()
+      setIsModalOpen(false)
+      setCurrentInternship(null)
+    } catch (err: any) {
+      setError(err.message || 'Failed to save internship.')
     }
   }
+  
+  const handleDeleteInternship = async () => {
+    if (!currentInternship?.id) return
 
-  const handleDeleteInternship = async (internshipId: string) => {
     try {
-      setMessage(null)
-
-      // Use direct Supabase client approach
-      const { createClient } = await import('@supabase/supabase-js')
+      const supabase = await getSupabaseClient()
+      const { error } = await supabase.from('internships').delete().eq('id', currentInternship.id)
+      if (error) throw error
       
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-      
-      if (!supabaseUrl || !supabaseServiceKey) {
-        setMessage({ type: "error", text: "Missing Supabase configuration" })
-        return
-      }
-
-      const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      })
-
-      const { error } = await supabaseClient
-        .from('internships')
-        .delete()
-        .eq('id', internshipId)
-
-      if (error) {
-        setMessage({ type: "error", text: error.message })
-      } else {
-        setMessage({ type: "success", text: "Internship deleted successfully!" })
-        fetchInternships()
-      }
-    } catch (error: any) {
-      setMessage({ type: "error", text: error.message || "Failed to delete internship" })
+      await fetchInternships()
+      setIsDeleteConfirmOpen(false)
+      setCurrentInternship(null)
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete internship.')
     }
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
+  const openModal = (internship: any | null = null) => {
+    setCurrentInternship(internship || { title: '', description: '', company: '' })
+    setIsModalOpen(true)
   }
 
-  const InternshipCard = ({ internship, index }: { internship: Internship; index: number }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.05 }}
-      className="bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300"
-    >
-      <div className="p-5">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <h3 className="font-semibold text-gray-900 text-lg mb-1">{internship.title}</h3>
-            <p className="text-gray-600 text-sm mb-2">{internship.company}</p>
-            <Badge className={`text-xs px-2 py-1 ${internship.status === 'active' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200'}`}>
-              {internship.status.charAt(0).toUpperCase() + internship.status.slice(1)}
-            </Badge>
-          </div>
-        </div>
-        
-        <div className="space-y-2 text-sm text-gray-600 mb-4">
-          <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-gray-400" />
-            <span>{internship.location}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-gray-400" />
-            <span>{internship.duration}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-400" />
-            <span>{formatDate(internship.start_date)} - {formatDate(internship.end_date)}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-gray-400" />
-            <span>{internship.current_participants}/{internship.max_participants} participants</span>
-          </div>
-        </div>
+  const openDeleteConfirm = (internship: any) => {
+    setCurrentInternship(internship)
+    setIsDeleteConfirmOpen(true)
+  }
 
-        <div className="mb-4">
-          <p className="text-sm text-gray-700 line-clamp-3">{internship.description}</p>
-        </div>
+  if (loading) return <div>Loading internships...</div>
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    )
+  }
+  
+  return (
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Internship Management</h1>
+        <Button onClick={() => openModal()}>
+          <Plus className="mr-2 h-4 w-4" /> Add Internship
+        </Button>
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>All Internships</CardTitle>
+          <CardDescription>A list of all available internships.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Title</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {internships.map((internship) => (
+                <TableRow key={internship.id}>
+                  <TableCell className="font-medium">{internship.title}</TableCell>
+                  <TableCell>{internship.company}</TableCell>
+                  <TableCell>{internship.location}</TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => openModal(internship)}>
+                          <Edit className="mr-2 h-4 w-4" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openDeleteConfirm(internship)}>
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
       
-      <div className="bg-gray-50 px-5 py-3 flex justify-between items-center">
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline">
-            <Edit className="w-4 h-4 mr-1" />
-            Edit
-          </Button>
-          <Button size="sm" variant="destructive">
-            <Trash2 className="w-4 h-4 mr-1" />
-            Delete
-          </Button>
-        </div>
-        <Button size="sm">View Applications</Button>
-      </div>
-    </motion.div>
+      {/* Add/Edit Internship Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{currentInternship?.id ? 'Edit Internship' : 'Add New Internship'}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpsertInternship}>
+            <div className="py-4 grid gap-4">
+              <InputFields internship={currentInternship} setInternship={setCurrentInternship} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+              <Button type="submit">Save</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Are you sure?</DialogTitle>
+            <AlertDescription>
+              This action cannot be undone. This will permanently delete the internship "{currentInternship?.title}".
+            </AlertDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteInternship}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
+}
 
-  const InternshipCardSkeleton = ({ index }: { index: number }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.05 }}
-      className="bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden"
-    >
-      <div className="p-5">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-5 w-48" />
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-6 w-20 rounded-full" />
-          </div>
-        </div>
-        <div className="space-y-2 mb-4">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-4 w-1/2" />
-          <Skeleton className="h-4 w-2/3" />
-        </div>
-        <Skeleton className="h-12 w-full" />
-      </div>
-      <div className="bg-gray-50 px-5 py-3 flex justify-between">
-        <div className="flex gap-2">
-          <Skeleton className="h-8 w-16" />
-          <Skeleton className="h-8 w-20" />
-        </div>
-        <Skeleton className="h-8 w-32" />
-      </div>
-    </motion.div>
-  )
-
-  const exportInternships = () => {
-    const csvContent = [
-      ['Title', 'Company', 'Location', 'Duration', 'Status', 'Created'],
-      ...filteredInternships.map(internship => [
-        internship.title,
-        internship.company,
-        internship.location,
-        `${internship.duration} weeks`,
-        internship.status,
-        new Date(internship.created_at).toLocaleDateString()
-      ])
-    ].map(row => row.join(',')).join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `internships-export-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const filteredInternships = internships.filter((internship) => {
-    const matchesSearch = internship.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         internship.company.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === "all" || internship.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+// Component for Input Fields in the modal
+function InputFields({ internship, setInternship }: { internship: any, setInternship: Function }) {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target
+    setInternship({ ...internship, [id]: value })
+  }
 
   return (
-    <div className="admin-page-content space-y-6 p-0 m-0">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Internship Management</h1>
-          <p className="text-gray-600 mt-1">Create and manage internship programs</p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto">
-                <Plus className="w-4 h-4 mr-2" />
-                Create Internship
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Create New Internship</DialogTitle>
-                <DialogDescription>
-                  Add a new internship program to the platform.
-                </DialogDescription>
-              </DialogHeader>
-              <form action={handleCreateInternship} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Internship Title</Label>
-                  <Input id="title" name="title" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <textarea 
-                    id="description" 
-                    name="description" 
-                    className="w-full min-h-[100px] p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="company">Company</Label>
-                  <Input id="company" name="company" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input id="location" name="location" required />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="duration">Duration (weeks)</Label>
-                    <Input id="duration" name="duration" type="number" min="1" required />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="requirements">Requirements</Label>
-                  <textarea 
-                    id="requirements" 
-                    name="requirements" 
-                    className="w-full min-h-[80px] p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <Button type="submit" className="flex-1">Create Internship</Button>
-                  <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-          
-          <Button variant="outline" onClick={exportInternships} className="w-full sm:w-auto">
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
-        </div>
+    <>
+      <div>
+        <Label htmlFor="title">Title</Label>
+        <Input id="title" value={internship?.title || ''} onChange={handleChange} required />
       </div>
-
-      {/* Filters and Search */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="md:col-span-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Search internships..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger>
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger>
-            <SelectValue placeholder="Filter by category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            <SelectItem value="technology">Technology</SelectItem>
-            <SelectItem value="science">Science</SelectItem>
-            <SelectItem value="engineering">Engineering</SelectItem>
-            <SelectItem value="business">Business</SelectItem>
-          </SelectContent>
-        </Select>
+      <div>
+        <Label htmlFor="company">Company</Label>
+        <Input id="company" value={internship?.company || ''} onChange={handleChange} required />
       </div>
-
-      {/* Message Display */}
-      {message && (
-        <Alert className={message.type === "success" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
-          <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
-            {message.text}
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Error Display */}
-      {error && (
-        <Alert className="border-red-200 bg-red-50">
-          <AlertTriangle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800">{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Internships Grid */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <InternshipCardSkeleton key={index} index={index} />
-          ))}
-        </div>
-      ) : filteredInternships.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredInternships.map((internship, index) => (
-            <InternshipCard key={internship.id} internship={internship} index={index} />
-          ))}
-        </div>
-      ) : (
-        <Card className="text-center py-12">
-          <CardContent>
-            <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No internships found</h3>
-            <p className="text-gray-600">Try adjusting your search or filters to find internships.</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Edit Internship Dialog */}
-      {editingInternship && (
-        <Dialog open={!!editingInternship} onOpenChange={() => setEditingInternship(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Edit Internship</DialogTitle>
-              <DialogDescription>
-                Update internship information and settings.
-              </DialogDescription>
-            </DialogHeader>
-            <form action={handleUpdateInternship} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-title">Internship Title</Label>
-                <Input id="edit-title" name="title" defaultValue={editingInternship.title} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-description">Description</Label>
-                <textarea 
-                  id="edit-description" 
-                  name="description" 
-                  className="w-full min-h-[100px] p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  defaultValue={editingInternship.description}
-                  required 
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-company">Company</Label>
-                <Input id="edit-company" name="company" defaultValue={editingInternship.company} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-location">Location</Label>
-                <Input id="edit-location" name="location" defaultValue={editingInternship.location} required />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-duration">Duration (weeks)</Label>
-                  <Input id="edit-duration" name="duration" type="number" min="1" defaultValue={editingInternship.duration} required />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-requirements">Requirements</Label>
-                <textarea 
-                  id="edit-requirements" 
-                  name="requirements" 
-                  className="w-full min-h-[80px] p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  defaultValue={editingInternship.requirements || ''}
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <Button type="submit" className="flex-1">Update Internship</Button>
-                <Button type="button" variant="outline" onClick={() => setEditingInternship(null)}>
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      )}
-    </div>
+      <div>
+        <Label htmlFor="location">Location</Label>
+        <Input id="location" value={internship?.location || ''} onChange={handleChange} />
+      </div>
+      <div>
+        <Label htmlFor="description">Description</Label>
+        <Textarea id="description" value={internship?.description || ''} onChange={handleChange} />
+      </div>
+       <div>
+        <Label htmlFor="duration">Duration</Label>
+        <Input id="duration" value={internship?.duration || ''} onChange={handleChange} />
+      </div>
+      <div>
+        <Label htmlFor="requirements">Requirements</Label>
+        <Textarea id="requirements" value={internship?.requirements || ''} onChange={handleChange} />
+      </div>
+       <div>
+        <Label htmlFor="application_deadline">Application Deadline</Label>
+        <Input id="application_deadline" type="date" value={internship?.application_deadline || ''} onChange={handleChange} />
+      </div>
+       <div>
+        <Label htmlFor="start_date">Start Date</Label>
+        <Input id="start_date" type="date" value={internship?.start_date || ''} onChange={handleChange} />
+      </div>
+       <div>
+        <Label htmlFor="end_date">End Date</Label>
+        <Input id="end_date" type="date" value={internship?.end_date || ''} onChange={handleChange} />
+      </div>
+      <div>
+        <Label htmlFor="max_participants">Max Participants</Label>
+        <Input id="max_participants" type="number" value={internship?.max_participants || ''} onChange={handleChange} />
+      </div>
+    </>
   )
 }

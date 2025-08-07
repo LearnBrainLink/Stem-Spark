@@ -1,313 +1,319 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from '@/components/ui/alert'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
+  MoreHorizontal,
+  AlertCircle,
+  Mail,
+  User,
+  Building,
+  FileText,
+} from 'lucide-react'
 
-interface Application {
-  id: string
-  full_name: string
-  email: string
-  phone: string | null
-  grade: number
-  school: string
-  bio: string
-  specialties: string[] | null
-  experience: string | null
-  motivation: string
-  availability: string
-  status: 'pending' | 'approved' | 'rejected'
-  created_at: string
-  updated_at: string
-}
-
-interface User {
-  id: string
-  role: string
-  is_super_admin: boolean
-}
-
+// Main component for the Applications Page
 export default function ApplicationsPage() {
-  const [applications, setApplications] = useState<Application[]>([])
+  const [applications, setApplications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState('')
-  const [currentUser, setCurrentUser] = useState<User | null>(null)
-  const router = useRouter()
-  const supabase = createClient()
+  const [error, setError] = useState<string | null>(null)
+  const [selectedApplication, setSelectedApplication] = useState<any | null>(
+    null
+  )
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [isUpdateStatusOpen, setIsUpdateStatusOpen] = useState(false)
+  const [newStatus, setNewStatus] = useState<
+    'pending' | 'approved' | 'rejected'
+  >('pending')
+  const [rejectionReason, setRejectionReason] = useState('')
 
   useEffect(() => {
-    checkUserAndLoadApplications()
+    fetchApplications()
   }, [])
 
-  const checkUserAndLoadApplications = async () => {
+  const fetchApplications = async () => {
+    setLoading(true)
+    setError(null)
     try {
-      // Check if user is authenticated
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
-      
-      if (authError || !user) {
-        router.push('/login')
-        return
-      }
+      const { createClient } = await import('@supabase/supabase-js')
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-      // Get user profile to check role
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role, is_super_admin')
-        .eq('id', user.id)
-        .single()
-
-      if (profileError || !profile) {
-        setMessage('Error loading user profile')
-        setLoading(false)
-        return
-      }
-
-      // Check if user is admin or super admin
-      if (profile.role !== 'admin' && !profile.is_super_admin) {
-        setMessage('Access denied. Admin privileges required.')
-        setLoading(false)
-        return
-      }
-
-      setCurrentUser({
-        id: user.id,
-        role: profile.role,
-        is_super_admin: profile.is_super_admin || false
-      })
-
-      // Load applications
-      await loadApplications()
-    } catch (error) {
-      console.error('Error checking user:', error)
-      setMessage('Error checking user authentication')
-      setLoading(false)
-    }
-  }
-
-  const loadApplications = async () => {
-    try {
-      setLoading(true)
-      setMessage('')
+      const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
       const { data, error } = await supabase
-        .from('intern_applications')
-        .select('*')
-        .order('created_at', { ascending: false })
+        .from('internship_applications')
+        .select(
+          `
+          *,
+          profile:profiles!student_id(full_name, email),
+          internship:internships!internship_id(title, company)
+        `
+        )
+        .order('applied_at', { ascending: false })
 
-      if (error) {
-        console.error('Error loading applications:', error)
-        setMessage('Error loading applications')
-        return
-      }
-
+      if (error) throw error
       setApplications(data || [])
-    } catch (error) {
-      console.error('Error loading applications:', error)
-      setMessage('Error loading applications')
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch applications.')
+      console.error('Error fetching applications:', err)
     } finally {
       setLoading(false)
     }
   }
 
-  const updateApplicationStatus = async (applicationId: string, status: 'approved' | 'rejected') => {
-    try {
-      if (!currentUser) {
-        setMessage('User not authenticated')
-        return
-      }
+  const handleUpdateStatus = async () => {
+    if (!selectedApplication) return
 
-      // Check if user can edit other admins
-      if (currentUser.role === 'admin' && !currentUser.is_super_admin) {
-        // Regular admins can't edit other admins
-        const application = applications.find(app => app.id === applicationId)
-        if (application) {
-          // Check if the applicant is an admin (this would require additional logic)
-          // For now, allow the update but log it
-          console.log('Admin updating application:', applicationId)
-        }
+    try {
+      const { createClient } = await import('@supabase/supabase-js')
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+      const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+      const updateData: any = { status: newStatus }
+      if (newStatus === 'rejected') {
+        updateData.rejection_reason = rejectionReason
       }
 
       const { error } = await supabase
-        .from('intern_applications')
-        .update({ 
-          status,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', applicationId)
+        .from('internship_applications')
+        .update(updateData)
+        .eq('id', selectedApplication.id)
 
-      if (error) {
-        console.error('Error updating application:', error)
-        setMessage('Error updating application status')
-        return
-      }
+      if (error) throw error
 
-      // Reload applications
-      await loadApplications()
-      setMessage(`Application ${status} successfully`)
-    } catch (error) {
-      console.error('Error updating application:', error)
-      setMessage('Error updating application status')
+      await fetchApplications()
+      setIsUpdateStatusOpen(false)
+      setRejectionReason('')
+    } catch (err: any) {
+      setError(err.message || 'Failed to update application status.')
     }
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+  const openDetails = (app: any) => {
+    setSelectedApplication(app)
+    setIsDetailsOpen(true)
   }
 
-  const getStatusColor = (status: string) => {
+  const openUpdateStatus = (app: any) => {
+    setSelectedApplication(app)
+    setNewStatus(app.status)
+    setIsUpdateStatusOpen(true)
+  }
+
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'approved':
-        return 'bg-green-100 text-green-800'
+        return (
+          <Badge variant="default" className="bg-green-500">
+            <CheckCircle className="mr-2 h-4 w-4" /> Approved
+          </Badge>
+        )
       case 'rejected':
-        return 'bg-red-100 text-red-800'
+        return (
+          <Badge variant="destructive">
+            <XCircle className="mr-2 h-4 w-4" /> Rejected
+          </Badge>
+        )
       default:
-        return 'bg-yellow-100 text-yellow-800'
+        return (
+          <Badge variant="secondary">
+            <Clock className="mr-2 h-4 w-4" /> Pending
+          </Badge>
+        )
     }
   }
 
-  if (loading) {
+  if (loading) return <div>Loading applications...</div>
+  if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="animate-pulse">
-              <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-              <div className="space-y-4">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="h-20 bg-gray-200 rounded"></div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h1 className="text-2xl font-bold text-gray-900">Intern Applications</h1>
-            <p className="text-gray-600 mt-1">Review and manage intern applications</p>
-          </div>
+    <div className="container mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-6">Internship Applications</h1>
+      <Card>
+        <CardHeader>
+          <CardTitle>All Applications</CardTitle>
+          <CardDescription>
+            A list of all submitted internship applications.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Applicant</TableHead>
+                <TableHead>Internship</TableHead>
+                <TableHead>Applied At</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {applications.map((app) => (
+                <TableRow key={app.id}>
+                  <TableCell>
+                    <div className="font-medium">{app.profile?.full_name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {app.profile?.email}
+                    </div>
+                  </TableCell>
+                  <TableCell>{app.internship?.title}</TableCell>
+                  <TableCell>
+                    {new Date(app.applied_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>{getStatusBadge(app.status)}</TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => openDetails(app)}>
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => openUpdateStatus(app)}
+                        >
+                          Update Status
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
-          {message && (
-            <div className={`p-4 mx-6 mt-4 rounded-md ${
-              message.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
-            }`}>
-              {message}
+      {/* Details Dialog */}
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Application Details</DialogTitle>
+          </DialogHeader>
+          {selectedApplication && (
+            <div className="grid gap-4 py-4">
+              <div className="flex items-center gap-4">
+                <User />
+                <p>{selectedApplication.profile?.full_name}</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <Mail />
+                <p>{selectedApplication.profile?.email}</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <Building />
+                <p>{selectedApplication.internship?.title} at {selectedApplication.internship?.company}</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <FileText />
+                <p className="font-bold">Cover Letter/Motivation:</p>
+              </div>
+              <p>{selectedApplication.cover_letter}</p>
+               <div className="flex items-center gap-4">
+                <FileText />
+                <p className="font-bold">Resume:</p>
+              </div>
+              <a href={selectedApplication.resume_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">View Resume</a>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
 
-          <div className="p-6">
-            {applications.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-gray-400 text-6xl mb-4">📝</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No applications yet</h3>
-                <p className="text-gray-500">When students submit intern applications, they will appear here.</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {applications.map((application) => (
-                  <div key={application.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{application.full_name}</h3>
-                        <p className="text-gray-600">{application.email}</p>
-                        {application.phone && (
-                          <p className="text-gray-600">{application.phone}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(application.status)}`}>
-                          {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
-                        </span>
-                        <span className="text-sm text-gray-500">
-                          Grade {application.grade}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-2">School</h4>
-                        <p className="text-gray-600">{application.school}</p>
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-2">Specialties</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {application.specialties && application.specialties.length > 0 ? (
-                            application.specialties.map((specialty, index) => (
-                              <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded">
-                                {specialty}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-gray-500 text-sm">No specialties listed</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <h4 className="font-medium text-gray-900 mb-2">Bio</h4>
-                      <p className="text-gray-600">{application.bio}</p>
-                    </div>
-
-                    {application.experience && (
-                      <div className="mb-4">
-                        <h4 className="font-medium text-gray-900 mb-2">Experience</h4>
-                        <p className="text-gray-600">{application.experience}</p>
-                      </div>
-                    )}
-
-                    <div className="mb-4">
-                      <h4 className="font-medium text-gray-900 mb-2">Motivation</h4>
-                      <p className="text-gray-600">{application.motivation}</p>
-                    </div>
-
-                    <div className="mb-4">
-                      <h4 className="font-medium text-gray-900 mb-2">Availability</h4>
-                      <p className="text-gray-600">{application.availability}</p>
-                    </div>
-
-                    <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-                      <div className="text-sm text-gray-500">
-                        Applied: {formatDate(application.created_at)}
-                      </div>
-                      
-                      {application.status === 'pending' && (
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => updateApplicationStatus(application.id, 'approved')}
-                            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => updateApplicationStatus(application.id, 'rejected')}
-                            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+      {/* Update Status Dialog */}
+      <Dialog open={isUpdateStatusOpen} onOpenChange={setIsUpdateStatusOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Application Status</DialogTitle>
+            <DialogDescription>
+              Change the status for the application from{' '}
+              {selectedApplication?.profile?.full_name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="status">New Status</Label>
+            <select
+              id="status"
+              value={newStatus}
+              onChange={(e) =>
+                setNewStatus(e.target.value as 'pending' | 'approved' | 'rejected')
+              }
+              className="w-full p-2 border rounded"
+            >
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
           </div>
-        </div>
-      </div>
+          {newStatus === 'rejected' && (
+            <div className="py-4">
+              <Label htmlFor="rejection_reason">Rejection Reason</Label>
+              <Textarea
+                id="rejection_reason"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+              />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsUpdateStatusOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateStatus}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
-} 
+}
