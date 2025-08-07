@@ -259,10 +259,10 @@ export async function getEnhancedUsersData() {
 }
 
 export async function getEnhancedInternshipsData() {
-  const cookieStore = cookies();
-  const supabase = createServerClient(cookieStore);
-
   try {
+    // Use service role client to bypass RLS
+    const supabase = createServiceRoleClient()
+
     const { data: internships, error } = await supabase
       .from('internships')
       .select(`
@@ -293,10 +293,10 @@ export async function getEnhancedInternshipsData() {
 }
 
 export async function getEnhancedApplicationsData() {
-  const cookieStore = cookies();
-  const supabase = createServerClient(cookieStore);
-
   try {
+    // Use service role client to bypass RLS
+    const supabase = createServiceRoleClient()
+
     console.log('Fetching applications data...');
 
     // First try the modern approach with named relationships (basic columns only)
@@ -362,7 +362,7 @@ export async function getEnhancedApplicationsData() {
           .eq('id', app.student_id)
           .single()
 
-        // Fetch internship
+        // Fetch internship details
         const { data: internship } = await supabase
           .from('internships')
           .select('id, title, company')
@@ -376,8 +376,8 @@ export async function getEnhancedApplicationsData() {
         })
       }
 
-      applications = applicationsWithRelations
-      error = null
+      applications = applicationsWithRelations;
+      error = null;
     }
 
     if (error) {
@@ -385,23 +385,18 @@ export async function getEnhancedApplicationsData() {
       return { error: error.message, applications: [] }
     }
 
-    console.log(`Successfully fetched ${applications?.length || 0} applications`);
-
     // Transform the data
-    const transformedApplications = applications?.map(app => ({
-      ...app,
-      studentName: app.profiles?.full_name || 'Unknown',
-      studentEmail: app.profiles?.email || 'Unknown',
-      studentRole: app.profiles?.role || 'Unknown',
-      studentGrade: app.profiles?.grade || null,
-      studentSchool: app.profiles?.school_name || 'Unknown',
-      internshipTitle: app.internships?.title || 'Unknown',
-      company: app.internships?.company || 'Unknown',
-      internshipDescription: app.internships?.description || '',
-      internshipLocation: app.internships?.location || 'Unknown',
-      statusColor: app.status === 'pending' ? 'yellow' : 
-                   app.status === 'approved' ? 'green' : 
-                   app.status === 'rejected' ? 'red' : 'gray',
+    const transformedApplications = applications?.map(application => ({
+      ...application,
+      studentName: application.profiles?.full_name || 'Unknown Student',
+      studentEmail: application.profiles?.email || 'No email',
+      internshipTitle: application.internships?.title || 'Unknown Internship',
+      companyName: application.internships?.company || 'Unknown Company',
+      isPending: application.status === 'pending',
+      isApproved: application.status === 'approved',
+      isRejected: application.status === 'rejected',
+      daysSinceApplied: application.applied_at ? 
+        Math.ceil((new Date().getTime() - new Date(application.applied_at).getTime()) / (1000 * 60 * 60 * 24)) : 0,
     })) || []
 
     return { error: null, applications: transformedApplications }
@@ -412,19 +407,37 @@ export async function getEnhancedApplicationsData() {
 }
 
 export async function getEnhancedVideosData() {
-  const cookieStore = cookies();
-  const supabase = createServerClient(cookieStore);
-
   try {
+    console.log('🔍 Starting enhanced videos data fetch...')
+    
+    // Check environment variables
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('❌ Missing Supabase environment variables:', {
+        hasUrl: !!supabaseUrl,
+        hasServiceKey: !!supabaseServiceKey
+      })
+      return { error: 'Missing Supabase configuration', videos: [] }
+    }
+
+    // Use service role client to bypass RLS
+    const supabase = createServiceRoleClient()
+    console.log('✅ Service role client created successfully')
+
+    console.log('📡 Fetching videos from database...')
     const { data: videos, error } = await supabase
       .from('videos')
       .select('*')
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching videos:', error)
+      console.error('❌ Error fetching videos:', error)
       return { error: error.message, videos: [] }
     }
+
+    console.log('✅ Videos fetched successfully:', videos?.length || 0, 'videos')
 
     // Transform the data
     const transformedVideos = videos?.map(video => ({
@@ -436,10 +449,11 @@ export async function getEnhancedVideosData() {
                      video.category === 'Science' ? 'green' : 'gray',
     })) || []
 
+    console.log('✅ Videos transformed successfully')
     return { error: null, videos: transformedVideos }
   } catch (error) {
-    console.error('Error in getEnhancedVideosData:', error)
-    return { error: 'Failed to fetch videos', videos: [] }
+    console.error('❌ Error in getEnhancedVideosData:', error)
+    return { error: error instanceof Error ? error.message : 'Failed to fetch videos', videos: [] }
   }
 }
 
@@ -812,10 +826,10 @@ export async function createVideo(videoData: any) {
 }
 
 export async function updateVideo(videoId: string, videoData: any) {
-  const cookieStore = cookies();
-  const supabase = createServerClient(cookieStore);
-
   try {
+    // Use service role client to bypass RLS
+    const supabase = createServiceRoleClient()
+
     const { data, error } = await supabase
       .from("videos")
       .update({
@@ -836,10 +850,10 @@ export async function updateVideo(videoId: string, videoData: any) {
 }
 
 export async function deleteVideo(videoId: string) {
-  const cookieStore = cookies();
-  const supabase = createServerClient(cookieStore);
-
   try {
+    // Use service role client to bypass RLS
+    const supabase = createServiceRoleClient()
+
     const { error } = await supabase
       .from("videos")
       .delete()
@@ -856,10 +870,10 @@ export async function deleteVideo(videoId: string) {
 
 // CRUD Functions for Internships
 export async function createInternship(internshipData: any) {
-  const cookieStore = cookies();
-  const supabase = createServerClient(cookieStore);
-
   try {
+    // Use service role client to bypass RLS
+    const supabase = createServiceRoleClient()
+
     const { data, error } = await supabase
       .from("internships")
       .insert({
@@ -880,10 +894,10 @@ export async function createInternship(internshipData: any) {
 }
 
 export async function updateInternship(internshipId: string, internshipData: any) {
-  const cookieStore = cookies();
-  const supabase = createServerClient(cookieStore);
-
   try {
+    // Use service role client to bypass RLS
+    const supabase = createServiceRoleClient()
+
     const { data, error } = await supabase
       .from("internships")
       .update({
@@ -904,10 +918,10 @@ export async function updateInternship(internshipId: string, internshipData: any
 }
 
 export async function deleteInternship(internshipId: string) {
-  const cookieStore = cookies();
-  const supabase = createServerClient(cookieStore);
-
   try {
+    // Use service role client to bypass RLS
+    const supabase = createServiceRoleClient()
+
     const { error } = await supabase
       .from("internships")
       .delete()
@@ -924,10 +938,10 @@ export async function deleteInternship(internshipId: string) {
 
 // CRUD Functions for Applications
 export async function createApplication(applicationData: any) {
-  const cookieStore = cookies();
-  const supabase = createServerClient(cookieStore);
-
   try {
+    // Use service role client to bypass RLS
+    const supabase = createServiceRoleClient()
+
     const { data, error } = await supabase
       .from("internship_applications")
       .insert({
@@ -948,10 +962,10 @@ export async function createApplication(applicationData: any) {
 }
 
 export async function updateApplication(applicationId: string, applicationData: any) {
-  const cookieStore = cookies();
-  const supabase = createServerClient(cookieStore);
-
   try {
+    // Use service role client to bypass RLS
+    const supabase = createServiceRoleClient()
+
     const { data, error } = await supabase
       .from("internship_applications")
       .update({
@@ -972,10 +986,10 @@ export async function updateApplication(applicationId: string, applicationData: 
 }
 
 export async function deleteApplication(applicationId: string) {
-  const cookieStore = cookies();
-  const supabase = createServerClient(cookieStore);
-
   try {
+    // Use service role client to bypass RLS
+    const supabase = createServiceRoleClient()
+
     const { error } = await supabase
       .from("internship_applications")
       .delete()

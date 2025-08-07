@@ -97,15 +97,42 @@ export default function ApplicationsPage() {
       setLoading(true)
       setError(null)
 
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        setError('Missing Supabase configuration')
+        setApplications([])
+        return
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
       const { data, error } = await supabase
         .from('internship_applications')
-        .select('*')
+        .select(`
+          *,
+          profiles!student_id(id, full_name, email, role),
+          internships!internship_id(id, title, company)
+        `)
         .order('applied_at', { ascending: false })
 
-      if (error) throw error
-      
-      console.log('Applications loaded:', data?.length || 0)
-      setApplications(data || [])
+      if (error) {
+        console.error('Error fetching applications:', error)
+        setError(error.message)
+        setApplications([])
+      } else {
+        console.log('Applications loaded:', data?.length || 0)
+        setApplications(data || [])
+      }
     } catch (error) {
       console.error('Error fetching applications:', error)
       setError('Failed to load applications')

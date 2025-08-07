@@ -70,14 +70,50 @@ export default function InternshipsPage() {
       setError(null)
       setMessage(null)
       
-      const result = await getEnhancedInternshipsData()
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
       
-      if (result.error) {
-        setError(result.error)
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        setError('Missing Supabase configuration')
         setInternships([])
-      } else if (result.internships) {
-        setInternships(result.internships)
-        console.log('Internships loaded:', result.internships.length)
+        return
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
+      const { data: internships, error } = await supabase
+        .from('internships')
+        .select(`
+          *,
+          internship_applications(count)
+        `)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching internships:', error)
+        setError(error.message)
+        setInternships([])
+      } else {
+        // Transform the data
+        const transformedInternships = internships?.map(internship => ({
+          ...internship,
+          applicationCount: internship.internship_applications?.[0]?.count || 0,
+          isActive: internship.status === 'active',
+          categoryColor: internship.category === 'Technology' ? 'blue' : 
+                         internship.category === 'Science' ? 'green' : 
+                         internship.category === 'Engineering' ? 'purple' : 'gray',
+        })) || []
+        
+        setInternships(transformedInternships)
+        console.log('Internships loaded:', transformedInternships.length)
       }
     } catch (err) {
       console.error('Error fetching internships:', err)

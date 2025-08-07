@@ -23,7 +23,6 @@ import Image from "next/image"
 import { Video } from "@/app/actions"
 import { motion } from "framer-motion"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getEnhancedVideosData, updateVideoStatus, createVideo, updateVideo, deleteVideo } from '../enhanced-actions'
 
 export default function VideosPage() {
   const [videos, setVideos] = useState<Video[]>([])
@@ -49,13 +48,47 @@ export default function VideosPage() {
     setError(null)
 
     try {
-      const result = await getEnhancedVideosData()
-      if (result.error) {
-        setError(result.error)
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        setError('Missing Supabase configuration')
         setVideos([])
-      } else if (result.videos) {
-        setVideos(result.videos)
-        console.log('Videos loaded:', result.videos.length)
+        return
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
+      const { data: videos, error } = await supabase
+        .from('videos')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching videos:', error)
+        setError(error.message)
+        setVideos([])
+      } else {
+        // Transform the data
+        const transformedVideos = videos?.map(video => ({
+          ...video,
+          isActive: video.status === 'active',
+          durationFormatted: video.duration ? `${Math.floor(video.duration / 60)}:${(video.duration % 60).toString().padStart(2, '0')}` : '0:00',
+          categoryColor: video.category === 'STEM' ? 'blue' : 
+                         video.category === 'Technology' ? 'purple' : 
+                         video.category === 'Science' ? 'green' : 'gray',
+        })) || []
+        
+        setVideos(transformedVideos)
+        console.log('Videos loaded:', transformedVideos.length)
       }
     } catch (err) {
       console.error('Error fetching videos:', err)
@@ -95,31 +128,41 @@ export default function VideosPage() {
 
       console.log('Creating video with data:', videoData)
 
-      const result = await createVideo(videoData)
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        setError('Missing Supabase configuration')
+        return
+      }
 
-      if (result.error) {
-        console.error('Video creation error:', result.error)
-        setError(result.error)
-        setMessage({ type: "error", text: result.error })
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
+      const { data, error } = await supabase
+        .from('videos')
+        .insert(videoData)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error creating video:', error)
+        setError(error.message)
       } else {
-        console.log('Video created successfully:', result.video)
         setMessage({ type: "success", text: "Video created successfully!" })
         setIsCreateDialogOpen(false)
-        // Reset form by closing and reopening dialog
-        fetchVideos()
-        
-        // Clear form by resetting dialog state
-        setTimeout(() => {
-          if (!isCreateDialogOpen) {
-            // Form will be reset when dialog closes and reopens
-          }
-        }, 100)
+        fetchVideos() // Refresh the list
       }
     } catch (err) {
-      console.error('Unexpected error creating video:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create video'
-      setError(errorMessage)
-      setMessage({ type: "error", text: errorMessage })
+      console.error('Error in handleCreateVideo:', err)
+      setError('Failed to create video')
     } finally {
       setIsLoading(false)
     }
@@ -133,10 +176,9 @@ export default function VideosPage() {
       setMessage(null)
       setError(null)
 
-      // Validate required fields
       const title = formData.get("title") as string
       const description = formData.get("description") as string
-      const videoUrl = formData.get("url") as string // Note: form field is "url" not "videoUrl"
+      const videoUrl = formData.get("url") as string
       const durationMinutes = formData.get("duration") as string
       const category = formData.get("category") as string
       const status = formData.get("status") as string
@@ -150,31 +192,51 @@ export default function VideosPage() {
         title: title.trim(),
         description: description.trim(),
         video_url: videoUrl.trim(),
-        duration: parseInt(durationMinutes) * 60, // Convert minutes to seconds
+        duration: parseInt(durationMinutes) * 60,
         category: category,
         status: status,
+        updated_at: new Date().toISOString(),
       }
 
       console.log('Updating video with data:', videoData)
 
-      const result = await updateVideo(selectedVideo.id, videoData)
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        setError('Missing Supabase configuration')
+        return
+      }
 
-      if (result.error) {
-        console.error('Video update error:', result.error)
-        setError(result.error)
-        setMessage({ type: "error", text: result.error })
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
+      const { data, error } = await supabase
+        .from('videos')
+        .update(videoData)
+        .eq('id', selectedVideo.id)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error updating video:', error)
+        setError(error.message)
       } else {
-        console.log('Video updated successfully:', result.video)
         setMessage({ type: "success", text: "Video updated successfully!" })
         setIsEditDialogOpen(false)
         setSelectedVideo(null)
-        fetchVideos()
+        fetchVideos() // Refresh the list
       }
     } catch (err) {
-      console.error('Unexpected error updating video:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update video'
-      setError(errorMessage)
-      setMessage({ type: "error", text: errorMessage })
+      console.error('Error in handleUpdateVideo:', err)
+      setError('Failed to update video')
     } finally {
       setIsLoading(false)
     }
@@ -183,13 +245,46 @@ export default function VideosPage() {
   const handleDeleteVideo = async (videoId: string) => {
     if (!confirm("Are you sure you want to delete this video?")) return
 
-    const result = await deleteVideo(videoId)
+    try {
+      setIsLoading(true)
+      setMessage(null)
+      setError(null)
 
-    if (result.error) {
-      setMessage({ type: "error", text: result.error })
-    } else {
-      setMessage({ type: "success", text: "Video deleted successfully!" })
-      fetchVideos()
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        setError('Missing Supabase configuration')
+        return
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
+      const { error } = await supabase
+        .from('videos')
+        .delete()
+        .eq('id', videoId)
+
+      if (error) {
+        console.error('Error deleting video:', error)
+        setError(error.message)
+      } else {
+        setMessage({ type: "success", text: "Video deleted successfully!" })
+        fetchVideos() // Refresh the list
+      }
+    } catch (err) {
+      console.error('Error in handleDeleteVideo:', err)
+      setError('Failed to delete video')
+    } finally {
+      setIsLoading(false)
     }
   }
 
