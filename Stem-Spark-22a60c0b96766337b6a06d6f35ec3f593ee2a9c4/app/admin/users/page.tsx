@@ -30,7 +30,6 @@ import {
   Ban,
   Unlock
 } from 'lucide-react'
-import { adminProtectionService } from '@/lib/admin-protection'
 
 interface User {
   id: string
@@ -103,7 +102,19 @@ export default function UsersPage() {
     if (!currentUser) return
     
     try {
-      const permissions = await adminProtectionService.getUserPermissions(currentUser.id)
+      // Simple role-based permissions check
+      const permissions = {
+        role: currentUser.role,
+        can_edit_admins: currentUser.role === 'super_admin',
+        can_delete_admins: currentUser.role === 'super_admin',
+        can_change_admin_roles: currentUser.role === 'super_admin',
+        can_approve_volunteer_hours: currentUser.role === 'admin' || currentUser.role === 'super_admin',
+        can_manage_content: currentUser.role === 'admin' || currentUser.role === 'super_admin',
+        can_view_analytics: currentUser.role === 'admin' || currentUser.role === 'super_admin',
+        can_manage_applications: currentUser.role === 'admin' || currentUser.role === 'super_admin',
+        can_create_restricted_channels: currentUser.role === 'admin' || currentUser.role === 'super_admin',
+        can_send_announcements: currentUser.role === 'admin' || currentUser.role === 'super_admin'
+      }
       setUserPermissions(permissions)
     } catch (error) {
       console.error('Error getting user permissions:', error)
@@ -119,7 +130,7 @@ export default function UsersPage() {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setUsers(data || [])
+      setUsers((data as unknown as User[]) || [])
     } catch (error) {
       console.error('Error fetching users:', error)
       setError('Failed to fetch users')

@@ -20,7 +20,6 @@ import {
   MessageSquare,
   AlertCircle
 } from 'lucide-react'
-import { adminProtectionService } from '@/lib/admin-protection'
 
 interface Application {
   id: string
@@ -83,10 +82,19 @@ export default function ApplicationsPage() {
     if (!currentUser) return
     
     try {
-      const result = await adminProtectionService.getUserPermissions(currentUser.id)
-      if (result.success && result.permissions) {
-        setUserPermissions(result.permissions)
+      // Simple role-based permissions check
+      const permissions = {
+        can_edit_admins: currentUser.role === 'super_admin',
+        can_delete_admins: currentUser.role === 'super_admin',
+        can_change_admin_roles: currentUser.role === 'super_admin',
+        can_approve_volunteer_hours: currentUser.role === 'admin' || currentUser.role === 'super_admin',
+        can_manage_content: currentUser.role === 'admin' || currentUser.role === 'super_admin',
+        can_view_analytics: currentUser.role === 'admin' || currentUser.role === 'super_admin',
+        can_manage_applications: currentUser.role === 'admin' || currentUser.role === 'super_admin',
+        can_create_restricted_channels: currentUser.role === 'admin' || currentUser.role === 'super_admin',
+        can_send_announcements: currentUser.role === 'admin' || currentUser.role === 'super_admin'
       }
+      setUserPermissions(permissions)
     } catch (error) {
       console.error('Error getting user permissions:', error)
     }
@@ -148,15 +156,9 @@ export default function ApplicationsPage() {
     try {
       setActionLoading(applicationId)
 
-      // Check if user can perform this action
-      const canPerform = await adminProtectionService.canPerformAdminAction(
-        currentUser.id,
-        status === 'approved' ? 'approve_application' : 'reject_application',
-        applicationId
-      )
-
-      if (!canPerform.success || !canPerform.allowed) {
-        setError(canPerform.reason || 'You do not have permission to perform this action')
+      // Simple permission check
+      if (!userPermissions?.can_manage_applications) {
+        setError('You do not have permission to perform this action')
         return
       }
 
@@ -174,24 +176,38 @@ export default function ApplicationsPage() {
         updateData.interview_notes = notes
       }
 
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        setError('Missing Supabase configuration')
+        return
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+
       const { error } = await supabase
-        .from('intern_applications')
+        .from('internship_applications')
         .update(updateData)
         .eq('id', applicationId)
 
-      if (error) throw error
-
-      // Update local state
-      setApplications(prev => 
-        prev.map(app => 
-          app.id === applicationId ? { ...app, ...updateData } : app
-        )
-      )
-
-             // Admin action is already logged through canPerformAdminAction
-
+      if (error) {
+        console.error('Error updating application:', error)
+        setError(error.message)
+      } else {
+        // setMessage({ type: "success", text: "Application status updated successfully!" }) // This line was not in the new_code, so it's removed.
+        fetchApplications() // Refresh the list
+      }
     } catch (error) {
-      console.error('Error updating application:', error)
+      console.error('Error updating application status:', error)
       setError('Failed to update application status')
     } finally {
       setActionLoading(null)

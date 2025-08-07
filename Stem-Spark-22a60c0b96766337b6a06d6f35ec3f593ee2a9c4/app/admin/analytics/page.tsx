@@ -7,7 +7,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid, XAxis, YAxis, Tooltip, Legend, AreaChart, Area } from 'recharts'
 import { Users, TrendingUp, Briefcase, Mail, DollarSign, Eye, Download, Calendar, Target, Award, Activity, BarChart3, RefreshCw, Loader2, UserCheck, FileText, Video, AlertTriangle } from "lucide-react"
 import { motion } from "framer-motion"
-import { getEnhancedAnalyticsData } from '../enhanced-actions'
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -32,16 +31,58 @@ export default function AnalyticsPage() {
       setIsLoading(true)
       setError(null)
       
-      const result = await getEnhancedAnalyticsData()
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
       
-      if (result.error) {
-        setError(result.error)
-        setAnalyticsData(null)
-      } else if (result.analytics) {
-        setAnalyticsData(result.analytics)
-      } else {
-        setAnalyticsData(null)
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        setError('Missing Supabase configuration')
+        return
       }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+      
+      // Fetch analytics data
+      const [usersResult, videosResult, applicationsResult, internshipsResult, donationsResult] = await Promise.all([
+        supabase.from('profiles').select('*'),
+        supabase.from('videos').select('*'),
+        supabase.from('internship_applications').select('*'),
+        supabase.from('internships').select('*'),
+        supabase.from('donations').select('*')
+      ])
+      
+      if (usersResult.error || videosResult.error || applicationsResult.error || internshipsResult.error || donationsResult.error) {
+        setError('Failed to fetch analytics data')
+        return
+      }
+      
+      // Calculate analytics
+      const now = new Date()
+      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      
+      const analytics = {
+        totalUsers: usersResult.data?.length || 0,
+        newUsersThisMonth: usersResult.data?.filter((u: any) => new Date(u.created_at) >= thisMonth).length || 0,
+        activeUsers: usersResult.data?.filter((u: any) => u.last_active && new Date(u.last_active) >= lastMonth).length || 0,
+        totalVideos: videosResult.data?.length || 0,
+        totalApplications: applicationsResult.data?.length || 0,
+        activeInternships: internshipsResult.data?.filter((i: any) => i.status === 'active').length || 0,
+        totalRevenue: donationsResult.data?.reduce((sum: number, d: any) => sum + (d.amount || 0), 0) || 0,
+        thisMonthRevenue: donationsResult.data?.filter((d: any) => new Date(d.created_at) >= thisMonth).reduce((sum: number, d: any) => sum + (d.amount || 0), 0) || 0,
+        userGrowth: [],
+        applicationStats: [],
+        revenueData: []
+      }
+      
+      setAnalyticsData(analytics)
     } catch (err) {
       setError('Failed to load analytics')
       setAnalyticsData(null)
@@ -55,14 +96,59 @@ export default function AnalyticsPage() {
       setIsGeneratingReport(true)
       setError(null)
       
-      const result = await getEnhancedAnalyticsData()
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
       
-      if (result.error) {
-        setError(result.error)
-      } else if (result.analytics) {
-        setAnalyticsData(result.analytics)
-        setMessage({ type: 'success', text: 'Analytics report generated successfully!' })
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        setError('Missing Supabase configuration')
+        return
       }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+      
+      // Fetch analytics data
+      const [usersResult, videosResult, applicationsResult, internshipsResult, donationsResult] = await Promise.all([
+        supabase.from('profiles').select('*'),
+        supabase.from('videos').select('*'),
+        supabase.from('internship_applications').select('*'),
+        supabase.from('internships').select('*'),
+        supabase.from('donations').select('*')
+      ])
+      
+      if (usersResult.error || videosResult.error || applicationsResult.error || internshipsResult.error || donationsResult.error) {
+        setError('Failed to fetch analytics data')
+        return
+      }
+      
+      // Calculate analytics
+      const now = new Date()
+      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      
+      const analytics = {
+        totalUsers: usersResult.data?.length || 0,
+        newUsersThisMonth: usersResult.data?.filter((u: any) => new Date(u.created_at) >= thisMonth).length || 0,
+        activeUsers: usersResult.data?.filter((u: any) => u.last_active && new Date(u.last_active) >= lastMonth).length || 0,
+        totalVideos: videosResult.data?.length || 0,
+        totalApplications: applicationsResult.data?.length || 0,
+        activeInternships: internshipsResult.data?.filter((i: any) => i.status === 'active').length || 0,
+        totalRevenue: donationsResult.data?.reduce((sum: number, d: any) => sum + (d.amount || 0), 0) || 0,
+        thisMonthRevenue: donationsResult.data?.filter((d: any) => new Date(d.created_at) >= thisMonth).reduce((sum: number, d: any) => sum + (d.amount || 0), 0) || 0,
+        userGrowth: [],
+        applicationStats: [],
+        revenueData: []
+      }
+      
+      setAnalyticsData(analytics)
+      setMessage({ type: 'success', text: 'Analytics report generated successfully!' })
     } catch (err) {
       setError('Failed to generate report')
     } finally {

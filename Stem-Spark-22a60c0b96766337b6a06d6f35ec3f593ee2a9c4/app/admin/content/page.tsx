@@ -11,7 +11,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, Eye, Check, X, Flag, MessageSquare, Video, FileText, AlertTriangle, Clock, Shield, RefreshCw, Download } from "lucide-react"
 import Image from "next/image"
 import { motion } from "framer-motion"
-import { getEnhancedVideosData, getEnhancedApplicationsData } from '../enhanced-actions'
 import { supabase } from '@/lib/supabase/client'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -57,14 +56,48 @@ export default function ContentModerationPage() {
       setMessage(null)
       setError(null)
       
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        setError('Missing Supabase configuration')
+        return
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+      
       // Fetch videos and applications in parallel
       const [videosResult, applicationsResult] = await Promise.all([
-        getEnhancedVideosData(),
-        getEnhancedApplicationsData()
+        supabase.from('videos').select('*').order('created_at', { ascending: false }),
+        supabase.from('internship_applications').select(`
+          *,
+          profiles!student_id(id, full_name, email),
+          internships!internship_id(id, title, company)
+        `).order('applied_at', { ascending: false })
       ])
       
+      if (videosResult.error) {
+        console.error('Error fetching videos:', videosResult.error)
+        setError('Failed to fetch videos')
+        return
+      }
+      
+      if (applicationsResult.error) {
+        console.error('Error fetching applications:', applicationsResult.error)
+        setError('Failed to fetch applications')
+        return
+      }
+      
       // Transform video data
-      const videoItems: ContentItem[] = (videosResult.videos || []).map((video: any) => ({
+      const videoItems: ContentItem[] = (videosResult.data || []).map((video: any) => ({
         id: video.id,
         type: "video" as const,
         title: video.title,
@@ -75,12 +108,12 @@ export default function ContentModerationPage() {
       }))
       
       // Transform application data
-      const applicationItems: ContentItem[] = (applicationsResult.applications || []).map((app: any) => ({
+      const applicationItems: ContentItem[] = (applicationsResult.data || []).map((app: any) => ({
         id: app.id,
         type: "application" as const,
-        title: `Application for ${app.internshipTitle || "Unknown Position"}`,
+        title: `Application for ${app.internships?.title || "Unknown Position"}`,
         content: app.application_text || app.motivation_statement || "",
-        author: app.studentName || app.applicant_email || "Unknown",
+        author: app.profiles?.full_name || app.applicant_email || "Unknown",
         status: app.status === "approved" ? "approved" : app.status === "rejected" ? "rejected" : "pending",
         created_at: app.applied_at || app.created_at,
       }))

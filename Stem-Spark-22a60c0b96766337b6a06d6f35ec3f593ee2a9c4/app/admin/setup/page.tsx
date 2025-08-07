@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useEffect, useState } from 'react';
-import { getEnhancedUsersData } from '../enhanced-actions';
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
@@ -43,11 +42,42 @@ export function SetupPageContent() {
 
 	const fetchAdmins = async () => {
 		setIsLoading(true);
-		const result = await getEnhancedUsersData();
-		if (result.users) {
-			setAdmins(result.users.filter((u: any) => u.role === 'admin'));
+		try {
+			// Use direct Supabase client approach
+			const { createClient } = await import('@supabase/supabase-js')
+			
+			const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+			const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+			
+			if (!supabaseUrl || !supabaseServiceKey) {
+				setError('Missing Supabase configuration')
+				return
+			}
+
+			const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+				auth: {
+					autoRefreshToken: false,
+					persistSession: false
+				}
+			})
+
+			const { data: users, error } = await supabase
+				.from('profiles')
+				.select('*')
+				.order('created_at', { ascending: false })
+
+			if (error) {
+				console.error('Error fetching users:', error)
+				setError(error.message)
+			} else {
+				setAdmins(users?.filter((u: any) => u.role === 'admin') || []);
+			}
+		} catch (err) {
+			console.error('Error in fetchAdmins:', err)
+			setError('Failed to fetch admins')
+		} finally {
+			setIsLoading(false);
 		}
-		setIsLoading(false);
 	};
 
 	const fetchSetupData = async () => {

@@ -27,7 +27,6 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getEnhancedSettingsData, updateEnhancedSettingsData } from '../enhanced-actions';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -78,19 +77,47 @@ export default function SettingsPage() {
 
   const fetchSettings = async () => {
     setIsLoading(true);
-    const result = await getEnhancedSettingsData();
     
-    if (result.error) {
-      setMessage({ type: 'error', text: result.error });
-    } else if (result.settings) {
-      setSettings({
-        ...result.settings,
-        theme: result.settings.theme || 'light',
-        primaryColor: result.settings.primaryColor || '#3B82F6',
-        accentColor: result.settings.accentColor || '#10B981'
-      });
+    try {
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        setMessage({ type: 'error', text: 'Missing Supabase configuration' });
+        return
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+      
+      const { data, error } = await supabase
+        .from('system_config')
+        .select('*')
+        .eq('key', 'admin_settings')
+        .single()
+      
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+        setMessage({ type: 'error', text: error.message });
+      } else if (data) {
+        setSettings({
+          ...data.value,
+          theme: data.value.theme || 'light',
+          primaryColor: data.value.primaryColor || '#3B82F6',
+          accentColor: data.value.accentColor || '#10B981'
+        });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to fetch settings' });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleSettingChange = (key: string, value: any) => {
@@ -103,16 +130,48 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setIsLoading(true);
     setSaveStatus('saving');
-    const result = await updateEnhancedSettingsData(settings);
-    if (!result.error) {
-      setSaveStatus('success');
-      setMessage({ type: 'success', text: 'Settings saved successfully' });
-    } else {
+    
+    try {
+      // Use direct Supabase client approach
+      const { createClient } = await import('@supabase/supabase-js')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        setMessage({ type: 'error', text: 'Missing Supabase configuration' });
+        return
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
+      
+      const { error } = await supabase
+        .from('system_config')
+        .upsert({
+          key: 'admin_settings',
+          value: settings,
+          updated_at: new Date().toISOString()
+        })
+      
+      if (error) {
+        setSaveStatus('error');
+        setMessage({ type: 'error', text: 'Error saving settings. Please try again.' });
+      } else {
+        setSaveStatus('success');
+        setMessage({ type: 'success', text: 'Settings saved successfully' });
+      }
+    } catch (error) {
       setSaveStatus('error');
       setMessage({ type: 'error', text: 'Error saving settings. Please try again.' });
+    } finally {
+      setIsLoading(false);
+      setTimeout(() => setSaveStatus('idle'), 3000);
     }
-    setIsLoading(false);
-    setTimeout(() => setSaveStatus('idle'), 3000);
   };
 
   const SettingSection = ({ title, description, icon: Icon, children }: any) => (
