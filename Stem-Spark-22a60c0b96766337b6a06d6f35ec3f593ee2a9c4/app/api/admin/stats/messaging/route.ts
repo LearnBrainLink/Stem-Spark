@@ -1,91 +1,131 @@
 import { NextResponse } from 'next/server'
-import { createClient as createServerSupabaseClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 
 export async function GET() {
   try {
-    const supabase = createServerSupabaseClient()
+    const supabase = createClient()
 
-    // Get messaging statistics
-    const { data: messages } = await supabase
-      .from('chat_messages')
-      .select('created_at, message_type, channel_id')
+    // Get all messages
+    const { data: messages, error } = await supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: false })
 
-    const { data: channels } = await supabase
-      .from('chat_channels')
-      .select('channel_type, created_at')
-
-    const { data: channelMembers } = await supabase
-      .from('chat_channel_members')
-      .select('channel_id, user_id')
-
-    // Get messaging trends (last 30 days)
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    
-    const { data: recentMessages } = await supabase
-      .from('chat_messages')
-      .select('created_at')
-      .gte('created_at', thirtyDaysAgo.toISOString())
-      .order('created_at', { ascending: true })
-
-    // Process daily message counts
-    const dailyMessages: { [key: string]: number } = {}
-    
-    // Initialize last 30 days
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date()
-      date.setDate(date.getDate() - i)
-      const dayKey = date.toISOString().split('T')[0]
-      dailyMessages[dayKey] = 0
+    if (error) {
+      throw error
     }
 
-    // Count messages by day
-    recentMessages?.forEach(message => {
-      const dayKey = message.created_at.split('T')[0]
-      if (dailyMessages[dayKey] !== undefined) {
-        dailyMessages[dayKey]++
-      }
-    })
+    // Get all channels
+    const { data: channels } = await supabase
+      .from('channels')
+      .select('*')
 
-    // Convert to chart format
-    const dailyMessageChart = Object.entries(dailyMessages).map(([date, count]) => ({
-      date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      messages: count
-    }))
+    // Get channel members
+    const { data: channelMembers } = await supabase
+      .from('channel_members')
+      .select('*')
 
-    // Get message type distribution
-    const messageTypeDistribution = messages?.reduce((acc: { [key: string]: number }, message) => {
+    // Calculate messaging statistics
+    const totalMessages = messages?.length || 0
+    const totalChannels = channels?.length || 0
+    const totalMembers = channelMembers?.length || 0
+
+    // Calculate message types
+    const messageTypeDistribution = messages?.reduce((acc: any, message) => {
       acc[message.message_type] = (acc[message.message_type] || 0) + 1
       return acc
     }, {}) || {}
 
-    // Get channel type distribution
-    const channelTypeDistribution = channels?.reduce((acc: { [key: string]: number }, channel) => {
-      acc[channel.channel_type] = (acc[channel.channel_type] || 0) + 1
+    // Get recent messaging activity
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+    const { data: recentMessages } = await supabase
+      .from('messages')
+      .select('created_at')
+      .gte('created_at', sevenDaysAgo.toISOString())
+
+    const recentMessageCount = recentMessages?.length || 0
+
+    // Get channel activity
+    const channelActivity = channels?.map(channel => {
+      const channelMessages = messages?.filter(message => message.channel_id === channel.id).length || 0
+      const channelMemberCount = channelMembers?.filter(member => member.channel_id === channel.id).length || 0
+      
+      return {
+        id: channel.id,
+        name: channel.name,
+        description: channel.description,
+        channel_type: channel.channel_type,
+        messageCount: channelMessages,
+        memberCount: channelMemberCount,
+        activityLevel: channelMessages > 0 ? 'high' : channelMemberCount > 0 ? 'medium' : 'low'
+      }
+    }) || []
+
+    // Get most active channels
+    const mostActiveChannels = channelActivity
+      .sort((a, b) => b.messageCount - a.messageCount)
+      .slice(0, 5)
+
+    // Get message growth data (last 6 months)
+    const messageGrowthData = []
+    const now = new Date()
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const monthName = date.toLocaleString('default', { month: 'short' })
+      
+      const { count: monthlyMessages } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', date.toISOString())
+        .lt('created_at', new Date(date.getFullYear(), date.getMonth() + 1, 1).toISOString())
+      
+      messageGrowthData.push({
+        month: monthName,
+        messages: monthlyMessages || 0
+      })
+    }
+
+    // Get user messaging activity
+    const { data: userMessagingActivity } = await supabase
+      .from('messages')
+      .select('sender_id, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100)
+
+    const userActivityDistribution = userMessagingActivity?.reduce((acc: any, message) => {
+      acc[message.sender_id] = (acc[message.sender_id] || 0) + 1
       return acc
     }, {}) || {}
 
-    // Calculate engagement metrics
-    const totalMessages = messages?.length || 0
-    const totalChannels = channels?.length || 0
-    const totalMembers = channelMembers?.length || 0
-    const avgMessagesPerChannel = totalChannels > 0 ? Math.round(totalMessages / totalChannels) : 0
-    const avgMembersPerChannel = totalChannels > 0 ? Math.round(totalMembers / totalChannels) : 0
+    const topMessagingUsers = Object.entries(userActivityDistribution)
+      .sort(([,a], [,b]) => (b as number) - (a as number))
+      .slice(0, 5)
+      .map(([userId, count]) => ({ userId, messageCount: count }))
 
     const stats = {
-      dailyMessageChart,
+      overview: {
+        totalMessages,
+        totalChannels,
+        totalMembers,
+        recentMessageCount
+      },
       messageTypeDistribution,
-      channelTypeDistribution,
-      totalMessages,
-      totalChannels,
-      totalMembers,
-      avgMessagesPerChannel,
-      avgMembersPerChannel
+      channelActivity,
+      mostActiveChannels,
+      messageGrowthData,
+      topMessagingUsers,
+      engagement: {
+        totalMessages,
+        recentMessageCount,
+        averageMessagesPerChannel: totalChannels > 0 ? totalMessages / totalChannels : 0
+      }
     }
 
     return NextResponse.json(stats)
   } catch (error) {
-    console.error('Error fetching messaging stats:', error)
+    console.error('Error fetching messaging statistics:', error)
     return NextResponse.json(
       { error: 'Failed to fetch messaging statistics' },
       { status: 500 }

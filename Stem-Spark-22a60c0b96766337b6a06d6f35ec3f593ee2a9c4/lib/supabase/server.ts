@@ -17,4 +17,7 @@ export const createClient = () => {
       persistSession: false,
     },
   })
-} 
+}
+
+// Export the function with the name expected by the API endpoints
+export const createServerSupabaseClient = createClient 

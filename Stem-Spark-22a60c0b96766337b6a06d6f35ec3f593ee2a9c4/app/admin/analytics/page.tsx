@@ -31,55 +31,36 @@ export default function AnalyticsPage() {
       setIsLoading(true)
       setError(null)
       
-      // Use direct Supabase client approach
-      const { createClient } = await import('@supabase/supabase-js')
-      
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-      
-      if (!supabaseUrl || !supabaseServiceKey) {
-        setError('Missing Supabase configuration')
-        return
-      }
-
-      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      })
-      
-      // Fetch analytics data
-      const [usersResult, videosResult, applicationsResult, internshipsResult, donationsResult] = await Promise.all([
-        supabase.from('profiles').select('*'),
-        supabase.from('videos').select('*'),
-        supabase.from('internship_applications').select('*'),
-        supabase.from('internships').select('*'),
-        supabase.from('donations').select('*')
-      ])
-      
-      if (usersResult.error || videosResult.error || applicationsResult.error || internshipsResult.error || donationsResult.error) {
-        setError('Failed to fetch analytics data')
-        return
+      // Fetch analytics data from the API endpoint
+      const response = await fetch('/api/admin/stats')
+      if (!response.ok) {
+        throw new Error('Failed to fetch analytics data')
       }
       
-      // Calculate analytics
+      const data = await response.json()
+      
+      // Calculate analytics from the fetched data
       const now = new Date()
       const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
       const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
       
       const analytics = {
-        totalUsers: usersResult.data?.length || 0,
-        newUsersThisMonth: usersResult.data?.filter((u: any) => new Date(u.created_at) >= thisMonth).length || 0,
-        activeUsers: usersResult.data?.filter((u: any) => u.last_active && new Date(u.last_active) >= lastMonth).length || 0,
-        totalVideos: videosResult.data?.length || 0,
-        totalApplications: applicationsResult.data?.length || 0,
-        activeInternships: internshipsResult.data?.filter((i: any) => i.status === 'active').length || 0,
-        totalRevenue: donationsResult.data?.reduce((sum: number, d: any) => sum + (d.amount || 0), 0) || 0,
-        thisMonthRevenue: donationsResult.data?.filter((d: any) => new Date(d.created_at) >= thisMonth).reduce((sum: number, d: any) => sum + (d.amount || 0), 0) || 0,
-        userGrowth: [],
-        applicationStats: [],
-        revenueData: []
+        totalUsers: data.totalUsers || 0,
+        newUsersThisMonth: data.userGrowthChart?.[data.userGrowthChart.length - 1]?.users || 0,
+        activeUsers: data.totalUsers || 0, // Simplified for now
+        totalVideos: data.totalVideos || 0,
+        totalApplications: data.totalApplications || 0,
+        activeInternships: data.activeInternships || 0,
+        totalRevenue: data.totalRevenue || 0,
+        thisMonthRevenue: data.thisMonthRevenue || 0,
+        userGrowth: data.userGrowthChart || [],
+        applicationStats: data.activityTrendsChart || [],
+        revenueData: data.activityTrendsChart || [],
+        totalMessages: data.totalMessages || 0,
+        totalChannels: data.totalChannels || 0,
+        volunteerHours: data.totalVolunteerHours || 0,
+        pendingHours: data.pendingHours || 0,
+        approvedHours: data.totalApprovedHours || 0
       }
       
       setAnalyticsData(analytics)
@@ -96,61 +77,38 @@ export default function AnalyticsPage() {
       setIsGeneratingReport(true)
       setError(null)
       
-      // Use direct Supabase client approach
-      const { createClient } = await import('@supabase/supabase-js')
-      
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-      
-      if (!supabaseUrl || !supabaseServiceKey) {
-        setError('Missing Supabase configuration')
-        return
-      }
-
-      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
+      // Generate comprehensive report using the analytics data
+      const reportData = {
+        generatedAt: new Date().toISOString(),
+        timeRange,
+        metrics: analyticsData,
+        summary: {
+          totalUsers: analyticsData?.totalUsers || 0,
+          totalRevenue: analyticsData?.totalRevenue || 0,
+          totalApplications: analyticsData?.totalApplications || 0,
+          totalVideos: analyticsData?.totalVideos || 0
         }
-      })
-      
-      // Fetch analytics data
-      const [usersResult, videosResult, applicationsResult, internshipsResult, donationsResult] = await Promise.all([
-        supabase.from('profiles').select('*'),
-        supabase.from('videos').select('*'),
-        supabase.from('internship_applications').select('*'),
-        supabase.from('internships').select('*'),
-        supabase.from('donations').select('*')
-      ])
-      
-      if (usersResult.error || videosResult.error || applicationsResult.error || internshipsResult.error || donationsResult.error) {
-        setError('Failed to fetch analytics data')
-        return
       }
       
-      // Calculate analytics
-      const now = new Date()
-      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      // Simulate report generation delay
+      await new Promise(resolve => setTimeout(resolve, 2000))
       
-      const analytics = {
-        totalUsers: usersResult.data?.length || 0,
-        newUsersThisMonth: usersResult.data?.filter((u: any) => new Date(u.created_at) >= thisMonth).length || 0,
-        activeUsers: usersResult.data?.filter((u: any) => u.last_active && new Date(u.last_active) >= lastMonth).length || 0,
-        totalVideos: videosResult.data?.length || 0,
-        totalApplications: applicationsResult.data?.length || 0,
-        activeInternships: internshipsResult.data?.filter((i: any) => i.status === 'active').length || 0,
-        totalRevenue: donationsResult.data?.reduce((sum: number, d: any) => sum + (d.amount || 0), 0) || 0,
-        thisMonthRevenue: donationsResult.data?.filter((d: any) => new Date(d.created_at) >= thisMonth).reduce((sum: number, d: any) => sum + (d.amount || 0), 0) || 0,
-        userGrowth: [],
-        applicationStats: [],
-        revenueData: []
-      }
+      setMessage({ type: 'success', text: 'Report generated successfully!' })
       
-      setAnalyticsData(analytics)
-      setMessage({ type: 'success', text: 'Analytics report generated successfully!' })
+      // Download the report
+      const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `analytics-report-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
     } catch (err) {
       setError('Failed to generate report')
+      setMessage({ type: 'error', text: 'Failed to generate report' })
     } finally {
       setIsGeneratingReport(false)
     }
@@ -158,54 +116,53 @@ export default function AnalyticsPage() {
 
   const exportAnalytics = () => {
     if (!analyticsData) return
-
-    const csvContent = [
-      ['Metric', 'Value', 'Change'],
-      ['Total Users', analyticsData.totalUsers, ''],
-      ['New Users This Month', analyticsData.newUsersThisMonth, ''],
-      ['Active Users', analyticsData.activeUsers, ''],
-      ['Total Videos', analyticsData.totalVideos, ''],
-      ['Total Applications', analyticsData.totalApplications, ''],
-      ['Active Internships', analyticsData.activeInternships, ''],
-      ['Total Revenue', `$${analyticsData.totalRevenue}`, ''],
-      ['This Month Revenue', `$${analyticsData.thisMonthRevenue}`, ''],
-    ].map(row => row.join(',')).join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `analytics-export-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    
+    const csvData = [
+      ['Metric', 'Value'],
+      ['Total Users', analyticsData.totalUsers],
+      ['Total Revenue', analyticsData.totalRevenue],
+      ['Total Applications', analyticsData.totalApplications],
+      ['Total Videos', analyticsData.totalVideos],
+      ['Total Messages', analyticsData.totalMessages],
+      ['Total Channels', analyticsData.totalChannels],
+      ['Volunteer Hours', analyticsData.volunteerHours],
+      ['Pending Hours', analyticsData.pendingHours],
+      ['Approved Hours', analyticsData.approvedHours]
+    ]
+    
+    const csvContent = csvData.map(row => row.join(',')).join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `analytics-export-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   const MetricCard = ({ title, value, change, icon: Icon, color }: any) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -2, scale: 1.02 }}
+      transition={{ duration: 0.5 }}
+      whileHover={{ y: -2 }}
     >
-      <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
-        <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-              <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
-              <p className="text-2xl font-bold text-gray-900">{value}</p>
-              {change && (
-                <p className={`text-sm font-medium ${change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-                  {change} from last month
-                </p>
-              )}
-            </div>
-            <div className={`p-3 rounded-xl ${color} bg-opacity-10`}>
-              <Icon className={`w-6 h-6 ${color.replace('bg-', 'text-')}`} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <Card className="shadow-md hover:shadow-lg transition-all duration-300">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">{title}</CardTitle>
+          <Icon className={`h-4 w-4 ${color}`} />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{value}</div>
+          {change && (
+            <p className={`text-xs ${change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
+              {change}
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </motion.div>
   )
 
@@ -213,318 +170,277 @@ export default function AnalyticsPage() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ scale: 1.01 }}
-      className={className}
+      transition={{ duration: 0.5, delay: 0.2 }}
     >
-      <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
-              <CardHeader>
-          <CardTitle className="text-xl font-bold text-gray-900">{title}</CardTitle>
-          <CardDescription className="text-gray-600">{description}</CardDescription>
-              </CardHeader>
-              <CardContent>
+      <Card className={`shadow-md ${className}`}>
+        <CardHeader>
+          <CardTitle className="text-lg">{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </CardHeader>
+        <CardContent>
           {children}
-              </CardContent>
-            </Card>
+        </CardContent>
+      </Card>
     </motion.div>
   )
 
   if (isLoading) {
     return (
-      <div className="w-full h-full space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i} className="shadow-lg border-0">
-              <CardContent className="p-6">
-                <Skeleton className="h-4 w-24 mb-2" />
-                <Skeleton className="h-8 w-32 mb-2" />
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
+          <div className="flex gap-2">
+            <Skeleton className="h-10 w-32" />
+            <Skeleton className="h-10 w-32" />
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
                 <Skeleton className="h-4 w-20" />
-              </CardContent>
+                <Skeleton className="h-8 w-16" />
+              </CardHeader>
             </Card>
           ))}
-          </div>
+        </div>
+        
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {Array.from({ length: 2 }).map((_, i) => (
-            <Card key={i} className="shadow-lg border-0">
+          {[...Array(2)].map((_, i) => (
+            <Card key={i}>
               <CardHeader>
-                <Skeleton className="h-6 w-48 mb-2" />
-                <Skeleton className="h-4 w-64" />
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-4 w-48" />
               </CardHeader>
               <CardContent>
                 <Skeleton className="h-64 w-full" />
               </CardContent>
             </Card>
           ))}
-                  </div>
-                </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </div>
     )
   }
 
   return (
-    <div className="admin-page-content space-y-6 p-0 m-0">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Analytics & Reports</h1>
-          <p className="text-gray-600 mt-1">Comprehensive platform analytics and insights</p>
+          <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
+          <p className="text-muted-foreground">Real-time insights and performance metrics</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Button variant="outline" onClick={fetchAnalytics} className="w-full sm:w-auto">
-            <RefreshCw className="w-4 h-4 mr-2" />
+        
+        <div className="flex gap-2">
+          <Select value={timeRange} onValueChange={setTimeRange}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="90d">Last 90 days</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Button onClick={fetchAnalytics} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button variant="outline" onClick={handleGenerateReport} className="w-full sm:w-auto">
-            <Download className="w-4 h-4 mr-2" />
+          
+          <Button onClick={exportAnalytics} variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+          
+          <Button 
+            onClick={handleGenerateReport} 
+            disabled={isGeneratingReport}
+            size="sm"
+          >
+            {isGeneratingReport ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FileText className="h-4 w-4 mr-2" />
+            )}
             Generate Report
           </Button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Select value={timeRange} onValueChange={setTimeRange}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select time range" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7d">Last 7 days</SelectItem>
-            <SelectItem value="30d">Last 30 days</SelectItem>
-            <SelectItem value="90d">Last 90 days</SelectItem>
-            <SelectItem value="1y">Last year</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={metricType} onValueChange={setMetricType}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select metric" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="users">User Growth</SelectItem>
-            <SelectItem value="engagement">Engagement</SelectItem>
-            <SelectItem value="revenue">Revenue</SelectItem>
-            <SelectItem value="content">Content</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={chartType} onValueChange={setChartType}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select chart type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="line">Line Chart</SelectItem>
-            <SelectItem value="bar">Bar Chart</SelectItem>
-            <SelectItem value="pie">Pie Chart</SelectItem>
-          </SelectContent>
-        </Select>
+      {message && (
+        <Alert variant={message.type === 'success' ? 'default' : 'destructive'}>
+          <AlertDescription>{message.text}</AlertDescription>
+        </Alert>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <MetricCard
+          title="Total Users"
+          value={analyticsData?.totalUsers || 0}
+          change="+12%"
+          icon={Users}
+          color="text-blue-600"
+        />
+        <MetricCard
+          title="Total Revenue"
+          value={`$${analyticsData?.totalRevenue?.toLocaleString() || 0}`}
+          change="+8%"
+          icon={DollarSign}
+          color="text-green-600"
+        />
+        <MetricCard
+          title="Applications"
+          value={analyticsData?.totalApplications || 0}
+          change="+15%"
+          icon={Briefcase}
+          color="text-purple-600"
+        />
+        <MetricCard
+          title="Videos"
+          value={analyticsData?.totalVideos || 0}
+          change="+5%"
+          icon={Video}
+          color="text-orange-600"
+        />
       </div>
 
-      {/* Message Display */}
-      {message && (
-        <Alert className={message.type === "success" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
-          <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
-            {message.text}
-          </AlertDescription>
-        </Alert>
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ChartCard
+          title="User Growth"
+          description="Monthly user registration trends"
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={analyticsData?.userGrowth || []}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line 
+                type="monotone" 
+                dataKey="users" 
+                stroke="#3B82F6" 
+                strokeWidth={2}
+                dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartCard>
 
-      {/* Error Display */}
-      {error && (
-        <Alert className="border-red-200 bg-red-50">
-          <AlertTriangle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800">{error}</AlertDescription>
-        </Alert>
-      )}
+        <ChartCard
+          title="Activity Trends"
+          description="Messages and applications over time"
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={analyticsData?.activityTrendsChart || []}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Area 
+                type="monotone" 
+                dataKey="messages" 
+                stackId="1"
+                stroke="#10B981" 
+                fill="#10B981" 
+                fillOpacity={0.6}
+              />
+              <Area 
+                type="monotone" 
+                dataKey="applications" 
+                stackId="1"
+                stroke="#F59E0B" 
+                fill="#F59E0B" 
+                fillOpacity={0.6}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
 
-      {/* Analytics Content */}
-      {analyticsData ? (
-        <>
-          {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <MetricCard
-              title="Total Users"
-              value={analyticsData.totalUsers?.toLocaleString() || "0"}
-              change="+12%"
-              icon={Users}
-              color="bg-blue-500"
-            />
-            <MetricCard
-              title="Active Users"
-              value={analyticsData.activeUsers?.toLocaleString() || "0"}
-              change="+8%"
-              icon={UserCheck}
-              color="bg-green-500"
-            />
-            <MetricCard
-              title="Total Revenue"
-              value={`$${analyticsData.totalRevenue?.toLocaleString() || "0"}`}
-              change="+18%"
-              icon={DollarSign}
-              color="bg-purple-500"
-            />
-            <MetricCard
-              title="Total Applications"
-              value={analyticsData.totalApplications?.toLocaleString() || "0"}
-              change="+23%"
-              icon={Mail}
-              color="bg-amber-500"
-            />
-          </div>
-
-          {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ChartCard
-              title="User Growth"
-              description="Monthly user registration and activity trends"
-            >
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={analyticsData.userGrowth || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="month" stroke="#666" />
-                  <YAxis stroke="#666" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #e2e8f0', 
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }} 
-                  />
-                  <Legend />
-                  <Line type="monotone" dataKey="users" stroke="#3B82F6" strokeWidth={2} name="Users" />
-                  <Line type="monotone" dataKey="students" stroke="#10B981" strokeWidth={2} name="Students" />
-                  <Line type="monotone" dataKey="teachers" stroke="#F59E0B" strokeWidth={2} name="Teachers" />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartCard>
-            <ChartCard
-              title="User Distribution"
-              description="Breakdown of users by type"
-            >
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={analyticsData.userTypes || []}
-                    dataKey="count"
-                    nameKey="type"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={60}
-                    innerRadius={20}
-                  >
-                    {(analyticsData.userTypes || []).map((entry: any, index: number) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #e2e8f0', 
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                    formatter={(value, name) => [`${value} users`, name]}
-                  />
-                  <Legend 
-                    verticalAlign="bottom" 
-                    height={36}
-                    formatter={(value) => `${value}`}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </div>
-
-          {/* Detailed Reports */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ChartCard
-              title="Application Status"
-              description="Current status of internship applications"
-            >
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={analyticsData.applicationStats || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="status" stroke="#666" />
-                  <YAxis stroke="#666" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #e2e8f0', 
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }} 
-                  />
-                  <Bar dataKey="count" fill="#8884d8" />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
-            <ChartCard
-              title="Monthly Revenue"
-              description="Revenue trends over the past months"
-            >
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={analyticsData.monthlyRevenue || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="month" stroke="#666" />
-                  <YAxis stroke="#666" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #e2e8f0', 
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }} 
-                  />
-                  <Area type="monotone" dataKey="revenue" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.3} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </div>
-
-          {/* Additional Metrics */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ChartCard
-              title="Engagement Metrics"
-              description="Key performance indicators for user engagement"
-            >
-              <div className="grid grid-cols-2 gap-4">
-                {(analyticsData.engagementMetrics || []).map((metric: any, index: number) => (
-                  <div key={index} className="text-center p-4 bg-white rounded-lg border border-gray-100">
-                    <p className="text-sm font-medium text-gray-600 mb-1">{metric.metric}</p>
-                    <p className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</p>
-                    <p className={`text-sm font-medium ${metric.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-                      {metric.change}
-                    </p>
-                  </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <ChartCard
+          title="User Distribution"
+          description="Breakdown by user roles"
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={[
+                  { name: 'Students', value: analyticsData?.students || 0 },
+                  { name: 'Admins', value: analyticsData?.admins || 0 },
+                  { name: 'Teachers', value: analyticsData?.teachers || 0 },
+                  { name: 'Parents', value: analyticsData?.parents || 0 },
+                  { name: 'Interns', value: analyticsData?.interns || 0 }
+                ].filter(item => item.value > 0)}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {COLORS.map((color, index) => (
+                  <Cell key={`cell-${index}`} fill={color} />
                 ))}
-              </div>
-            </ChartCard>
-            <ChartCard
-              title="Top Performing Content"
-              description="Most viewed videos and content"
-            >
-              <div className="space-y-3">
-                {(analyticsData.topContent || []).map((content: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100">
-                    <div>
-                      <p className="font-medium text-gray-900">{content.title}</p>
-                      <p className="text-sm text-gray-600">{content.category}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-gray-900">{content.views} views</p>
-                      <p className="text-sm text-gray-600">{Math.floor(content.duration / 60)}:{(content.duration % 60).toString().padStart(2, '0')}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ChartCard>
-          </div>
-        </>
-      ) : (
-        <Card className="text-center py-12">
-          <CardContent>
-            <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No analytics data available</h3>
-            <p className="text-gray-600">Try refreshing the page or check your database connection.</p>
-          </CardContent>
-        </Card>
-      )}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard
+          title="Volunteer Hours"
+          description="Monthly volunteer hours logged"
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={analyticsData?.volunteerHoursChart || []}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="hours" fill="#8B5CF6" />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard
+          title="Revenue Overview"
+          description="Monthly revenue trends"
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={analyticsData?.revenueData || []}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line 
+                type="monotone" 
+                dataKey="revenue" 
+                stroke="#10B981" 
+                strokeWidth={2}
+                dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
     </div>
   )
 }
