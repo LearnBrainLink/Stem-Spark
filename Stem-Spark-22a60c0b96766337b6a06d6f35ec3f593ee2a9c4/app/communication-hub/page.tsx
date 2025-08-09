@@ -699,43 +699,48 @@ export default function CommunicationHub() {
         for (const channel of allChannels) {
           let shouldShow = false
           
-          // Check if user should see this channel based on role and type
-          switch (channel?.type) {
-            case 'general':
-              shouldShow = true // Everyone can see General channels
-              break
-            case 'announcements':
-              shouldShow = true // Everyone can see Announcements
-              break
-            case 'student_lounge':
-              shouldShow = currentUser.role === 'student' || currentUser.role === 'intern'
-              break
-            case 'admin_only':
-              shouldShow = currentUser.role === 'admin'
-              break
-            case 'parent_teacher':
-              shouldShow = currentUser.role === 'parent'
-              break
-            case 'group':
-              shouldShow = true // Group channels accessible to all members
-              break
-            case 'individual':
-              shouldShow = true // Individual channels accessible to participants
-              break
-            default:
-              // Handle legacy channels by name
-              if (channel?.name === 'General' || channel?.name === 'Announcements') {
-                shouldShow = true
-              } else if (channel?.name === 'Student Lounge') {
+          // Admins can see all channels except parent-teacher which is private communication
+          if (currentUser.role === 'admin') {
+            shouldShow = channel?.type !== 'parent_teacher' && channel?.name !== 'Parent-Teacher'
+          } else {
+            // Check if user should see this channel based on role and type
+            switch (channel?.type) {
+              case 'general':
+                shouldShow = true // Everyone can see General channels
+                break
+              case 'announcements':
+                shouldShow = true // Everyone can see Announcements
+                break
+              case 'student_lounge':
                 shouldShow = currentUser.role === 'student' || currentUser.role === 'intern'
-              } else if (channel?.name === 'Admin Hub') {
+                break
+              case 'admin_only':
                 shouldShow = currentUser.role === 'admin'
-              } else if (channel?.name === 'Parent-Teacher') {
+                break
+              case 'parent_teacher':
                 shouldShow = currentUser.role === 'parent'
-              } else if (channel?.name === 'Test Management Channel') {
-                shouldShow = currentUser.role === 'admin'
-              }
-              break
+                break
+              case 'group':
+                shouldShow = true // Group channels accessible to all members
+                break
+              case 'individual':
+                shouldShow = true // Individual channels accessible to participants
+                break
+              default:
+                // Handle legacy channels by name
+                if (channel?.name === 'General' || channel?.name === 'Announcements') {
+                  shouldShow = true
+                } else if (channel?.name === 'Student Lounge') {
+                  shouldShow = currentUser.role === 'student' || currentUser.role === 'intern'
+                } else if (channel?.name === 'Admin Hub') {
+                  shouldShow = currentUser.role === 'admin'
+                } else if (channel?.name === 'Parent-Teacher') {
+                  shouldShow = currentUser.role === 'parent'
+                } else if (channel?.name === 'Test Management Channel') {
+                  shouldShow = currentUser.role === 'admin'
+                }
+                break
+            }
           }
           
           if (shouldShow) {

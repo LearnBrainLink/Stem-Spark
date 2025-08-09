@@ -699,9 +699,10 @@ export default function AdminCommunicationHub() {
         for (const channel of allChannels) {
           let shouldShow = false
           
-          // Admin communication hub - admins can see all channels for management purposes
+          // Admin communication hub - admins can see management-relevant channels
           if (currentUser.role === 'admin') {
-            shouldShow = true // Admins can see all channels
+            // Admins can see all channels except parent-teacher which is private communication
+            shouldShow = channel?.type !== 'parent_teacher' && channel?.name !== 'Parent-Teacher'
           } else {
             // For non-admin users who somehow access admin hub, apply normal filtering
             switch (channel?.type) {
