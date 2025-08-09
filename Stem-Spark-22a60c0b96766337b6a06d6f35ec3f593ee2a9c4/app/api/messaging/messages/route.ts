@@ -44,10 +44,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get channel to check permissions
+    // Get channel to check permissions and creator
     const { data: channel } = await supabase
       .from('channels')
-      .select('type')
+      .select('id, name, type, created_by')
       .eq('id', channel_id)
       .single()
 
@@ -58,13 +58,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check per-channel ban
+    const { data: existingBan } = await supabase
+      .from('channel_bans')
+      .select('id, expires_at')
+      .eq('channel_id', channel_id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (existingBan && (!existingBan.expires_at || new Date(existingBan.expires_at) > new Date())) {
+      return NextResponse.json(
+        { error: 'You are banned from this channel' },
+        { status: 403 }
+      )
+    }
+
     // Check permissions based on channel type
     const isAdmin = profile.role === 'admin' || profile.is_super_admin
-    const canSendMessage = 
+    const canSendMessage = (
       channel.type === 'general' ||
       channel.type === 'parent_teacher' ||
       (channel.type === 'announcements' && isAdmin) ||
       channel.type === 'admin_only'
+    )
 
     if (!canSendMessage) {
       return NextResponse.json(

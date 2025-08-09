@@ -157,6 +157,8 @@ export default function CommunicationHub() {
   const [newTodoContent, setNewTodoContent] = useState('')
   const [newTodoPriority, setNewTodoPriority] = useState<'low' | 'medium' | 'high'>('medium')
   const [newTodoDueDate, setNewTodoDueDate] = useState('')
+  // Mobile UI state
+  const [isMobileChannelsOpen, setIsMobileChannelsOpen] = useState(false)
   
   // File upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -1197,6 +1199,20 @@ export default function CommunicationHub() {
 
       console.log('Fetched members:', combinedMembers)
       setChannelMembers(combinedMembers)
+
+      // Also fetch bans for this channel (only managers fetch)
+      if (canManageChannel(selectedChannel)) {
+        const { data: bans } = await supabase
+          .from('channel_bans')
+          .select('user_id')
+          .eq('channel_id', selectedChannel.id)
+        const bannedSet = new Set((bans || []).map(b => b.user_id))
+        // Mark banned users in local state for UI badges
+        setChannelMembers(prev => prev.map(m => ({
+          ...m,
+          user: m.user ? { ...m.user, role: bannedSet.has(m.user_id) ? `${m.user.role} (banned)` : m.user.role } : m.user
+        })))
+      }
     } catch (error) {
       console.error('Error fetching channel members:', error)
       toast({
@@ -1236,13 +1252,13 @@ export default function CommunicationHub() {
     if (!selectedChannel || !selectedUserToAdd) return
 
     try {
-      const { error } = await supabase
-        .from('channel_members')
-        .insert([{
-          channel_id: selectedChannel.id,
-          user_id: selectedUserToAdd,
-          role: 'member'
-        }])
+      const response = await fetch('/api/messaging/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add', channel_id: selectedChannel.id, target_user_id: selectedUserToAdd })
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Failed to add user')
 
       if (error) throw error
 
@@ -1283,11 +1299,13 @@ export default function CommunicationHub() {
         .eq('id', selectedUserToRemove)
         .single()
 
-      const { error } = await supabase
-        .from('channel_members')
-        .delete()
-        .eq('channel_id', selectedChannel.id)
-        .eq('user_id', selectedUserToRemove)
+      const response = await fetch('/api/messaging/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'remove', channel_id: selectedChannel.id, target_user_id: selectedUserToRemove })
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Failed to remove user')
 
       if (error) throw error
 
@@ -1311,13 +1329,13 @@ export default function CommunicationHub() {
   }
 
   const canManageChannel = (channel: Channel) => {
-    // No one can manage default/system channels (add/remove members)
-    const systemChannels = ['General', 'Student Lounge', 'Announcements', 'Admin Hub', 'Parent-Teacher', 'Test Management Channel']
-    if (systemChannels.includes(channel?.name || '')) {
-      return false
-    }
-    // Only channel creator can manage custom channels
-    return user && channel?.created_by === user.id
+    // General channel membership management is admin-only
+    if (channel?.name === 'General') return userRole === 'admin' || userRole === 'super_admin'
+    // System channels cannot be managed by users
+    const systemChannels = ['Student Lounge', 'Announcements', 'Admin Hub', 'Parent-Teacher', 'Test Management Channel']
+    if (systemChannels.includes(channel?.name || '')) return false
+    // Only creator can manage custom channels
+    return !!user && channel?.created_by === user.id
   }
 
   const canViewMembers = () => {
@@ -1595,8 +1613,22 @@ export default function CommunicationHub() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      {/* Mobile Header (WhatsApp-like) */}
+      <div className="sm:hidden wa-header sticky top-0 z-30">
+        <div className="px-4 py-3 flex items-center justify-between">
+          <Button variant="ghost" className="text-white hover:bg-white/10" onClick={() => setIsMobileChannelsOpen(true)}>
+            <Hash className="w-5 h-5 mr-2" />
+            Channels
+          </Button>
+          <div className="truncate text-right">
+            <div className="text-base font-semibold truncate">{selectedChannel ? `#${selectedChannel.name}` : 'Communication Hub'}</div>
+            <div className="text-xs opacity-90">{selectedChannel ? 'Chat' : 'Select a channel'}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop/Header */}
+      <div className="hidden sm:block bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                       <div className="flex items-center justify-between">
               <div>
@@ -1627,7 +1659,7 @@ export default function CommunicationHub() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Channels Sidebar */}
-          <div className="lg:col-span-1">
+          <div className="hidden lg:block lg:col-span-1 channel-sidebar">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
@@ -1712,7 +1744,7 @@ export default function CommunicationHub() {
               <CardContent>
                   <div className="flex flex-col min-h-[60vh] sm:h-[calc(100vh-20rem)]">
                     {/* Messages */}
-                        <ScrollArea className="flex-1 p-4 touch-scroll safe-bottom">
+                        <ScrollArea className="flex-1 p-4 touch-scroll safe-bottom whatsapp-chat-bg">
                           <div className="space-y-4">
                       {messages.map((message) => {
                         const isOwn = message.sender_id === user?.id
@@ -1749,12 +1781,10 @@ export default function CommunicationHub() {
                               )}
 
                               {/* Message content */}
-                              <div className={`inline-block p-3 rounded-lg ${
+                              <div className={`inline-block max-w-[80%] p-3 rounded-2xl ${
                                 isOwn 
-                                  ? 'bg-green-500 text-white' 
-                                  : isAdmin 
-                                    ? 'bg-purple-100 text-purple-900' 
-                                    : 'bg-gray-100 text-gray-900'
+                                  ? 'bubble-own rounded-br-none' 
+                                  : 'bubble-other rounded-bl-none'
                               }`}>
                                       {/* Text content */}
                                       {message.content && (
@@ -1802,8 +1832,13 @@ export default function CommunicationHub() {
                                               {message.image_caption}
                                             </p>
                                           )}
-                                        </div>
-                                      )}
+                                      </div>
+                                    )}
+
+                                    {/* Meta time inside bubble */}
+                                    <div className={`bubble-meta mt-1 ${isOwn ? 'text-right' : 'text-right'}`}>
+                                      {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
                               </div>
 
                               {/* Message actions */}
@@ -1930,13 +1965,29 @@ export default function CommunicationHub() {
                               </div>
                             )}
                             
-                        <div className="flex-1 flex space-x-2">
+                        <div className="flex-1 flex items-center space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => imageInputRef.current?.click()}
+                            className="text-gray-600"
+                          >
+                            <ImageIcon className="w-5 h-5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="text-gray-600"
+                          >
+                            <Upload className="w-5 h-5" />
+                          </Button>
                           <Input
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                            placeholder="Type your message..."
-                            className="flex-1"
+                            placeholder="Type a message"
+                            className="flex-1 rounded-full bg-white border-none focus-visible:ring-0 px-4"
                           />
                           <input
                             type="file"
@@ -1953,28 +2004,14 @@ export default function CommunicationHub() {
                             accept="image/*"
                             onChange={(e) => {
                               const file = e.target.files?.[0]
-                                    if (file) handleImageSelect(file)
+                              if (file) handleImageSelect(file)
                             }}
                             className="hidden"
                           />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => fileInputRef.current?.click()}
-                          >
-                            <Upload className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => imageInputRef.current?.click()}
-                          >
-                            <ImageIcon className="w-4 h-4" />
+                          <Button onClick={handleSendMessage} className="rounded-full wa-accent px-4 h-10">
+                            <Send className="w-4 h-4" />
                           </Button>
                         </div>
-                        <Button onClick={handleSendMessage}>
-                          <Send className="w-4 h-4" />
-                        </Button>
                       </div>
                     )}
                   </div>
@@ -1983,7 +2020,7 @@ export default function CommunicationHub() {
                 </div>
 
                 {/* Todo List Sidebar */}
-                <div className="lg:col-span-1">
+                <div className="hidden lg:block lg:col-span-1">
                   <Card>
                     <CardHeader>
                       <div className="flex items-center justify-between">
@@ -2081,6 +2118,42 @@ export default function CommunicationHub() {
         </div>
 
         {/* Dialogs */}
+        {/* Mobile channels dialog */}
+        <Dialog open={isMobileChannelsOpen} onOpenChange={setIsMobileChannelsOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Channels</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              {channels.map((channel) => (
+                <div
+                  key={channel.id}
+                  className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                    selectedChannel?.id === channel.id ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
+                  }`}
+                  onClick={() => {
+                    setSelectedChannel(channel)
+                    setIsMobileChannelsOpen(false)
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">#{channel?.name || 'Unknown Channel'}</h4>
+                      <p className="text-sm text-gray-600 truncate">{channel?.description || 'No description'}</p>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <Badge variant="outline" className="text-xs">{channel?.type || 'general'}</Badge>
+                        <div className="flex items-center text-xs text-gray-500">
+                          <Users className="w-3 h-3 mr-1" />
+                          {channel?.member_count || 0}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
         {/* Forward Message Dialog */}
         <Dialog open={showForwardDialog} onOpenChange={setShowForwardDialog}>
           <DialogContent>
@@ -2223,6 +2296,50 @@ export default function CommunicationHub() {
                         <Badge variant="secondary" className="text-xs">
                           {member.user?.role}
                         </Badge>
+                        {canManageChannel(selectedChannel) && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch('/api/messaging/bans', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ action: 'ban', channel_id: selectedChannel?.id, target_user_id: member.user_id })
+                                  })
+                                  const result = await response.json()
+                                  if (!response.ok) throw new Error(result.error || 'Failed to ban')
+                                  await fetchChannelMembers()
+                                } catch (e) {
+                                  console.error(e)
+                                }
+                              }}
+                            >
+                              Ban
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch('/api/messaging/bans', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ action: 'unban', channel_id: selectedChannel?.id, target_user_id: member.user_id })
+                                  })
+                                  const result = await response.json()
+                                  if (!response.ok) throw new Error(result.error || 'Failed to unban')
+                                  await fetchChannelMembers()
+                                } catch (e) {
+                                  console.error(e)
+                                }
+                              }}
+                            >
+                              Unban
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}

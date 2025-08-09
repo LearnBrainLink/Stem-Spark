@@ -101,12 +101,12 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const [isSidebarOpen, setSidebarOpen] = useState(true)
+  const [isSidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
 
   return (
     <div className="admin-layout bg-gradient-to-br from-gray-50 via-white to-gray-50">
-      {/* Sidebar - Always visible on desktop, collapsible on mobile */}
+      {/* Sidebar - hover to expand on desktop; toggle on mobile */}
       <div className={`admin-sidebar-container ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
         <div className="flex flex-col h-full">
           {/* Header */}
