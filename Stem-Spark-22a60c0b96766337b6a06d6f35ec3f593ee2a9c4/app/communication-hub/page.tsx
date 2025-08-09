@@ -36,7 +36,9 @@ import {
   AlertCircle,
   MessageSquare,
   FileText,
-  Paperclip
+  Paperclip,
+  Megaphone,
+  Lock
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -126,6 +128,7 @@ export default function CommunicationHub() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [channels, setChannels] = useState<Channel[]>([])
+  const [channelSearch, setChannelSearch] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null)
   const [newMessage, setNewMessage] = useState('')
@@ -1680,28 +1683,48 @@ export default function CommunicationHub() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  {channels.map((channel) => (
+                <div className="mb-3">
+                  <Input
+                    value={channelSearch}
+                    onChange={(e) => setChannelSearch(e.target.value)}
+                    placeholder="Search channels"
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1">
+                  {channels
+                    .filter((c) => c.name.toLowerCase().includes(channelSearch.toLowerCase()))
+                    .map((channel) => (
                     <div
                       key={channel.id}
-                      className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                      className={`group p-3 rounded-lg cursor-pointer transition-colors border-l-4 ${
                         selectedChannel?.id === channel.id
-                          ? 'bg-blue-50 border border-blue-200'
-                          : 'hover:bg-gray-50'
+                          ? 'bg-green-50 border border-green-100 border-l-green-500'
+                          : 'border-transparent hover:bg-gray-50'
                       }`}
                       onClick={() => setSelectedChannel(channel)}
                     >
                       <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">#{channel?.name || 'Unknown Channel'}</h4>
-                          <p className="text-sm text-gray-600 truncate">{channel?.description || 'No description'}</p>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Badge variant="outline" className="text-xs">
-                              {channel?.type || 'general'}
-                            </Badge>
-                            <div className="flex items-center text-xs text-gray-500">
-                              <Users className="w-3 h-3 mr-1" />
-                              {channel?.member_count || 0}
+                        <div className="flex items-center space-x-3 flex-1 min-w-0">
+                          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border">
+                            {channel.type === 'announcements' ? (
+                              <Megaphone className="w-4 h-4 text-green-600" />
+                            ) : channel.type === 'private' ? (
+                              <Lock className="w-4 h-4 text-gray-500" />
+                            ) : (
+                              <Hash className="w-4 h-4 text-gray-500" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="font-medium text-gray-900 truncate">#{channel?.name || 'Unknown Channel'}</h4>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <Badge variant="outline" className="text-[10px]">
+                                {channel?.type || 'general'}
+                              </Badge>
+                              <div className="flex items-center text-[10px] text-gray-500">
+                                <Users className="w-3 h-3 mr-1" />
+                                {channel?.member_count || 0}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1781,7 +1804,7 @@ export default function CommunicationHub() {
                               )}
 
                               {/* Message content */}
-                              <div className={`inline-block max-w-[80%] p-3 rounded-2xl ${
+                              <div className={`inline-block max-w-[80%] p-3 rounded-2xl break-words ${
                                 isOwn 
                                   ? 'bubble-own rounded-br-none' 
                                   : 'bubble-other rounded-bl-none'

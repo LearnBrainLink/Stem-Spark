@@ -242,6 +242,25 @@ img, video, canvas, iframe {
   z-index: 1;
 }
 
+/* Default chat bubble styles (desktop/tablet) */
+.bubble-other {
+  background: #f9fafb; /* gray-50 */
+  border: 1px solid #e5e7eb; /* gray-200 */
+  color: #111827; /* gray-900 */
+}
+
+.bubble-own {
+  background: #eff6ff; /* blue-50 */
+  border: 1px solid #bfdbfe; /* blue-200 */
+  color: #0f172a; /* slate-900 */
+}
+
+.bubble-meta {
+  font-size: 10px;
+  line-height: 1;
+  color: #6b7280; /* gray-500 */
+}
+
 /* Admin sidebar hover-to-expand */
 .admin-layout {
   position: relative;

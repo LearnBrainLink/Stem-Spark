@@ -110,7 +110,7 @@ export default function AdminLayout({
       <div className={`admin-sidebar-container ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white">
+          <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white overflow-hidden">
             <Link href="/admin" className="flex items-center gap-2">
               <Image 
                 src="/images/novakinetix-logo.png" 
