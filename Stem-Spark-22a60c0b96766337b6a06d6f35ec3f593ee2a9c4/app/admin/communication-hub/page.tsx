@@ -534,8 +534,8 @@ export default function AdminCommunicationHub() {
           name: 'Student Lounge',
           description: 'Student-only discussion area',
           type: 'student_lounge',
-          roles: ['student', 'intern'],
-          accountTypes: ['student', 'intern']
+          roles: ['student'],
+          accountTypes: ['student']
         },
         {
           name: 'Parent-Teacher',
@@ -701,8 +701,13 @@ export default function AdminCommunicationHub() {
           
           // Admin communication hub - admins can see management-relevant channels
           if (currentUser.role === 'admin') {
-            // Admins can see all channels except parent-teacher which is private communication
-            shouldShow = channel?.type !== 'parent_teacher' && channel?.name !== 'Parent-Teacher'
+            // Admins can see all channels except Parent-Teacher and Student Lounge which are private spaces
+            shouldShow = (
+              channel?.type !== 'parent_teacher' &&
+              channel?.name !== 'Parent-Teacher' &&
+              channel?.type !== 'student_lounge' &&
+              channel?.name !== 'Student Lounge'
+            )
           } else {
             // For non-admin users who somehow access admin hub, apply normal filtering
             switch (channel?.type) {
@@ -713,7 +718,8 @@ export default function AdminCommunicationHub() {
                 shouldShow = true // Everyone can see Announcements
                 break
               case 'student_lounge':
-                shouldShow = currentUser.role === 'student' || currentUser.role === 'intern'
+                // Only students should see Student Lounge; interns excluded
+                shouldShow = currentUser.role === 'student'
                 break
               case 'admin_only':
                 shouldShow = currentUser.role === 'admin'

@@ -534,8 +534,8 @@ export default function CommunicationHub() {
           name: 'Student Lounge',
           description: 'Student-only discussion area',
           type: 'student_lounge',
-          roles: ['student', 'intern'],
-          accountTypes: ['student', 'intern']
+          roles: ['student'],
+          accountTypes: ['student']
         },
         {
           name: 'Parent-Teacher',
@@ -699,9 +699,14 @@ export default function CommunicationHub() {
         for (const channel of allChannels) {
           let shouldShow = false
           
-          // Admins can see all channels except parent-teacher which is private communication
+          // Admins can see all channels except Parent-Teacher and Student Lounge which are private spaces
           if (currentUser.role === 'admin') {
-            shouldShow = channel?.type !== 'parent_teacher' && channel?.name !== 'Parent-Teacher'
+            shouldShow = (
+              channel?.type !== 'parent_teacher' &&
+              channel?.name !== 'Parent-Teacher' &&
+              channel?.type !== 'student_lounge' &&
+              channel?.name !== 'Student Lounge'
+            )
           } else {
             // Check if user should see this channel based on role and type
             switch (channel?.type) {
@@ -711,8 +716,9 @@ export default function CommunicationHub() {
               case 'announcements':
                 shouldShow = true // Everyone can see Announcements
                 break
-              case 'student_lounge':
-                shouldShow = currentUser.role === 'student' || currentUser.role === 'intern'
+            case 'student_lounge':
+              // Only students should see Student Lounge; interns excluded
+              shouldShow = currentUser.role === 'student'
                 break
               case 'admin_only':
                 shouldShow = currentUser.role === 'admin'
@@ -730,8 +736,9 @@ export default function CommunicationHub() {
                 // Handle legacy channels by name
                 if (channel?.name === 'General' || channel?.name === 'Announcements') {
                   shouldShow = true
-                } else if (channel?.name === 'Student Lounge') {
-                  shouldShow = currentUser.role === 'student' || currentUser.role === 'intern'
+              } else if (channel?.name === 'Student Lounge') {
+                // Only students should see Student Lounge; interns excluded
+                shouldShow = currentUser.role === 'student'
                 } else if (channel?.name === 'Admin Hub') {
                   shouldShow = currentUser.role === 'admin'
                 } else if (channel?.name === 'Parent-Teacher') {
