@@ -39,28 +39,39 @@ export default function AnalyticsPage() {
       
       const data = await response.json()
       
-      // Calculate analytics from the fetched data
-      const now = new Date()
-      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      
+      // Map the data structure from the main stats endpoint
       const analytics = {
-        totalUsers: data.totalUsers || 0,
-        newUsersThisMonth: data.userGrowthChart?.[data.userGrowthChart.length - 1]?.users || 0,
-        activeUsers: data.totalUsers || 0, // Simplified for now
-        totalVideos: data.totalVideos || 0,
-        totalApplications: data.totalApplications || 0,
-        activeInternships: data.activeInternships || 0,
-        totalRevenue: data.totalRevenue || 0,
-        thisMonthRevenue: data.thisMonthRevenue || 0,
-        userGrowth: data.userGrowthChart || [],
-        applicationStats: data.activityTrendsChart || [],
-        revenueData: data.activityTrendsChart || [],
-        totalMessages: data.totalMessages || 0,
-        totalChannels: data.totalChannels || 0,
-        volunteerHours: data.totalVolunteerHours || 0,
-        pendingHours: data.pendingHours || 0,
-        approvedHours: data.totalApprovedHours || 0
+        totalUsers: data.overview?.totalUsers || 0,
+        newUsersThisMonth: data.overview?.newUsersThisWeek || 0,
+        activeUsers: data.recentActivity?.users || 0,
+        totalVideos: data.overview?.totalVideos || 0,
+        totalApplications: data.overview?.totalApplications || 0,
+        activeInternships: 0, // This would need to be added to the main stats
+        totalRevenue: 0, // This would need to be added for donations/revenue tracking
+        thisMonthRevenue: 0,
+        userGrowth: [
+          { month: 'Recent', users: data.overview?.newUsersThisWeek || 0 },
+          { month: 'Total', users: data.overview?.totalUsers || 0 }
+        ],
+        activityTrendsChart: [
+          { month: 'Current', messages: data.overview?.totalMessages || 0, applications: data.overview?.totalApplications || 0 }
+        ],
+        revenueData: [
+          { month: 'Current', revenue: 0 }
+        ],
+        totalMessages: data.overview?.totalMessages || 0,
+        totalChannels: data.overview?.totalChannels || 0,
+        volunteerHours: data.overview?.totalVolunteerHours || 0,
+        pendingHours: 0,
+        approvedHours: 0,
+        students: data.roleDistribution?.students || 0,
+        admins: data.roleDistribution?.admins || 0,
+        teachers: 0, // Map from your actual role structure
+        parents: data.roleDistribution?.parents || 0,
+        interns: data.roleDistribution?.interns || 0,
+        volunteerHoursChart: [
+          { month: 'Current', hours: data.overview?.totalVolunteerHours || 0 }
+        ]
       }
       
       setAnalyticsData(analytics)

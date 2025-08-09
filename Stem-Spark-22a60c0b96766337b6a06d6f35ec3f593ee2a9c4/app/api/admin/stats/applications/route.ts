@@ -3,22 +3,20 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function GET() {
   try {
+    console.log('🔄 Fetching application stats...')
     const supabase = createClient()
 
     // Get all internship applications
     const { data: applications, error } = await supabase
       .from('intern_applications')
       .select('*')
-      .order('submitted_at', { ascending: false })
 
     if (error) {
+      console.error('Error fetching applications:', error)
       throw error
     }
 
-    // Get all internships
-    const { data: internships } = await supabase
-      .from('internships')
-      .select('*')
+    console.log(`Found ${applications?.length || 0} applications`)
 
     // Calculate application statistics
     const totalApplications = applications?.length || 0
@@ -33,72 +31,61 @@ export async function GET() {
       return acc
     }, {}) || {}
 
-    // Get recent applications
+    // Get recent applications (last 7 days)
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
-    const { data: recentApplications } = await supabase
-      .from('intern_applications')
-      .select('submitted_at')
-      .gte('submitted_at', sevenDaysAgo.toISOString())
-
-    const recentApplicationCount = recentApplications?.length || 0
+    const recentApplications = applications?.filter(app => 
+      new Date(app.created_at) >= sevenDaysAgo
+    ) || []
+    const recentApplicationCount = recentApplications.length
 
     // Get application growth data (last 6 months)
     const applicationGrowthData = []
     const now = new Date()
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const nextDate = new Date(now.getFullYear(), now.getMonth() - i + 1, 1)
       const monthName = date.toLocaleString('default', { month: 'short' })
       
-      const { count: monthlyApplications } = await supabase
-        .from('intern_applications')
-        .select('*', { count: 'exact', head: true })
-        .gte('submitted_at', date.toISOString())
-        .lt('submitted_at', new Date(date.getFullYear(), date.getMonth() + 1, 1).toISOString())
+      const monthlyApplications = applications?.filter(app => {
+        const appDate = new Date(app.created_at)
+        return appDate >= date && appDate < nextDate
+      }).length || 0
       
       applicationGrowthData.push({
         month: monthName,
-        applications: monthlyApplications || 0
+        applications: monthlyApplications
       })
     }
 
-    // Get application review data
-    const { data: applicationReviews } = await supabase
-      .from('application_reviews')
-      .select('*')
-      .order('created_at', { ascending: false })
-
     // Calculate review statistics
-    const totalReviews = applicationReviews?.length || 0
-    const averageReviewTime = applications?.reduce((sum, app) => {
-      if (app.reviewed_at && app.submitted_at) {
+    const reviewedApplications = applications?.filter(app => app.reviewed_at) || []
+    const totalReviews = reviewedApplications.length
+    
+    let averageReviewTime = 0
+    if (reviewedApplications.length > 0) {
+      const totalReviewTime = reviewedApplications.reduce((sum, app) => {
         const submitTime = new Date(app.submitted_at).getTime()
-        const reviewTime = new Date(app.reviewed_at).getTime()
+        const reviewTime = new Date(app.reviewed_at!).getTime()
         return sum + (reviewTime - submitTime)
-      }
-      return sum
-    }, 0) / (applications?.filter(app => app.reviewed_at).length || 1) || 0
+      }, 0)
+      averageReviewTime = totalReviewTime / reviewedApplications.length
+    }
 
     // Get application areas of interest
-    const interestDistribution = applications?.reduce((acc: any, app) => {
-      app.areas_of_interest?.forEach((interest: string) => {
-        acc[interest] = (acc[interest] || 0) + 1
-      })
-      return acc
-    }, {}) || {}
-
-    // Get top performing application sources
-    const sourceDistribution = applications?.reduce((acc: any, app) => {
-      // This would need to be implemented based on how you track application sources
-      const source = 'direct' // Placeholder
-      acc[source] = (acc[source] || 0) + 1
-      return acc
-    }, {}) || {}
+    const interestDistribution: Record<string, number> = {}
+    applications?.forEach(app => {
+      if (app.specialties && Array.isArray(app.specialties)) {
+        app.specialties.forEach((specialty: string) => {
+          interestDistribution[specialty] = (interestDistribution[specialty] || 0) + 1
+        })
+      }
+    })
 
     // Get application quality metrics
     const applicationsWithMotivation = applications?.filter(app => 
-      app.motivation_statement && app.motivation_statement.length > 100
+      app.motivation && app.motivation.length > 100
     ).length || 0
 
     const qualityScore = totalApplications > 0 ? (applicationsWithMotivation / totalApplications) * 100 : 0
@@ -120,7 +107,9 @@ export async function GET() {
         qualityScore: Math.round(qualityScore)
       },
       interestDistribution,
-      sourceDistribution,
+      sourceDistribution: {
+        direct: totalApplications, // Placeholder since we don't track sources yet
+      },
       engagement: {
         totalApplications,
         recentApplicationCount,
@@ -128,12 +117,13 @@ export async function GET() {
       }
     }
 
+    console.log('✅ Application stats calculated successfully')
     return NextResponse.json(stats)
   } catch (error) {
-    console.error('Error fetching application statistics:', error)
+    console.error('❌ Error fetching application statistics:', error)
     return NextResponse.json(
       { error: 'Failed to fetch application statistics' },
       { status: 500 }
     )
   }
-} 
+}

@@ -1,11 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { 
   Users, 
   Clock, 
@@ -18,194 +22,93 @@ import {
   GraduationCap,
   BookOpen,
   MessageSquare,
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface Application {
   id: string
-  applicant_email: string
+  email: string
   full_name: string
-  phone_number: string | null
-  date_of_birth: string
-  education_level: string
-  school_institution: string
-  areas_of_interest: string[]
-  previous_experience: string | null
-  availability: {
-    days_per_week: number
-    hours_per_week: number
-    preferred_schedule: string
-  }
-  motivation_statement: string
-  references: any[] | null
-  status: 'pending' | 'approved' | 'rejected' | 'interview_scheduled'
-  submitted_at: string
-  reviewed_by: string | null
-  reviewed_at: string | null
-  rejection_reason: string | null
-  interview_notes: string | null
+  phone: string | null
+  grade: number
+  school: string
+  specialties: string[]
+  experience: string | null
+  availability: string
+  motivation: string
+  bio: string
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
+  updated_at: string
 }
 
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [currentUser, setCurrentUser] = useState<any>(null)
-  const [userPermissions, setUserPermissions] = useState<any>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null)
   const [showDetails, setShowDetails] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<string>('all')
 
   useEffect(() => {
-    getCurrentUser()
+    fetchApplications()
   }, [])
-
-  useEffect(() => {
-    if (currentUser) {
-      fetchApplications()
-      getUserPermissions()
-    }
-  }, [currentUser])
-
-  const getCurrentUser = async () => {
-    try {
-      const { data: { user }, error } = await supabase.auth.getUser()
-      if (error) throw error
-      setCurrentUser(user)
-    } catch (error) {
-      console.error('Error getting current user:', error)
-      setError('Failed to get user information')
-    }
-  }
-
-  const getUserPermissions = async () => {
-    if (!currentUser) return
-    
-    try {
-      // Simple role-based permissions check
-      const permissions = {
-        can_edit_admins: currentUser.role === 'super_admin',
-        can_delete_admins: currentUser.role === 'super_admin',
-        can_change_admin_roles: currentUser.role === 'super_admin',
-        can_approve_volunteer_hours: currentUser.role === 'admin' || currentUser.role === 'super_admin',
-        can_manage_content: currentUser.role === 'admin' || currentUser.role === 'super_admin',
-        can_view_analytics: currentUser.role === 'admin' || currentUser.role === 'super_admin',
-        can_manage_applications: currentUser.role === 'admin' || currentUser.role === 'super_admin',
-        can_create_restricted_channels: currentUser.role === 'admin' || currentUser.role === 'super_admin',
-        can_send_announcements: currentUser.role === 'admin' || currentUser.role === 'super_admin'
-      }
-      setUserPermissions(permissions)
-    } catch (error) {
-      console.error('Error getting user permissions:', error)
-    }
-  }
 
   const fetchApplications = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      // Use direct Supabase client approach
-      const { createClient } = await import('@supabase/supabase-js')
-      
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-      
-      if (!supabaseUrl || !supabaseServiceKey) {
-        setError('Missing Supabase configuration')
-        setApplications([])
-        return
+      const response = await fetch('/api/admin/applications')
+      if (!response.ok) {
+        throw new Error('Failed to fetch applications')
       }
-
-      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      })
-
-      const { data, error } = await supabase
-        .from('internship_applications')
-        .select(`
-          *,
-          profiles!student_id(id, full_name, email, role),
-          internships!internship_id(id, title, company)
-        `)
-        .order('applied_at', { ascending: false })
-
-      if (error) {
-        console.error('Error fetching applications:', error)
-        setError(error.message)
-        setApplications([])
-      } else {
-        console.log('Applications loaded:', data?.length || 0)
-        setApplications(data || [])
-      }
-    } catch (error) {
-      console.error('Error fetching applications:', error)
+      
+      const data = await response.json()
+      console.log('Applications loaded:', data.applications?.length || 0)
+      setApplications(data.applications || [])
+    } catch (err) {
+      console.error('Error fetching applications:', err)
       setError('Failed to load applications')
-      setApplications([])
     } finally {
       setLoading(false)
     }
   }
 
-  const updateApplicationStatus = async (applicationId: string, status: 'approved' | 'rejected' | 'interview_scheduled', notes?: string) => {
-    if (!currentUser) return
-
+  const updateApplicationStatus = async (applicationId: string, newStatus: string, reason?: string, notes?: string) => {
     try {
       setActionLoading(applicationId)
+      setError(null)
 
-      // Simple permission check
-      if (!userPermissions?.can_manage_applications) {
-        setError('You do not have permission to perform this action')
-        return
+      const updateData = {
+        id: applicationId,
+        status: newStatus,
+        reviewed_by: 'admin', // TODO: Get from auth context
+        rejection_reason: reason,
+        interview_notes: notes
       }
 
-      const updateData: any = {
-        status,
-        reviewed_by: currentUser.id,
-        reviewed_at: new Date().toISOString()
-      }
-
-      if (status === 'rejected' && notes) {
-        updateData.rejection_reason = notes
-      }
-
-      if (status === 'interview_scheduled' && notes) {
-        updateData.interview_notes = notes
-      }
-
-      // Use direct Supabase client approach
-      const { createClient } = await import('@supabase/supabase-js')
-      
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-      
-      if (!supabaseUrl || !supabaseServiceKey) {
-        setError('Missing Supabase configuration')
-        return
-      }
-
-      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
+      const response = await fetch('/api/admin/applications', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
       })
 
-      const { error } = await supabase
-        .from('internship_applications')
-        .update(updateData)
-        .eq('id', applicationId)
-
-      if (error) {
-        console.error('Error updating application:', error)
-        setError(error.message)
-      } else {
-        // setMessage({ type: "success", text: "Application status updated successfully!" }) // This line was not in the new_code, so it's removed.
-        fetchApplications() // Refresh the list
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update application')
       }
+
+      setSuccess(`Application ${newStatus} successfully!`)
+      setShowDetails(false)
+      setSelectedApplication(null)
+      await fetchApplications()
     } catch (error) {
       console.error('Error updating application status:', error)
       setError('Failed to update application status')
@@ -223,452 +126,432 @@ export default function ApplicationsPage() {
     }
   }
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'approved': return <CheckCircle className="w-4 h-4" />
-      case 'rejected': return <XCircle className="w-4 h-4" />
-      case 'interview_scheduled': return <Calendar className="w-4 h-4" />
-      default: return <Clock className="w-4 h-4" />
-    }
-  }
-
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    return new Date(dateString).toLocaleDateString()
   }
 
-  const calculateAge = (dateOfBirth: string) => {
-    const today = new Date()
-    const birthDate = new Date(dateOfBirth)
-    let age = today.getFullYear() - birthDate.getFullYear()
-    const monthDiff = today.getMonth() - birthDate.getMonth()
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--
-    }
-    
-    return age
-  }
+  const filteredApplications = applications.filter(app => 
+    statusFilter === 'all' || app.status === statusFilter
+  )
 
-  if (loading) {
+  if (loading && applications.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading applications...</p>
-            </div>
-          </div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold tracking-tight">Application Management</h1>
+          <Skeleton className="h-10 w-32" />
         </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-        <div className="max-w-7xl mx-auto">
-          <Card className="shadow-lg border-0 bg-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-center h-64">
-                <div className="text-center">
-                  <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Applications</h3>
-                  <p className="text-gray-600 mb-4">{error}</p>
-                  <Button onClick={fetchApplications} variant="outline">
-                    Try Again
-                  </Button>
+        
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-24" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-2/3" />
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-      <div className="max-w-7xl mx-auto">
-      {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Intern Applications</h1>
-              <p className="text-gray-600">Review and manage intern applications</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <div className="text-2xl font-bold text-blue-600">{applications.length}</div>
-                <div className="text-sm text-gray-500">Total Applications</div>
-              </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-yellow-600">
-                  {applications.filter(app => app.status === 'pending').length}
-                </div>
-                <div className="text-sm text-gray-500">Pending Review</div>
-              </div>
-            </div>
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Application Management</h1>
+          <p className="text-muted-foreground">Review and manage internship applications</p>
         </div>
+        
+        <div className="flex gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Applications</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+              <SelectItem value="interview_scheduled">Interview Scheduled</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Button onClick={fetchApplications} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
+      </div>
 
-        {/* Applications Grid */}
-        <div className="grid gap-6">
-                {applications.map((application) => (
-            <Card key={application.id} className="shadow-lg border-0 bg-white hover:shadow-xl transition-shadow">
-              <CardContent className="p-6">
+      {/* Messages */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {success && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{success}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Statistics Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{applications.length}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {applications.filter(app => app.status === 'pending').length}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Approved</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {applications.filter(app => app.status === 'approved').length}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Interviews Scheduled</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {applications.filter(app => app.status === 'interview_scheduled').length}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Applications Grid */}
+      {filteredApplications.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-8">
+            <Users className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No applications found</h3>
+            <p className="text-muted-foreground text-center">
+              {statusFilter !== 'all' 
+                ? `No applications with status "${statusFilter}"`
+                : 'No applications have been submitted yet'
+              }
+            </p>
+            {statusFilter !== 'all' && (
+              <Button 
+                variant="outline" 
+                onClick={() => setStatusFilter('all')}
+                className="mt-4"
+              >
+                Show All Applications
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredApplications.map((application) => (
+            <Card key={application.id} className="overflow-hidden">
+              <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="text-xl font-semibold text-gray-900 mb-1">
-                          {application.full_name}
-                        </h3>
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
-                          <div className="flex items-center">
-                            <Mail className="w-4 h-4 mr-1" />
-                            {application.applicant_email}
-                          </div>
-                          {application.phone_number && (
-                            <div className="flex items-center">
-                              <Phone className="w-4 h-4 mr-1" />
-                              {application.phone_number}
-                            </div>
-                          )}
-                          <div className="flex items-center">
-                            <Calendar className="w-4 h-4 mr-1" />
-                            Age: {calculateAge(application.date_of_birth)}
-                          </div>
-                        </div>
-                      </div>
-                      <Badge className={`flex items-center space-x-1 ${getStatusColor(application.status)}`}>
-                        {getStatusIcon(application.status)}
-                        <span className="capitalize">{application.status.replace('_', ' ')}</span>
-                      </Badge>
+                  <div className="space-y-1">
+                    <CardTitle className="text-sm font-medium">
+                      {application.full_name}
+                    </CardTitle>
+                                      <div className="flex items-center gap-2">
+                    <Mail className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      {application.email}
+                    </span>
+                  </div>
+                  </div>
+                  <Badge className={getStatusColor(application.status)}>
+                    {application.status.replace('_', ' ')}
+                  </Badge>
+                </div>
+              </CardHeader>
+              
+              <CardContent className="space-y-3">
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="h-3 w-3 text-muted-foreground" />
+                    <span>Grade {application.grade}</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="h-3 w-3 text-muted-foreground" />
+                    <span className="line-clamp-1">{application.school}</span>
+                  </div>
+                  
+                  {application.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-3 w-3 text-muted-foreground" />
+                      <span>{application.phone}</span>
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <div className="flex items-center mb-2">
-                          <GraduationCap className="w-4 h-4 mr-2 text-blue-600" />
-                          <span className="font-medium text-gray-700">Education</span>
-                        </div>
-                        <p className="text-sm text-gray-600">{application.education_level}</p>
-                        <p className="text-sm text-gray-600">{application.school_institution}</p>
-                      </div>
-
-                      <div>
-                        <div className="flex items-center mb-2">
-                          <BookOpen className="w-4 h-4 mr-2 text-green-600" />
-                          <span className="font-medium text-gray-700">Areas of Interest</span>
-                        </div>
-                      <div className="flex flex-wrap gap-1">
-                          {application.areas_of_interest.map((area, index) => (
-                            <Badge key={index} variant="secondary" className="text-xs">
-                              {area}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <div className="flex items-center mb-2">
-                        <MessageSquare className="w-4 h-4 mr-2 text-purple-600" />
-                        <span className="font-medium text-gray-700">Motivation Statement</span>
-                      </div>
-                      <p className="text-sm text-gray-600 line-clamp-2">
-                        {application.motivation_statement}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm text-gray-500">
-                      <span>Applied: {formatDate(application.submitted_at)}</span>
-                      {application.reviewed_at && (
-                        <span>Reviewed: {formatDate(application.reviewed_at)}</span>
+                  )}
+                  
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-3 w-3 text-muted-foreground" />
+                    <span>Applied {formatDate(application.created_at)}</span>
+                  </div>
+                </div>
+                
+                {application.specialties && application.specialties.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">Specialties:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {application.specialties.slice(0, 2).map((specialty, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {specialty}
+                        </Badge>
+                      ))}
+                      {application.specialties.length > 2 && (
+                        <Badge variant="secondary" className="text-xs">
+                          +{application.specialties.length - 2} more
+                        </Badge>
                       )}
                     </div>
                   </div>
-
-                  <div className="ml-6 flex flex-col space-y-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedApplication(application)
-                        setShowDetails(true)
-                      }}
-                    >
-                      <Eye className="w-4 h-4 mr-1" />
-                      View Details
-                    </Button>
-
-                    {application.status === 'pending' && userPermissions?.can_manage_applications && (
-                      <div className="flex flex-col space-y-1">
-                        <Button
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700"
-                          disabled={actionLoading === application.id}
-                            onClick={() => updateApplicationStatus(application.id, 'approved')}
-                          >
-                          {actionLoading === application.id ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          ) : (
-                            <>
-                              <CheckCircle className="w-4 h-4 mr-1" />
-                            Approve
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-red-300 text-red-600 hover:bg-red-50"
-                          disabled={actionLoading === application.id}
-                            onClick={() => updateApplicationStatus(application.id, 'rejected')}
-                          >
-                          {actionLoading === application.id ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                          ) : (
-                            <>
-                              <XCircle className="w-4 h-4 mr-1" />
-                            Reject
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-blue-300 text-blue-600 hover:bg-blue-50"
-                          disabled={actionLoading === application.id}
-                          onClick={() => updateApplicationStatus(application.id, 'interview_scheduled')}
-                        >
-                          {actionLoading === application.id ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                          ) : (
-                            <>
-                              <Calendar className="w-4 h-4 mr-1" />
-                              Schedule Interview
-                            </>
-                          )}
-                        </Button>
-                        </div>
-                      )}
-                  </div>
+                )}
+                
+                <Separator />
+                
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedApplication(application)
+                      setShowDetails(true)
+                    }}
+                    className="flex-1"
+                  >
+                    <Eye className="h-3 w-3 mr-1" />
+                    View Details
+                  </Button>
+                  
+                  {application.status === 'pending' && (
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        onClick={() => updateApplicationStatus(application.id, 'approved')}
+                        disabled={actionLoading === application.id}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => updateApplicationStatus(application.id, 'rejected')}
+                        disabled={actionLoading === application.id}
+                      >
+                        <XCircle className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           ))}
-          </div>
+        </div>
+      )}
 
-          {applications.length === 0 && (
-          <Card className="shadow-lg border-0 bg-white">
-            <CardContent className="p-12">
-              <div className="text-center">
-                <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Applications Found</h3>
-                <p className="text-gray-600">There are currently no intern applications to review.</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Application Details Modal */}
-      {showDetails && selectedApplication && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Application Details</h2>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowDetails(false)}
-                >
-                  Close
-                </Button>
-              </div>
-
-              <div className="space-y-6">
-                {/* Basic Information */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Basic Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Full Name</label>
-                      <p className="text-gray-900">{selectedApplication.full_name}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Email</label>
-                      <p className="text-gray-900">{selectedApplication.applicant_email}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Phone</label>
-                      <p className="text-gray-900">{selectedApplication.phone_number || 'Not provided'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Date of Birth</label>
-                      <p className="text-gray-900">{formatDate(selectedApplication.date_of_birth)} (Age: {calculateAge(selectedApplication.date_of_birth)})</p>
-                    </div>
+      {/* Application Details Dialog */}
+      <Dialog open={showDetails} onOpenChange={setShowDetails}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Application Details</DialogTitle>
+          </DialogHeader>
+          
+          {selectedApplication && (
+            <div className="space-y-6">
+              {/* Personal Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Personal Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Full Name</Label>
+                    <p className="text-sm">{selectedApplication.full_name}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Email</Label>
+                    <p className="text-sm">{selectedApplication.email}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Phone Number</Label>
+                    <p className="text-sm">{selectedApplication.phone || 'Not provided'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Grade</Label>
+                    <p className="text-sm">Grade {selectedApplication.grade}</p>
                   </div>
                 </div>
+              </div>
 
-                <Separator />
-
-                {/* Education */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Education</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Education Level</label>
-                      <p className="text-gray-900">{selectedApplication.education_level}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">School/Institution</label>
-                      <p className="text-gray-900">{selectedApplication.school_institution}</p>
-                    </div>
+              {/* Education */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Education</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">School</Label>
+                    <p className="text-sm">{selectedApplication.school}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Bio</Label>
+                    <p className="text-sm">{selectedApplication.bio}</p>
                   </div>
                 </div>
+              </div>
 
-                <Separator />
-
-                {/* Areas of Interest */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Areas of Interest</h3>
+              {/* Specialties */}
+              {selectedApplication.specialties && selectedApplication.specialties.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Specialties</h3>
                   <div className="flex flex-wrap gap-2">
-                    {selectedApplication.areas_of_interest.map((area, index) => (
+                    {selectedApplication.specialties.map((specialty, index) => (
                       <Badge key={index} variant="secondary">
-                        {area}
+                        {specialty}
                       </Badge>
                     ))}
                   </div>
                 </div>
+              )}
 
-                <Separator />
+              {/* Motivation */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Motivation</h3>
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm whitespace-pre-wrap">{selectedApplication.motivation}</p>
+                </div>
+              </div>
 
-                {/* Previous Experience */}
-                {selectedApplication.previous_experience && (
-                  <>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">Previous Experience</h3>
-                      <p className="text-gray-900 whitespace-pre-wrap">{selectedApplication.previous_experience}</p>
-                    </div>
-                    <Separator />
-                  </>
-                )}
-
-                {/* Availability */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Availability</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Days per Week</label>
-                      <p className="text-gray-900">{selectedApplication.availability.days_per_week}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Hours per Week</label>
-                      <p className="text-gray-900">{selectedApplication.availability.hours_per_week}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Preferred Schedule</label>
-                      <p className="text-gray-900">{selectedApplication.availability.preferred_schedule}</p>
-                    </div>
+              {/* Experience */}
+              {selectedApplication.experience && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Experience</h3>
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm whitespace-pre-wrap">{selectedApplication.experience}</p>
                   </div>
                 </div>
+              )}
 
-                <Separator />
-
-                {/* Motivation Statement */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Motivation Statement</h3>
-                  <p className="text-gray-900 whitespace-pre-wrap">{selectedApplication.motivation_statement}</p>
+              {/* Availability */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Availability</h3>
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm">{selectedApplication.availability}</p>
                 </div>
+              </div>
 
-                {/* References */}
-                {selectedApplication.references && selectedApplication.references.length > 0 && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">References</h3>
-                      <div className="space-y-3">
-                        {selectedApplication.references.map((reference, index) => (
-                          <div key={index} className="border rounded-lg p-3">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                              <div>
-                                <label className="text-sm font-medium text-gray-500">Name</label>
-                                <p className="text-gray-900">{reference.name}</p>
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-gray-500">Relationship</label>
-                                <p className="text-gray-900">{reference.relationship}</p>
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-gray-500">Email</label>
-                                <p className="text-gray-900">{reference.email}</p>
-                              </div>
-                              {reference.phone && (
-                                <div>
-                                  <label className="text-sm font-medium text-gray-500">Phone</label>
-                                  <p className="text-gray-900">{reference.phone}</p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+              {/* Application Status */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Application Status</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <Label className="text-sm font-medium">Current Status:</Label>
+                    <Badge className={getStatusColor(selectedApplication.status)}>
+                      {selectedApplication.status.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                  
+                  {selectedApplication.status === 'pending' && (
+                    <div className="space-y-4">
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => updateApplicationStatus(selectedApplication.id, 'approved')}
+                          disabled={actionLoading === selectedApplication.id}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Approve Application
+                        </Button>
+                        
+                        <Button
+                          onClick={() => updateApplicationStatus(selectedApplication.id, 'interview_scheduled')}
+                          disabled={actionLoading === selectedApplication.id}
+                        >
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Schedule Interview
+                        </Button>
+                        
+                        <Button
+                          variant="destructive"
+                          onClick={() => updateApplicationStatus(selectedApplication.id, 'rejected')}
+                          disabled={actionLoading === selectedApplication.id}
+                        >
+                          <XCircle className="h-4 w-4 mr-2" />
+                          Reject Application
+                        </Button>
                       </div>
                     </div>
-                  </>
-                )}
-
-                {/* Application Status */}
-                <Separator />
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Application Status</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Status</label>
-                      <Badge className={`mt-1 ${getStatusColor(selectedApplication.status)}`}>
-                        {getStatusIcon(selectedApplication.status)}
-                        <span className="ml-1 capitalize">{selectedApplication.status.replace('_', ' ')}</span>
-                      </Badge>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Submitted</label>
-                      <p className="text-gray-900">{formatDate(selectedApplication.submitted_at)}</p>
-                    </div>
-                    {selectedApplication.reviewed_at && (
+                  )}
+                  
+                  {selectedApplication.reviewed_by && (
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                       <div>
-                        <label className="text-sm font-medium text-gray-500">Reviewed</label>
-                        <p className="text-gray-900">{formatDate(selectedApplication.reviewed_at)}</p>
+                        <Label className="text-sm font-medium">Reviewed By</Label>
+                        <p className="text-sm">{selectedApplication.reviewed_by}</p>
                       </div>
-                    )}
-                    {selectedApplication.rejection_reason && (
-                      <div className="md:col-span-2">
-                        <label className="text-sm font-medium text-gray-500">Rejection Reason</label>
-                        <p className="text-gray-900">{selectedApplication.rejection_reason}</p>
+                      <div>
+                        <Label className="text-sm font-medium">Reviewed At</Label>
+                        <p className="text-sm">
+                          {selectedApplication.reviewed_at ? formatDate(selectedApplication.reviewed_at) : 'Not reviewed'}
+                        </p>
                       </div>
-                    )}
-                    {selectedApplication.interview_notes && (
-                      <div className="md:col-span-2">
-                        <label className="text-sm font-medium text-gray-500">Interview Notes</label>
-                        <p className="text-gray-900">{selectedApplication.interview_notes}</p>
-            </div>
-          )}
-        </div>
-      </div>
+                    </div>
+                  )}
+                  
+                  {selectedApplication.rejection_reason && (
+                    <div>
+                      <Label className="text-sm font-medium">Rejection Reason</Label>
+                      <p className="text-sm">{selectedApplication.rejection_reason}</p>
+                    </div>
+                  )}
+                  
+                  {selectedApplication.interview_notes && (
+                    <div>
+                      <Label className="text-sm font-medium">Interview Notes</Label>
+                      <p className="text-sm">{selectedApplication.interview_notes}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
-

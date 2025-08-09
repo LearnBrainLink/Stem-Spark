@@ -46,7 +46,7 @@ export default function AdminDashboard() {
       setLoading(true)
       setError(null)
       const response = await fetch('/api/admin/stats')
-      if (!response.ok) {
+        if (!response.ok) {
         throw new Error('Failed to fetch admin statistics')
       }
       const data = await response.json()
@@ -69,10 +69,10 @@ export default function AdminDashboard() {
   }, [])
 
   if (loading) {
-    return (
+  return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <div>
+        <div>
             <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
             <p className="text-muted-foreground">Monitor and manage your platform</p>
           </div>
@@ -92,8 +92,8 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           ))}
-        </div>
-      </div>
+                </div>
+              </div>
     )
   }
 
@@ -109,8 +109,8 @@ export default function AdminDashboard() {
             {refreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Refresh
           </Button>
-        </div>
-        
+      </div>
+
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
@@ -244,7 +244,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </motion.div>
-      </div>
+        </div>
 
       {/* Charts Section */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
@@ -265,7 +265,7 @@ export default function AdminDashboard() {
                 <Tooltip />
                 <Area type="monotone" dataKey="users" stroke="#8884d8" fill="#8884d8" />
               </AreaChart>
-            </ResponsiveContainer>
+              </ResponsiveContainer>
           </CardContent>
         </Card>
 
@@ -276,24 +276,24 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={350}>
-              <PieChart>
-                <Pie
+                <PieChart>
+                  <Pie
                   data={roleDistributionData}
-                  cx="50%"
-                  cy="50%"
+                    cx="50%"
+                    cy="50%"
                   labelLine={false}
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
                   {roleDistributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
                 <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+                </PieChart>
+              </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
@@ -330,14 +330,14 @@ export default function AdminDashboard() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
+        </CardHeader>
+        <CardContent>
             <div className="text-2xl font-bold">{stats.recentActivity.users + stats.recentActivity.messages}</div>
             <p className="text-xs text-muted-foreground">
               Users: {stats.recentActivity.users}, Messages: {stats.recentActivity.messages}
             </p>
-          </CardContent>
-        </Card>
+        </CardContent>
+      </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
