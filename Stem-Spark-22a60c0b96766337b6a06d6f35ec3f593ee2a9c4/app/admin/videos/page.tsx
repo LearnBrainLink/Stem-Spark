@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge"
 import { Plus, Edit, Trash2, Play, Clock, Video as VideoIcon, RefreshCw, Upload, Eye, Download, Search, AlertTriangle, Calendar } from "lucide-react"
 import { motion } from "framer-motion"
 import { Skeleton } from "@/components/ui/skeleton"
+import { VideoModal } from "@/components/ui/video-modal"
 
 interface Video {
   id: string
@@ -38,6 +39,7 @@ export default function VideosPage() {
   const [videos, setVideos] = useState<Video[]>([])
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false)
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
@@ -211,6 +213,11 @@ export default function VideosPage() {
     const minutes = Math.floor(seconds / 60)
     const remainingSeconds = seconds % 60
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+  }
+
+  const handleWatchVideo = (video: Video) => {
+    setSelectedVideo(video)
+    setIsVideoModalOpen(true)
   }
 
   const getCategoryColor = (category: string) => {
@@ -448,7 +455,7 @@ export default function VideosPage() {
                   <Button 
                     size="sm" 
                     className="w-full" 
-                    onClick={() => window.open(video.video_url, '_blank')}
+                    onClick={() => handleWatchVideo(video)}
                   >
                     <Play className="h-3 w-3 mr-1" />
                     Watch Video
@@ -598,6 +605,18 @@ export default function VideosPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Video Modal */}
+      {selectedVideo && (
+        <VideoModal
+          isOpen={isVideoModalOpen}
+          onClose={() => {
+            setIsVideoModalOpen(false)
+            setSelectedVideo(null)
+          }}
+          video={selectedVideo}
+        />
+      )}
     </div>
   )
 }
