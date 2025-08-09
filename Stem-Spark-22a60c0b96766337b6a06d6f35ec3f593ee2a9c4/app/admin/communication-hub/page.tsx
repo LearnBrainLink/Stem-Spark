@@ -1778,7 +1778,7 @@ export default function AdminCommunicationHub() {
                               )}
 
                               {/* Message content */}
-                              <div className={`inline-block max-w-[80%] p-3 rounded-2xl ${
+                              <div className={`inline-block max-w-[80%] p-3 rounded-2xl break-words ${
                                 isOwn 
                                   ? 'bubble-own rounded-br-none' 
                                   : 'bubble-other rounded-bl-none'

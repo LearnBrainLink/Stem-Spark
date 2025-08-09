@@ -155,23 +155,6 @@ img, video, canvas, iframe {
     background-size: 50px 50px;
   }
 
-  .bubble-other {
-    background: #ffffff;
-    border: 1px solid #e5e7eb; /* gray-200 */
-    color: #111827; /* gray-900 */
-  }
-
-  .bubble-own {
-    background: #DCF8C6;
-    border: 1px solid #cdebb5;
-    color: #0f172a; /* slate-900 */
-  }
-
-  .bubble-meta {
-    font-size: 10px;
-    line-height: 1;
-    color: #6b7280; /* gray-500 */
-  }
 }
 
 .hero-gradient {
@@ -242,17 +225,19 @@ img, video, canvas, iframe {
   z-index: 1;
 }
 
-/* Default chat bubble styles (desktop/tablet) */
+/* WhatsApp-style chat bubble styles */
 .bubble-other {
-  background: #f9fafb; /* gray-50 */
+  background: #ffffff;
   border: 1px solid #e5e7eb; /* gray-200 */
   color: #111827; /* gray-900 */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .bubble-own {
-  background: #eff6ff; /* blue-50 */
-  border: 1px solid #bfdbfe; /* blue-200 */
+  background: #DCF8C6;
+  border: 1px solid #cdebb5;
   color: #0f172a; /* slate-900 */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .bubble-meta {
@@ -264,6 +249,8 @@ img, video, canvas, iframe {
 /* Admin sidebar hover-to-expand */
 .admin-layout {
   position: relative;
+  display: flex;
+  min-height: 100vh;
 }
 
 .admin-sidebar-container {
@@ -273,24 +260,43 @@ img, video, canvas, iframe {
   background: white;
   border-right: 1px solid #e5e7eb;
   z-index: 50;
-  transition: width 0.2s ease-in-out;
+  transition: width 0.3s ease-in-out;
+  overflow: hidden;
 }
 
 @media (min-width: 1024px) {
   .admin-sidebar-container:hover {
     width: 260px; /* expanded width */
   }
+  
+  .admin-sidebar-container:hover .admin-nav-text {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+.admin-nav-text {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+}
+
+@media (max-width: 1023px) {
+  .sidebar-open .admin-nav-text {
+    opacity: 1;
+    visibility: visible;
+  }
+  
+  .sidebar-open .admin-sidebar-container {
+    width: 260px;
+  }
 }
 
 .admin-content-area {
   margin-left: 64px; /* match collapsed width */
-  transition: margin-left 0.2s ease-in-out;
-}
-
-@media (min-width: 1024px) {
-  .admin-sidebar-container:hover ~ .admin-content-area {
-    margin-left: 260px; /* match expanded width */
-  }
+  min-height: 100vh;
+  flex: 1;
+  transition: margin-left 0.3s ease-in-out;
 }
 
 /* Ensure sidebars in comm hubs look tidy */

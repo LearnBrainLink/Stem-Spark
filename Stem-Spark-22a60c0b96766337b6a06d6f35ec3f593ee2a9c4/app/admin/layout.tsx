@@ -111,18 +111,23 @@ export default function AdminLayout({
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white overflow-hidden">
-            <Link href="/admin" className="flex items-center gap-2">
-              <Image 
-                src="/images/novakinetix-logo.png" 
-                alt="Novakinetix Academy Logo" 
-                width={140} 
-                height={50} 
-                className="drop-shadow-lg transition-all duration-200" 
-                priority 
-              />
+            <Link href="/admin" className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 bg-[hsl(var(--novakinetix-primary))] rounded-lg flex items-center justify-center flex-shrink-0">
+                <span className="text-white font-bold text-sm">N</span>
+              </div>
+              <div className="admin-nav-text">
+                <Image 
+                  src="/images/novakinetix-logo.png" 
+                  alt="Novakinetix Academy Logo" 
+                  width={120} 
+                  height={40} 
+                  className="drop-shadow-lg transition-all duration-200" 
+                  priority 
+                />
+              </div>
             </Link>
             <button 
-              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors" 
+              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors admin-nav-text" 
               onClick={() => setSidebarOpen(false)}
             >
               <X className="w-5 h-5 text-gray-600" />
@@ -148,9 +153,10 @@ export default function AdminLayout({
                         : 'text-gray-700 hover:bg-[hsl(var(--novakinetix-primary))] hover:text-white'
                     }`}
                     onClick={() => setSidebarOpen(false)}
+                    title={item.title}
                   >
-                    <item.icon className={`w-5 h-5 transition-colors duration-200 ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-white'}`} />
-                    <span className="text-sm">{item.title}</span>
+                    <item.icon className={`w-5 h-5 transition-colors duration-200 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-white'}`} />
+                    <span className="text-sm admin-nav-text whitespace-nowrap">{item.title}</span>
                   </Link>
                 )
               })}
@@ -162,10 +168,11 @@ export default function AdminLayout({
             <form action={signOut}>
               <Button 
                 type="submit"
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-medium shadow-md hover:shadow-lg transition-all duration-200"
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-medium shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+                title="Sign Out"
               >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
+                <LogOut className="w-4 h-4 flex-shrink-0" />
+                <span className="admin-nav-text ml-2">Sign Out</span>
               </Button>
             </form>
           </div>
