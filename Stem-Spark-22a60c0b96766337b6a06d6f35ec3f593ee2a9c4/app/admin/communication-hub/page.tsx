@@ -914,14 +914,26 @@ export default function AdminCommunicationHub() {
         }
       }
 
-      const { error } = await supabase
+      const { data: insertedMessage, error } = await supabase
         .from('messages')
         .insert([messageData])
+        .select('*')
+        .single()
 
       if (error) throw error
 
-      // Remove temporary message (real message will come via subscription)
-      setMessages(prev => prev.filter(msg => msg.id !== tempId))
+      // Replace the temporary message with the actual inserted message immediately
+      const messageWithSender: Message = {
+        ...(insertedMessage as any),
+        sender_name: user.full_name,
+        sender: {
+          full_name: user.full_name,
+          avatar_url: user.avatar_url,
+          role: user.role
+        }
+      }
+
+      setMessages(prev => prev.map(m => m.id === tempId ? messageWithSender : m))
 
       // Clear selected files after successful send
       setSelectedImage(null)
