@@ -420,7 +420,7 @@ export default function DiscussionBoard() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[calc(100vh-300px)]">
+            <ScrollArea className="min-h-[50vh] sm:h-[calc(100vh-300px)] touch-scroll safe-bottom">
               <div className="space-y-1 p-2">
                 {boards.map((board) => (
                   <div
@@ -511,7 +511,7 @@ export default function DiscussionBoard() {
                 </div>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col p-0">
-                <ScrollArea className="flex-1 p-4">
+                <ScrollArea className="flex-1 p-4 touch-scroll safe-bottom">
                   <div className="space-y-4">
                     {posts.map((post) => (
                       <Card key={post.id} className="cursor-pointer hover:shadow-md transition-shadow"
@@ -685,7 +685,7 @@ export default function DiscussionBoard() {
                 )}
 
                 {/* Comments List */}
-                <ScrollArea className="max-h-96">
+                <ScrollArea className="max-h-96 touch-scroll safe-bottom">
                   <div className="space-y-4">
                     {comments.map((comment) => (
                       <div key={comment.id} className="space-y-2">

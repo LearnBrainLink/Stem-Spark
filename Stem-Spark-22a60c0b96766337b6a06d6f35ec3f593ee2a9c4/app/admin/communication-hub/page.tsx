@@ -178,6 +178,11 @@ export default function AdminCommunicationHub() {
   const messageQueueRef = useRef<Message[]>([])
   const throttleTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  // Auto-scroll to bottom when messages change or channel switches
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages.length, selectedChannel?.id])
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
 
@@ -1705,9 +1710,9 @@ export default function AdminCommunicationHub() {
                       </div>
               </CardHeader>
               <CardContent>
-                  <div className="flex flex-col h-[calc(100vh-20rem)]">
+                  <div className="flex flex-col min-h-[60vh] sm:h-[calc(100vh-20rem)]">
                     {/* Messages */}
-                        <ScrollArea className="flex-1 p-4">
+                        <ScrollArea className="flex-1 p-4 touch-scroll safe-bottom">
                           <div className="space-y-4">
                       {messages.map((message) => {
                         const isOwn = message.sender_id === user?.id
@@ -1995,7 +2000,7 @@ export default function AdminCommunicationHub() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <ScrollArea className="h-[calc(100vh-20rem)]">
+                      <ScrollArea className="min-h-[40vh] sm:h-[calc(100vh-20rem)] touch-scroll safe-bottom">
                         <div className="space-y-2">
                           {todoItems.map((todo) => (
                             <div

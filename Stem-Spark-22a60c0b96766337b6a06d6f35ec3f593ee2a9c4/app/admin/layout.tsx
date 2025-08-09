@@ -180,8 +180,8 @@ export default function AdminLayout({
         />
       )}
       
-      {/* Main Content Area - Full Width */}
-      <div className="admin-content-area">
+      {/* Main Content Area - Full Width with responsive container */}
+      <div className="admin-content-area container-responsive">
         {/* Mobile Menu Button */}
         <button 
           className="lg:hidden fixed top-4 left-4 z-50 p-3 bg-white rounded-full shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-200"
@@ -191,7 +191,7 @@ export default function AdminLayout({
         </button>
         
         {/* Content - Full Width and Height */}
-        <main className="admin-main-content-full pt-16 lg:pt-6">
+        <main className="admin-main-content-full pt-16 lg:pt-6 section-padding">
           {children}
         </main>
       </div>

@@ -51,7 +51,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className={`${inter.className} antialiased`}>
-        {children}
+        <div className="container-responsive section-padding">
+          {children}
+        </div>
       </body>
     </html>
   )

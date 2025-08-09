@@ -484,9 +484,9 @@ export default function IndividualConversations() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-col h-[calc(100vh-20rem)]">
+                  <div className="flex flex-col min-h-[60vh] sm:h-[calc(100vh-20rem)]">
                     {/* Messages */}
-                    <ScrollArea className="flex-1 p-4">
+                    <ScrollArea className="flex-1 p-4 touch-scroll safe-bottom">
                       <div className="space-y-4">
                         {messages.map((message) => {
                           const isOwn = message.sender_id === user?.id
@@ -554,7 +554,7 @@ export default function IndividualConversations() {
               </Card>
             ) : (
               <Card>
-                <CardContent className="flex items-center justify-center h-[calc(100vh-20rem)]">
+                <CardContent className="flex items-center justify-center min-h-[50vh] sm:h-[calc(100vh-20rem)]">
                   <div className="text-center text-gray-500">
                     <MessageSquare className="w-16 h-16 mx-auto mb-4 text-gray-300" />
                     <h3 className="text-lg font-medium mb-2">No conversation selected</h3>
